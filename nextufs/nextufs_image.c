@@ -62,8 +62,6 @@
 #define PART_MOUNTPT_OFF 0x12U
 #define PART_AUTOMNT_OFF 0x22U
 #define PART_TYPE_OFF 0x23U
-#define IC_FASTLINK 0x0001U
-
 struct next_partition {
 	int present;
 	uint32_t base_blocks;
@@ -86,11 +84,8 @@ struct next_disk_label {
 	int checksum_present;
 };
 
-static uint16_t read_be16(const uint8_t *p);
 static uint32_t read_be24(const uint8_t *p);
-static uint32_t read_be32(const uint8_t *p);
 static uint64_t read_be64(const uint8_t *p);
-static int read_exact(int fd, void *buf, size_t size, off_t offset);
 static void copy_cstr_field(char *dst, size_t dst_size, const uint8_t *src, size_t src_size);
 static uint16_t checksum_be16(const uint8_t *buf, size_t size);
 static void decode_superblock(struct nextufs_superblock *sb, const uint8_t *buf);
@@ -98,17 +93,9 @@ static void decode_inode(struct nextufs_inode *ino, const uint8_t *buf);
 static int decode_next_disk_label(struct next_disk_label *dl, const uint8_t *buf, off_t off);
 static int pick_label_slice(const struct next_disk_label *dl, off_t *slice_base_out,
 	off_t *slice_size_out);
-static off_t inode_offset_guess(const struct nextufs_image *img, unsigned inode_no);
-static int read_indirect_entry(const struct nextufs_image *img, uint32_t block_frag, uint64_t entry_index, uint32_t *entry_out);
 static int resolve_indirect_block_frag(const struct nextufs_image *img, uint32_t block_frag, unsigned level, uint64_t logical_index, uint32_t *data_frag_out);
 static int resolve_file_block_frag(const struct nextufs_image *img, const struct nextufs_inode *ino, uint64_t logical_block_index, uint32_t *data_frag_out);
 static size_t decode_inline_symlink(const struct nextufs_inode *ino, char *out, size_t out_size);
-
-static uint16_t
-read_be16(const uint8_t *p)
-{
-	return ((uint16_t)p[0] << 8) | (uint16_t)p[1];
-}
 
 static uint32_t
 read_be24(const uint8_t *p)
@@ -118,38 +105,11 @@ read_be24(const uint8_t *p)
 	    (uint32_t)p[2];
 }
 
-static uint32_t
-read_be32(const uint8_t *p)
-{
-	return ((uint32_t)p[0] << 24) |
-	    ((uint32_t)p[1] << 16) |
-	    ((uint32_t)p[2] << 8) |
-	    (uint32_t)p[3];
-}
-
 static uint64_t
 read_be64(const uint8_t *p)
 {
-	return ((uint64_t)read_be32(p) << 32) | read_be32(p + 4);
-}
-
-static int
-read_exact(int fd, void *buf, size_t size, off_t offset)
-{
-	uint8_t *out = buf;
-	size_t done = 0;
-
-	while (done < size) {
-		ssize_t n;
-
-		n = pread(fd, out + done, size - done, offset + (off_t)done);
-		if (n < 0)
-			return -errno;
-		if (n == 0)
-			return -EIO;
-		done += (size_t)n;
-	}
-	return 0;
+	return ((uint64_t)nextufs__read_be32(p) << 32) |
+	    nextufs__read_be32(p + 4);
 }
 
 static void
@@ -172,7 +132,7 @@ checksum_be16(const uint8_t *buf, size_t size)
 	size_t i;
 
 	for (i = 0; i + 1 < size; i += 2) {
-		sum += read_be16(buf + i);
+		sum += nextufs__read_be16(buf + i);
 		if (sum >= 0x10000U) {
 			sum -= 0x10000U;
 			sum++;
@@ -184,53 +144,53 @@ checksum_be16(const uint8_t *buf, size_t size)
 static void
 decode_superblock(struct nextufs_superblock *sb, const uint8_t *buf)
 {
-	sb->sb_off = read_be32(buf + 0x08);
-	sb->cg_off = read_be32(buf + 0x0c);
-	sb->ino_off = read_be32(buf + 0x10);
-	sb->data_off = read_be32(buf + 0x14);
-	sb->cg_delta = read_be32(buf + 0x18);
-	sb->cg_cyc_mask = read_be32(buf + 0x1c);
-	sb->write_time = read_be32(buf + 0x20);
-	sb->frag_count = read_be32(buf + 0x24);
-	sb->data_frag_count = read_be32(buf + 0x28);
-	sb->cg_count = read_be32(buf + 0x2c);
-	sb->block_size = read_be32(buf + 0x30);
-	sb->frag_size = read_be32(buf + 0x34);
-	sb->frags_per_block = read_be32(buf + 0x38);
-	sb->minfree = read_be32(buf + 0x3c);
-	sb->rotdelay = read_be32(buf + 0x40);
-	sb->rps = read_be32(buf + 0x44);
-	sb->block_mask = read_be32(buf + 0x48);
-	sb->frag_mask = read_be32(buf + 0x4c);
-	sb->block_shift = read_be32(buf + 0x50);
-	sb->frag_shift_calc = read_be32(buf + 0x54);
-	sb->maxcontig = read_be32(buf + 0x58);
-	sb->maxbpg = read_be32(buf + 0x5c);
-	sb->frag_shift = read_be32(buf + 0x60);
-	sb->fsbtodb = read_be32(buf + 0x64);
-	sb->super_size = read_be32(buf + 0x68);
-	sb->csum_mask = read_be32(buf + 0x6c);
-	sb->csum_shift = read_be32(buf + 0x70);
-	sb->nindir = read_be32(buf + 0x74);
-	sb->inodes_per_block = read_be32(buf + 0x78);
-	sb->sectors_per_frag = read_be32(buf + 0x7c);
-	sb->optim = read_be32(buf + 0x80);
-	sb->cyl_summary_addr = read_be32(buf + 0x98);
-	sb->csum_size = read_be32(buf + 0x9c);
-	sb->cg_size = read_be32(buf + 0x0a0);
-	sb->tracks_per_cyl = read_be32(buf + 0x0a4);
-	sb->sectors_per_track = read_be32(buf + 0x0a8);
-	sb->sectors_per_cyl = read_be32(buf + 0x0ac);
-	sb->ncyl = read_be32(buf + 0x0b0);
-	sb->cpg = read_be32(buf + 0x0b4);
-	sb->inodes_per_group = read_be32(buf + 0x0b8);
-	sb->frags_per_group = read_be32(buf + 0x0bc);
-	sb->dir_count = read_be32(buf + 0x0c0);
-	sb->free_block_count = read_be32(buf + 0x0c4);
-	sb->free_inode_count = read_be32(buf + 0x0c8);
-	sb->free_frag_count = read_be32(buf + 0x0cc);
+	sb->sb_off = nextufs__read_be32(buf + 0x08);
+	sb->cg_off = nextufs__read_be32(buf + 0x0c);
+	sb->ino_off = nextufs__read_be32(buf + 0x10);
+	sb->data_off = nextufs__read_be32(buf + 0x14);
+	sb->cg_delta = nextufs__read_be32(buf + 0x18);
+	sb->cg_cyc_mask = nextufs__read_be32(buf + 0x1c);
+	sb->write_time = nextufs__read_be32(buf + 0x20);
+	sb->frag_count = nextufs__read_be32(buf + 0x24);
+	sb->data_frag_count = nextufs__read_be32(buf + 0x28);
+	sb->cg_count = nextufs__read_be32(buf + 0x2c);
+	sb->block_size = nextufs__read_be32(buf + 0x30);
+	sb->frag_size = nextufs__read_be32(buf + 0x34);
+	sb->frags_per_block = nextufs__read_be32(buf + 0x38);
+	sb->minfree = nextufs__read_be32(buf + 0x3c);
+	sb->rotdelay = nextufs__read_be32(buf + 0x40);
+	sb->rps = nextufs__read_be32(buf + 0x44);
+	sb->block_mask = nextufs__read_be32(buf + 0x48);
+	sb->frag_mask = nextufs__read_be32(buf + 0x4c);
+	sb->block_shift = nextufs__read_be32(buf + 0x50);
+	sb->frag_shift_calc = nextufs__read_be32(buf + 0x54);
+	sb->maxcontig = nextufs__read_be32(buf + 0x58);
+	sb->maxbpg = nextufs__read_be32(buf + 0x5c);
+	sb->frag_shift = nextufs__read_be32(buf + 0x60);
+	sb->fsbtodb = nextufs__read_be32(buf + 0x64);
+	sb->super_size = nextufs__read_be32(buf + 0x68);
+	sb->csum_mask = nextufs__read_be32(buf + 0x6c);
+	sb->csum_shift = nextufs__read_be32(buf + 0x70);
+	sb->nindir = nextufs__read_be32(buf + 0x74);
+	sb->inodes_per_block = nextufs__read_be32(buf + 0x78);
+	sb->sectors_per_frag = nextufs__read_be32(buf + 0x7c);
+	sb->optim = nextufs__read_be32(buf + 0x80);
+	sb->cyl_summary_addr = nextufs__read_be32(buf + 0x98);
+	sb->csum_size = nextufs__read_be32(buf + 0x9c);
+	sb->cg_size = nextufs__read_be32(buf + 0x0a0);
+	sb->tracks_per_cyl = nextufs__read_be32(buf + 0x0a4);
+	sb->sectors_per_track = nextufs__read_be32(buf + 0x0a8);
+	sb->sectors_per_cyl = nextufs__read_be32(buf + 0x0ac);
+	sb->ncyl = nextufs__read_be32(buf + 0x0b0);
+	sb->cpg = nextufs__read_be32(buf + 0x0b4);
+	sb->inodes_per_group = nextufs__read_be32(buf + 0x0b8);
+	sb->frags_per_group = nextufs__read_be32(buf + 0x0bc);
+	sb->dir_count = nextufs__read_be32(buf + 0x0c0);
+	sb->free_block_count = nextufs__read_be32(buf + 0x0c4);
+	sb->free_inode_count = nextufs__read_be32(buf + 0x0c8);
+	sb->free_frag_count = nextufs__read_be32(buf + 0x0cc);
 	sb->state = buf[0x0d1];
-	sb->fs_magic = read_be32(buf + UFS_SUPER_MAGIC_OFFSET);
+	sb->fs_magic = nextufs__read_be32(buf + UFS_SUPER_MAGIC_OFFSET);
 }
 
 static void
@@ -238,21 +198,21 @@ decode_inode(struct nextufs_inode *ino, const uint8_t *buf)
 {
 	size_t i;
 
-	ino->mode = read_be16(buf + 0x00);
-	ino->nlink = read_be16(buf + 0x02);
-	ino->uid = read_be16(buf + 0x04);
-	ino->gid = read_be16(buf + 0x06);
+	ino->mode = nextufs__read_be16(buf + 0x00);
+	ino->nlink = nextufs__read_be16(buf + 0x02);
+	ino->uid = nextufs__read_be16(buf + 0x04);
+	ino->gid = nextufs__read_be16(buf + 0x06);
 	ino->size = read_be64(buf + 0x08);
-	ino->atime = read_be32(buf + 0x10);
-	ino->mtime = read_be32(buf + 0x18);
-	ino->ctime = read_be32(buf + 0x20);
+	ino->atime = nextufs__read_be32(buf + 0x10);
+	ino->mtime = nextufs__read_be32(buf + 0x18);
+	ino->ctime = nextufs__read_be32(buf + 0x20);
 	for (i = 0; i < 12; i++)
-		ino->db[i] = read_be32(buf + 0x28 + (i * 4));
+		ino->db[i] = nextufs__read_be32(buf + 0x28 + (i * 4));
 	for (i = 0; i < 3; i++)
-		ino->ib[i] = read_be32(buf + 0x58 + (i * 4));
-	ino->flags = read_be32(buf + 0x64);
-	ino->blocks = read_be32(buf + 0x68);
-	ino->gen = read_be32(buf + 0x6c);
+		ino->ib[i] = nextufs__read_be32(buf + 0x58 + (i * 4));
+	ino->flags = nextufs__read_be32(buf + 0x64);
+	ino->blocks = nextufs__read_be32(buf + 0x68);
+	ino->gen = nextufs__read_be32(buf + 0x6c);
 }
 
 static int
@@ -263,24 +223,24 @@ decode_next_disk_label(struct next_disk_label *dl, const uint8_t *buf, off_t off
 	const uint8_t *dt;
 
 	memset(dl, 0, sizeof(*dl));
-	dl->version = read_be32(buf + 0x00);
+	dl->version = nextufs__read_be32(buf + 0x00);
 	if (dl->version != DL_V1 && dl->version != DL_V2 && dl->version != DL_V3)
 		return -1;
 	dl->label_off = off;
-	dl->label_blkno = read_be32(buf + 0x04);
+	dl->label_blkno = nextufs__read_be32(buf + 0x04);
 	dt = buf + DL_DISKTAB_OFF;
-	dl->secsize = read_be16(dt + DT_SECSIZE_OFF);
-	dl->front = read_be16(dt + DT_FRONT_OFF);
+	dl->secsize = nextufs__read_be16(dt + DT_SECSIZE_OFF);
+	dl->front = nextufs__read_be16(dt + DT_FRONT_OFF);
 	dl->rootpartition = (char)dt[DT_ROOTPART_OFF];
 	if (dl->version == DL_V3) {
-		dl->checksum = read_be16(buf + DL_V3_CKSUM_OFF);
+		dl->checksum = nextufs__read_be16(buf + DL_V3_CKSUM_OFF);
 		dl->checksum_present = dl->checksum != 0;
 		memcpy(tmp, buf, sizeof(tmp));
 		memset(tmp + 0x04, 0, 4);
 		memset(tmp + DL_V3_CKSUM_OFF, 0, 2);
 		dl->checksum_valid = checksum_be16(tmp, sizeof(tmp)) == dl->checksum;
 	} else {
-		dl->checksum = read_be16(buf + DL_CKSUM_OFF);
+		dl->checksum = nextufs__read_be16(buf + DL_CKSUM_OFF);
 		dl->checksum_present = dl->checksum != 0;
 		dl->checksum_valid = 0;
 	}
@@ -299,8 +259,8 @@ decode_next_disk_label(struct next_disk_label *dl, const uint8_t *buf, off_t off
 		}
 		part->base_blocks = read_be24(p + PART_BASE_OFF);
 		part->size_blocks = read_be24(p + PART_SIZE_OFF);
-		part->block_size = read_be16(p + PART_BSIZE_OFF);
-		part->frag_size = read_be16(p + PART_FSIZE_OFF);
+		part->block_size = nextufs__read_be16(p + PART_BSIZE_OFF);
+		part->frag_size = nextufs__read_be16(p + PART_FSIZE_OFF);
 		copy_cstr_field(part->type, sizeof(part->type), p + PART_TYPE_OFF, LABEL_FSTYPE_LEN);
 		part->present = !all_zero && !all_ff &&
 		    part->base_blocks != 0xffffffU &&
@@ -357,33 +317,6 @@ pick_label_slice(const struct next_disk_label *dl, off_t *slice_base_out,
 	return -1;
 }
 
-static off_t
-inode_offset_guess(const struct nextufs_image *img, unsigned inode_no)
-{
-	uint64_t cg;
-	uint64_t cgbase;
-	uint64_t cgstart;
-	uint64_t cgimin;
-	uint64_t frag_addr;
-	uint64_t inum_in_group;
-	uint64_t inode_slot;
-	const struct nextufs_superblock *sb = &img->sb;
-
-	if (sb->inodes_per_group == 0 || sb->frags_per_group == 0 ||
-	    sb->inodes_per_block == 0)
-		return -1;
-	cg = inode_no / sb->inodes_per_group;
-	inum_in_group = inode_no % sb->inodes_per_group;
-	cgbase = (uint64_t)sb->frags_per_group * cg;
-	cgstart = cgbase + ((uint64_t)sb->cg_delta *
-	    (cg & (uint64_t)(~sb->cg_cyc_mask)));
-	cgimin = cgstart + sb->ino_off;
-	frag_addr = cgimin + ((inum_in_group / sb->inodes_per_block) << sb->frag_shift);
-	inode_slot = inum_in_group % sb->inodes_per_block;
-	return img->slice_base + (off_t)(frag_addr * sb->frag_size) +
-	    (off_t)(inode_slot * UFS_INODE_SIZE);
-}
-
 int
 nextufs_inode_read(const struct nextufs_image *img, unsigned inode_no,
     struct nextufs_inode *ino, off_t *ino_off)
@@ -392,34 +325,15 @@ nextufs_inode_read(const struct nextufs_image *img, unsigned inode_no,
 	off_t off;
 	int rc;
 
-	off = inode_offset_guess(img, inode_no);
+	off = nextufs__inode_offset(img, inode_no);
 	if (off < 0)
 		return -EINVAL;
-	rc = read_exact(img->fd, ibuf, sizeof(ibuf), off);
+	rc = nextufs__read_exact(img->fd, ibuf, sizeof(ibuf), off);
 	if (rc < 0)
 		return rc;
 	decode_inode(ino, ibuf);
 	if (ino_off != NULL)
 		*ino_off = off;
-	return 0;
-}
-
-static int
-read_indirect_entry(const struct nextufs_image *img, uint32_t block_frag,
-    uint64_t entry_index, uint32_t *entry_out)
-{
-	uint8_t entry_buf[4];
-	uint64_t entries_per_block;
-	off_t entry_off;
-
-	entries_per_block = img->sb.block_size / sizeof(uint32_t);
-	if (block_frag == 0 || entry_index >= entries_per_block)
-		return -EINVAL;
-	entry_off = img->slice_base + ((off_t)block_frag * img->sb.frag_size) +
-	    (off_t)(entry_index * sizeof(uint32_t));
-	if (read_exact(img->fd, entry_buf, sizeof(entry_buf), entry_off) < 0)
-		return -EIO;
-	*entry_out = read_be32(entry_buf);
 	return 0;
 }
 
@@ -442,7 +356,7 @@ resolve_indirect_block_frag(const struct nextufs_image *img, uint32_t block_frag
 		span *= entries_per_block;
 	entry_index = logical_index / span;
 	remainder = logical_index % span;
-	if (read_indirect_entry(img, block_frag, entry_index, &next_frag) < 0)
+	if (nextufs__read_indirect_entry(img, block_frag, entry_index, &next_frag) < 0)
 		return -EIO;
 	if (level == 1) {
 		*data_frag_out = next_frag;
@@ -517,7 +431,7 @@ nextufs_inode_read_data(const struct nextufs_image *img,
 		if (data_frag == 0) {
 			memset(buf + done, 0, chunk_size);
 		} else {
-			rc = read_exact(img->fd, buf + done, chunk_size,
+			rc = nextufs__read_exact(img->fd, buf + done, chunk_size,
 			    img->slice_base + ((off_t)data_frag * img->sb.frag_size) +
 			    (off_t)block_offset);
 			if (rc < 0)
@@ -542,7 +456,7 @@ decode_inline_symlink(const struct nextufs_inode *ino, char *out,
 	size_t nbytes;
 
 	if ((ino->mode & NEXTUFS_IFMT) != NEXTUFS_IFLNK ||
-	    (ino->flags & IC_FASTLINK) == 0 || ino->size == 0 ||
+	    (ino->flags & NEXTUFS_IC_FASTLINK) == 0 || ino->size == 0 ||
 	    ino->size > sizeof(raw) || out_size == 0)
 		return 0;
 	for (i = 0; i < 12; i++) {
@@ -610,7 +524,7 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 		close(fd);
 		return -ENOMEM;
 	}
-	if (read_exact(fd, scanbuf, scan_size, 0) < 0) {
+	if (nextufs__read_exact(fd, scanbuf, scan_size, 0) < 0) {
 		free(scanbuf);
 		close(fd);
 		return -EIO;
@@ -624,7 +538,7 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 		uint8_t sbuf[2048];
 		uint32_t version;
 
-		version = read_be32(scanbuf + off);
+		version = nextufs__read_be32(scanbuf + off);
 		if (version != DL_V1 && version != DL_V2 && version != DL_V3)
 			continue;
 		if (decode_next_disk_label(&dl, scanbuf + off, (off_t)off) < 0)
@@ -638,9 +552,10 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 		magic_off = (size_t)(slice_base + UFS_SBLOCK_OFFSET + UFS_SUPER_MAGIC_OFFSET);
 		if (magic_off + 4 > scan_size)
 			continue;
-		if (read_be32(scanbuf + magic_off) != UFS_FS_MAGIC)
+		if (nextufs__read_be32(scanbuf + magic_off) != UFS_FS_MAGIC)
 			continue;
-		if (read_exact(fd, sbuf, sizeof(sbuf), slice_base + UFS_SBLOCK_OFFSET) < 0)
+		if (nextufs__read_exact(fd, sbuf, sizeof(sbuf),
+		    slice_base + UFS_SBLOCK_OFFSET) < 0)
 			continue;
 		decode_superblock(&img->sb, sbuf);
 		if (img->sb.fs_magic != UFS_FS_MAGIC || img->sb.block_size == 0 ||
@@ -661,7 +576,7 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 	for (off = 0; off + 4 <= scan_size; off += 4) {
 		uint8_t sbuf[2048];
 
-		if (read_be32(scanbuf + off) != UFS_FS_MAGIC)
+		if (nextufs__read_be32(scanbuf + off) != UFS_FS_MAGIC)
 			continue;
 		if ((off_t)off < (off_t)UFS_SUPER_MAGIC_OFFSET)
 			continue;
@@ -669,7 +584,7 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 		    (off_t)UFS_SBLOCK_OFFSET;
 		if (img->slice_base < 0)
 			continue;
-		if (read_exact(fd, sbuf, sizeof(sbuf),
+		if (nextufs__read_exact(fd, sbuf, sizeof(sbuf),
 		    img->slice_base + UFS_SBLOCK_OFFSET) < 0)
 			continue;
 		decode_superblock(&img->sb, sbuf);

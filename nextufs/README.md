@@ -37,6 +37,7 @@ This builds:
 - `nextufs_fuse`: FUSE mount frontend backed by the shared library
 - `nextufs_test`: library regression test binary
 - `nextufs_mkfile`: offline scratch-image mutation tool for regression tests
+- `nextufs_stress`: deterministic mixed-operation stress harness
 - `nextufs.h`: public library API
 - `nextufs_internal.h`: internal shared subsystem interfaces
 
@@ -234,6 +235,26 @@ during file creation and truncate growth, verifies that pre-existing data is
 left intact, and then confirms that `fsck.nextufs -n` still reports a clean
 filesystem.
 
+Fresh-image stress regression:
+
+```sh
+make -f Makefile.linux test-stress
+```
+
+This creates a fresh filesystem with `mkfs.nextufs`, runs 250 deterministic
+mixed mutations through `nextufs_stress`, and then confirms the resulting image
+with `fsck.nextufs -n`.
+
+Base-image stress regression:
+
+```sh
+make -f Makefile.linux test-stress-base
+```
+
+This copies the bundled OpenStep sample image, runs 220 deterministic mixed
+mutations rooted under `/private/tmp/nextufs-stress`, and then validates the
+extracted filesystem slice with `fsck.nextufs -n`.
+
 Probe the OpenStep sample image:
 
 ```sh
@@ -276,6 +297,14 @@ credential options before the operation:
 ```sh
 ./nextufs_mkfile --policy permissions --uid 1000 --gid 100 \
   --chmod openstep42-base.raw /private/tmp/example 0600
+```
+
+For deterministic mutation stress and seed replay:
+
+```sh
+./nextufs_stress --seed 0x13579bdf --ops 250 scratch.raw
+./nextufs_stress --seed 0x2468ace0 --ops 220 \
+  --root /private/tmp/nextufs-stress openstep42-base.raw
 ```
 
 In another shell, you can then inspect the mounted tree:

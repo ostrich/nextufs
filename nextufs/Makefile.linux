@@ -11,9 +11,9 @@ LIB = libnextufs.a
 WRITE_SRCS = nextufs_dir_mutate.c nextufs_mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
 
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure scratch-dir fsck-tool mkfs-tool
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base scratch-dir fsck-tool mkfs-tool
 
-all: scratch-dir $(LIB) nextufs_probe nextufs_fuse nextufs_test nextufs_mkfile
+all: scratch-dir $(LIB) nextufs_probe nextufs_fuse nextufs_test nextufs_mkfile nextufs_stress
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
@@ -38,6 +38,9 @@ nextufs_test: nextufs_test.o $(LIB)
 
 nextufs_mkfile: nextufs_mkfile.o $(WRITE_OBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ nextufs_mkfile.o $(WRITE_OBJS) $(LIB)
+
+nextufs_stress: nextufs_stress.o $(WRITE_OBJS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ nextufs_stress.o $(WRITE_OBJS) $(LIB)
 
 nextufs_fuse.o: nextufs_fuse.c
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ nextufs_fuse.c
@@ -360,8 +363,7 @@ test-permissions: all fsck-tool
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-permissions-a.raw >$(SCRATCH_DIR)/nextufs_permissions_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_permissions_fsck.out
 
-test-failure: all
-	$(MAKE) -C ../mkfs -f Makefile.linux
+test-failure: all fsck-tool mkfs-tool
 	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-failure.raw 4096 63 16 8192 1024 16 10 60 2048 t
 	printf 'ok' >$(SCRATCH_DIR)/nextufs-seed.bin
 	dd if=/dev/zero of=$(SCRATCH_DIR)/nextufs-too-big.bin bs=1000000 count=6 status=none
@@ -379,5 +381,20 @@ test-failure: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-failure.raw >$(SCRATCH_DIR)/nextufs_failure_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
+test-stress: all fsck-tool mkfs-tool
+	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	./nextufs_stress --seed 0x13579bdf --ops 250 --quiet $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress.log
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress_fsck.out
+	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress.log
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_fsck.out
+
+test-stress-base: all fsck-tool
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-stress-base.raw
+	./nextufs_stress --seed 0x2468ace0 --ops 220 --root /private/tmp/nextufs-stress --quiet $(SCRATCH_DIR)/nextufs-stress-base.raw >$(SCRATCH_DIR)/nextufs_stress_base.log
+	dd if=$(SCRATCH_DIR)/nextufs-stress-base.raw of=$(SCRATCH_DIR)/nextufs-stress-base-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress-base-a.raw >$(SCRATCH_DIR)/nextufs_stress_base_fsck.out
+	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_base.log
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_base_fsck.out
+
 clean:
-	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS)
+	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o nextufs_stress nextufs_stress.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS)

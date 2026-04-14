@@ -776,8 +776,12 @@ nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 
 		chunk_bytes = remaining > img->sb.block_size ?
 		    img->sb.block_size : (size_t)remaining;
-		frags_needed = (uint32_t)((chunk_bytes + img->sb.frag_size - 1U) /
-		    img->sb.frag_size);
+		if (logical_block >= 12) {
+			frags_needed = img->sb.frags_per_block;
+		} else {
+			frags_needed = (uint32_t)((chunk_bytes +
+			    img->sb.frag_size - 1U) / img->sb.frag_size);
+		}
 		rc = nextufs__allocate_frags_anycg(img, preferred_cg, frags_needed,
 		    &alloc_frag);
 		if (rc < 0)
@@ -823,6 +827,16 @@ nextufs__free_file_storage(const struct nextufs_image *img,
 	uint64_t remaining;
 	uint32_t logical_block;
 
+	if ((ino->mode & NEXTUFS_IFMT) == NEXTUFS_IFLNK &&
+	    (ino->flags & NEXTUFS_IC_FASTLINK) != 0) {
+		memset(ino->db, 0, sizeof(ino->db));
+		memset(ino->ib, 0, sizeof(ino->ib));
+		ino->flags &= ~NEXTUFS_IC_FASTLINK;
+		ino->size = 0;
+		ino->blocks = 0;
+		return 0;
+	}
+
 	remaining = ino->size;
 	for (logical_block = 0; remaining > 0; logical_block++) {
 		uint32_t frags;
@@ -832,8 +846,12 @@ nextufs__free_file_storage(const struct nextufs_image *img,
 
 		chunk_bytes = remaining > img->sb.block_size ?
 		    img->sb.block_size : (size_t)remaining;
-		frags = (uint32_t)((chunk_bytes + img->sb.frag_size - 1U) /
-		    img->sb.frag_size);
+		if (logical_block >= 12) {
+			frags = img->sb.frags_per_block;
+		} else {
+			frags = (uint32_t)((chunk_bytes + img->sb.frag_size - 1U) /
+			    img->sb.frag_size);
+		}
 		rc = nextufs__resolve_inode_data_block(img, ino, logical_block, &data_frag);
 		if (rc < 0)
 			return rc;
