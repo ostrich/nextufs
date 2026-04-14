@@ -1,4 +1,4 @@
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta fsck mkfs nextufs
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure fsck mkfs nextufs
 
 all: nextufs fsck mkfs
 
@@ -40,6 +40,24 @@ test-rmdir:
 
 test-meta:
 	$(MAKE) -C nextufs -f Makefile.linux test-meta
+
+test-rename:
+	$(MAKE) -C nextufs -f Makefile.linux test-rename
+
+test-truncate:
+	$(MAKE) -C nextufs -f Makefile.linux test-truncate
+
+test-special:
+	$(MAKE) -C nextufs -f Makefile.linux test-special
+
+test-fuse-write:
+	$(MAKE) -C nextufs -f Makefile.linux test-fuse-write
+
+test-permissions:
+	$(MAKE) -C nextufs -f Makefile.linux test-permissions
+
+test-failure:
+	$(MAKE) -C nextufs -f Makefile.linux test-failure
 
 clean:
 	$(MAKE) -C nextufs -f Makefile.linux clean

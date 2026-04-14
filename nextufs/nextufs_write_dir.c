@@ -370,6 +370,65 @@ nextufs_w_directory_is_empty(const struct nextufs_image *img,
 	return seen_dot && seen_dotdot;
 }
 
+int
+nextufs_w_read_directory_parent_inode(const struct nextufs_image *img,
+    const struct nextufs_node *dirnode, unsigned *parent_inode_out)
+{
+	uint8_t dirblk[DIRBLKSIZ];
+	struct nextufs_write_dirent ent;
+
+	if (!nextufs_node_is_dir(dirnode) || dirnode->inode.size < DIRBLKSIZ)
+		return -ENOTDIR;
+	if (nextufs_read_inode_data(img, &dirnode->inode, 0, dirblk, sizeof(dirblk),
+	    NULL) < 0)
+		return -EIO;
+	if (nextufs_w_read_dirent(dirblk, sizeof(dirblk), 0, &ent) < 0)
+		return -EINVAL;
+	if (ent.ino != dirnode->inode_no || ent.namlen != 1 || ent.name[0] != '.')
+		return -EINVAL;
+	if (nextufs_w_read_dirent(dirblk, sizeof(dirblk), ent.reclen, &ent) < 0)
+		return -EINVAL;
+	if (ent.namlen != 2 || ent.name[0] != '.' || ent.name[1] != '.')
+		return -EINVAL;
+	*parent_inode_out = ent.ino;
+	return 0;
+}
+
+int
+nextufs_w_update_directory_parent_inode(const struct nextufs_image *img,
+    struct nextufs_node *dirnode, unsigned parent_inode)
+{
+	uint8_t dirblk[DIRBLKSIZ];
+	struct nextufs_write_dirent ent;
+	uint32_t data_frag;
+	size_t second_off;
+	int rc;
+
+	if (!nextufs_node_is_dir(dirnode) || dirnode->inode.size < DIRBLKSIZ ||
+	    dirnode->inode.db[0] == 0)
+		return -ENOTDIR;
+	rc = nextufs_read_inode_data(img, &dirnode->inode, 0, dirblk, sizeof(dirblk),
+	    NULL);
+	if (rc < 0)
+		return -EIO;
+	rc = nextufs_w_read_dirent(dirblk, sizeof(dirblk), 0, &ent);
+	if (rc < 0)
+		return -EINVAL;
+	second_off = ent.reclen;
+	rc = nextufs_w_read_dirent(dirblk, sizeof(dirblk), second_off, &ent);
+	if (rc < 0)
+		return -EINVAL;
+	if (ent.namlen != 2 || ent.name[0] != '.' || ent.name[1] != '.')
+		return -EINVAL;
+	nextufs_w_write_be32(dirblk + second_off, parent_inode);
+	data_frag = dirnode->inode.db[0];
+	rc = nextufs_w_write_exact(img->fd, dirblk, sizeof(dirblk),
+	    img->slice_base + ((off_t)data_frag * img->sb.frag_size));
+	if (rc < 0)
+		return rc;
+	return nextufs_w_update_node_times(img, dirnode, 0);
+}
+
 void
 nextufs_w_store_inline_symlink_bytes(struct nextufs_inode *ino,
     const char *target, size_t len)

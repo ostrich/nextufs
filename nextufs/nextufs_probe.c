@@ -42,11 +42,21 @@ print_inode(const struct nextufs_inode *ino, off_t off, unsigned inode_no)
 	printf("inode %u at 0x%jx: mode=0%o nlink=%u uid=%u gid=%u size=%" PRIu64 "\n",
 	    inode_no, (uintmax_t)off, ino->mode, ino->nlink, ino->uid, ino->gid,
 	    ino->size);
+	if ((ino->mode & NEXTUFS_IFMT) == NEXTUFS_IFCHR ||
+	    (ino->mode & NEXTUFS_IFMT) == NEXTUFS_IFBLK)
+		printf("inode %u rdev:         %" PRIu32 "\n", inode_no, ino->db[0]);
 	printf("inode %u direct blocks:", inode_no);
 	for (i = 0; i < 12; i++) {
 		if (ino->db[i] == 0)
 			break;
 		printf(" %" PRIu32, ino->db[i]);
+	}
+	printf("\n");
+	printf("inode %u indirect blocks:", inode_no);
+	for (i = 0; i < 3; i++) {
+		if (ino->ib[i] == 0)
+			break;
+		printf(" %" PRIu32, ino->ib[i]);
 	}
 	printf("\n");
 }

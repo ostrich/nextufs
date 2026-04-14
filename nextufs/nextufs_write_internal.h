@@ -74,6 +74,12 @@ int nextufs_w_free_fragment_run(const struct nextufs_image *img, uint32_t frag_b
 int nextufs_w_reallocate_fragment_run(const struct nextufs_image *img,
 	uint32_t old_frag, uint32_t old_frags, uint32_t new_frags,
 	uint32_t preferred_cg, uint32_t *new_frag_out);
+int nextufs_w_allocate_full_block_anycg(const struct nextufs_image *img,
+	unsigned preferred_cg, uint32_t *frag_out);
+int nextufs_w_read_indirect_entry(const struct nextufs_image *img,
+	uint32_t block_frag, uint64_t entry_index, uint32_t *entry_out);
+int nextufs_w_write_indirect_entry(const struct nextufs_image *img,
+	uint32_t block_frag, uint64_t entry_index, uint32_t entry_value);
 int nextufs_w_allocate_data_for_inode(const struct nextufs_image *img,
 	unsigned preferred_cg, const uint8_t *data, size_t data_len,
 	struct nextufs_inode *ino_out);
@@ -94,5 +100,9 @@ int nextufs_w_insert_dirent_existing_space(const struct nextufs_image *img,
 	struct nextufs_node *dirnode, const char *name, unsigned new_inode);
 int nextufs_w_remove_dirent(const struct nextufs_image *img,
 	struct nextufs_node *dirnode, const char *name, unsigned *removed_inode_out);
+int nextufs_w_read_directory_parent_inode(const struct nextufs_image *img,
+	const struct nextufs_node *dirnode, unsigned *parent_inode_out);
+int nextufs_w_update_directory_parent_inode(const struct nextufs_image *img,
+	struct nextufs_node *dirnode, unsigned parent_inode);
 
 #endif

@@ -20,7 +20,8 @@ Current scope:
 - list resolved directories
 - print a preview of resolved regular-file contents
 - read regular files through direct and indirect block pointers
-- mount the filesystem read-only through FUSE
+- mount the filesystem through FUSE with read/write support for the current
+  write-side primitives
 
 Build:
 
@@ -32,7 +33,7 @@ This builds:
 
 - `libnextufs.a`: shared NeXT UFS reader library
 - `nextufs_probe`: raw-image inspector/probe
-- `nextufs_fuse`: read-only FUSE mount frontend
+- `nextufs_fuse`: FUSE mount frontend backed by the shared read/write library
 - `nextufs_test`: library regression test binary
 - `nextufs_mkfile`: offline scratch-image mutation tool for write regression tests
 - `nextufs_read.h`: public reader API
@@ -174,6 +175,68 @@ This creates a file, applies `chmod`, `chown`, and timestamp updates through
 the offline writer, verifies the changed metadata through the probe, and then
 runs `fsck_next -n`.
 
+Rename regression:
+
+```sh
+make -f Makefile.linux test-rename
+```
+
+This exercises file and directory rename cases, including replacement of an
+existing file and a cross-directory directory move, then validates the result
+through both the probe and the FUSE mount before running `fsck_next -n`.
+
+Truncate and indirect-allocation regression:
+
+```sh
+make -f Makefile.linux test-truncate
+```
+
+This creates a file large enough to require indirect blocks, verifies the
+indirect mapping through the probe, shrinks and regrows the file, checks
+zero-filled growth and later writes through the FUSE mount, and then runs
+`fsck_next -n`.
+
+Special-file regression:
+
+```sh
+make -f Makefile.linux test-special
+```
+
+This creates FIFO and character-device inodes through the offline writer,
+verifies their metadata through the probe and the FUSE mount, and then runs
+`fsck_next -n`.
+
+Writable FUSE regression:
+
+```sh
+make -f Makefile.linux test-fuse-write
+```
+
+This exercises create, append, rename, hard link, symlink, mkdir, truncate,
+range write, FIFO creation, unlink, and rmdir through the mounted FUSE
+frontend, then validates the resulting image with the probe and `fsck_next -n`.
+
+Permission and ownership regression:
+
+```sh
+make -f Makefile.linux test-permissions
+```
+
+This exercises permission-mode failures and successes for `chmod`, `chown`,
+`utimes`, sticky-directory `unlink`/`rename`, and oversized `uid`/`gid`
+rejection, then validates the resulting image with `fsck_next -n`.
+
+Low-space failure-discipline regression:
+
+```sh
+make -f Makefile.linux test-failure
+```
+
+This creates a small scratch filesystem with `mkfs_next`, forces `ENOSPC`
+during file creation and truncate growth, verifies that pre-existing data is
+left intact, and then confirms that `fsck_next -n` still reports a clean
+filesystem.
+
 Probe the OpenStep sample image:
 
 ```sh
@@ -195,11 +258,27 @@ Resolve a path from `/`:
 ./nextufs_probe openstep42-base.raw mach_kernel
 ```
 
-Mount the image read-only through FUSE:
+Mount the image through FUSE:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
 ./nextufs_fuse openstep42-base.raw /tmp/nextufs-mnt -f -s
+```
+
+By default the mounted frontend uses permission-checked semantics based on the
+calling process credentials. For image-editor semantics that allow unrestricted
+metadata edits by the mounting user, pass:
+
+```sh
+./nextufs_fuse openstep42-base.raw /tmp/nextufs-mnt -o nextufs_mode=editor -f -s
+```
+
+For offline write testing, `nextufs_mkfile` also accepts leading global
+credential options before the operation:
+
+```sh
+./nextufs_mkfile --policy permissions --uid 1000 --gid 100 \
+  --chmod openstep42-base.raw /private/tmp/example 0600
 ```
 
 In another shell, you can then inspect the mounted tree:
@@ -210,19 +289,30 @@ readlink /tmp/nextufs-mnt/etc
 head -n 3 /tmp/nextufs-mnt/etc/passwd
 ```
 
-Current FUSE support is intentionally minimal:
+Current FUSE support includes:
 
 - `access`
 - `getattr`
 - `readdir`
 - `open`
 - `read`
+- `write`
 - `readlink`
 - `statfs`
+- `create`
+- `mknod`
+- `unlink`
+- `mkdir`
+- `rmdir`
+- `rename`
+- `link`
+- `symlink`
+- `chmod`
+- `chown`
+- `truncate`
+- `utimens`
+- `fsync`
 
-The mounted FUSE frontend is still read-only. Write support currently exists
-only through the offline `nextufs_mkfile` path, which is exercised by the
-write regression targets above. The probe and FUSE frontend both use the shared
-reader library rather than carrying separate filesystem parsers. The FUSE
-frontend now reports stable inode numbers and filesystem statistics from the
-shared API.
+The probe and FUSE frontend both use the shared library rather than carrying
+separate filesystem parsers. The FUSE frontend now reports stable inode
+numbers, filesystem statistics, and special-file metadata from the shared API.

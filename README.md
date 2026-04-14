@@ -5,17 +5,20 @@ NeXT source tree.
 
 Current components:
 
-- `nextufs/`: core read/write library work, probe tool, read-only FUSE mount,
+- `nextufs/`: core read/write library work, probe tool, writable FUSE mount,
   and offline mutation tool used for write regression tests
 - `fsck/`: Linux port of the historical NeXT/BSD `fsck`
 - `mkfs/`: Linux port of the historical NeXT/BSD `mkfs`
 
 Current status:
 
-- read-only image probing and FUSE mount are working
+- image probing and FUSE mount are working
 - offline write operations are working and validated against `fsck_next`
-- the write path is still evolving toward broader completeness
-- writable FUSE and some namespace operations such as `rename` are still pending
+- writable FUSE now covers the current write primitives
+- writable FUSE defaults to permission-checked operations using the calling
+  process credentials
+- implemented write-side operations include `rename`, long symlinks,
+  truncate/grow/shrink, indirect-block allocation, and special files
 
 Continuation:
 
@@ -47,6 +50,12 @@ make test-rewrite
 make test-link-symlink
 make test-rmdir
 make test-meta
+make test-rename
+make test-truncate
+make test-special
+make test-fuse-write
+make test-permissions
+make test-failure
 ```
 
 Project structure is still transitional. The code is currently split into
