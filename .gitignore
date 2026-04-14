@@ -6,6 +6,7 @@
 /nextufs/nextufs_fuse
 /nextufs/nextufs_test
 /nextufs/nextufs_mkfile
+/nextufs/nextufs_stress
 /fsck/fsck_probe
 /fsck/fsck.nextufs
 /mkfs/mkfs.nextufs

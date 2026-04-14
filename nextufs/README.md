@@ -245,6 +245,15 @@ This creates a fresh filesystem with `mkfs.nextufs`, runs 250 deterministic
 mixed mutations through `nextufs_stress`, and then confirms the resulting image
 with `fsck.nextufs -n`.
 
+Batch stress regression:
+
+```sh
+make -f Makefile.linux test-stress-batch
+```
+
+This creates a fresh filesystem, runs four deterministic stress seeds in batch
+mode, and keeps per-seed images and logs automatically if any seed fails.
+
 Base-image stress regression:
 
 ```sh
@@ -254,6 +263,16 @@ make -f Makefile.linux test-stress-base
 This copies the bundled OpenStep sample image, runs 220 deterministic mixed
 mutations rooted under `/private/tmp/nextufs-stress`, and then validates the
 extracted filesystem slice with `fsck.nextufs -n`.
+
+FUSE stress regression:
+
+```sh
+make -f Makefile.linux test-stress-fuse
+```
+
+This creates a fresh filesystem, runs the same mixed-operation stress workload
+ through the mounted FUSE frontend, unmounts it, and then validates the image
+ with `fsck.nextufs -n`.
 
 Probe the OpenStep sample image:
 
@@ -305,7 +324,16 @@ For deterministic mutation stress and seed replay:
 ./nextufs_stress --seed 0x13579bdf --ops 250 scratch.raw
 ./nextufs_stress --seed 0x2468ace0 --ops 220 \
   --root /private/tmp/nextufs-stress openstep42-base.raw
+./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 scratch.raw
+./nextufs_stress --batch 8 --save-fail-dir .stress-failures scratch.raw
 ```
+
+The stress harness now includes:
+
+- explicit failure-expected operations with no-state-change assertions
+- stronger boundary-biased file sizes and path/name generation
+- multi-seed batch mode with saved failing image and op-log artifacts
+- both offline shared-library and mounted FUSE backends
 
 In another shell, you can then inspect the mounted tree:
 

@@ -161,6 +161,7 @@ static int
 nextufs_open(const char *path, struct fuse_file_info *fi)
 {
 	struct nextufs_node node;
+	struct nextufs_write_ctx ctx;
 	int rc;
 
 	rc = nextufs_node_lookup(&g_img, path, 1, &node);
@@ -168,7 +169,15 @@ nextufs_open(const char *path, struct fuse_file_info *fi)
 		return rc;
 	if (!nextufs_node_is_reg(&node))
 		return -EISDIR;
-	(void)fi;
+	if ((fi->flags & O_TRUNC) != 0) {
+		nextufs_fill_mutation_ctx(&ctx);
+		rc = nextufs_path_truncate(&ctx, g_image_path, path, 0);
+		if (rc < 0)
+			return rc;
+		rc = nextufs_refresh_image();
+		if (rc < 0)
+			return rc;
+	}
 	return 0;
 }
 

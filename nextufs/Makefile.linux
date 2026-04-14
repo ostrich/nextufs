@@ -11,7 +11,7 @@ LIB = libnextufs.a
 WRITE_SRCS = nextufs_dir_mutate.c nextufs_mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
 
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base scratch-dir fsck-tool mkfs-tool
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse scratch-dir fsck-tool mkfs-tool
 
 all: scratch-dir $(LIB) nextufs_probe nextufs_fuse nextufs_test nextufs_mkfile nextufs_stress
 
@@ -395,6 +395,19 @@ test-stress-base: all fsck-tool
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress-base-a.raw >$(SCRATCH_DIR)/nextufs_stress_base_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_base.log
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_base_fsck.out
+
+test-stress-batch: all fsck-tool mkfs-tool
+	rm -rf $(SCRATCH_DIR)/nextufs-stress-batch-fail
+	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-batch.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	./nextufs_stress --seed 0x13579bdf --ops 120 --batch 4 --save-fail-dir $(SCRATCH_DIR)/nextufs-stress-batch-fail --quiet $(SCRATCH_DIR)/nextufs-stress-batch.raw >$(SCRATCH_DIR)/nextufs_stress_batch.log
+	grep -F 'nextufs_stress: batch ok' $(SCRATCH_DIR)/nextufs_stress_batch.log
+
+test-stress-fuse: all fsck-tool mkfs-tool
+	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-fuse.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 --quiet $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse.log
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out
+	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_fuse.log
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out
 
 clean:
 	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o nextufs_stress nextufs_stress.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS)
