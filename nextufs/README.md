@@ -1,6 +1,7 @@
 # nextufs
 
-Early raw-image probe tooling for a NeXT/OpenStep-compatible UFS reader.
+NeXT/OpenStep-compatible UFS library plus thin probe, FUSE, and offline
+mutation frontends.
 
 Current scope:
 
@@ -21,7 +22,7 @@ Current scope:
 - print a preview of resolved regular-file contents
 - read regular files through direct and indirect block pointers
 - mount the filesystem through FUSE with read/write support for the current
-  write-side primitives
+  mutation primitives
 
 Build:
 
@@ -31,45 +32,41 @@ make -f Makefile.linux
 
 This builds:
 
-- `libnextufs.a`: shared NeXT UFS reader library
+- `libnextufs.a`: shared NeXT UFS library
 - `nextufs_probe`: raw-image inspector/probe
-- `nextufs_fuse`: FUSE mount frontend backed by the shared read/write library
+- `nextufs_fuse`: FUSE mount frontend backed by the shared library
 - `nextufs_test`: library regression test binary
-- `nextufs_mkfile`: offline scratch-image mutation tool for write regression tests
-- `nextufs_read.h`: public reader API
-- `nextufs_read_internal.h`: internal read-side interface used across the reader modules
-- `nextufs_write.h`: offline write API
-- `nextufs_write_internal.h`: internal write-side interface used across the write modules
+- `nextufs_mkfile`: offline scratch-image mutation tool for regression tests
+- `nextufs.h`: public library API
+- `nextufs_internal.h`: internal shared subsystem interfaces
 
 Library layout:
 
-- `nextufs_read_io.c`: image open/close, disklabel/superblock parsing, inode/data reads
-- `nextufs_read_dir.c`: directory iteration and name lookup
-- `nextufs_read_path.c`: pathname resolution and symlink following
-- `nextufs_read_api.c`: higher-level node/path wrappers used by the frontends
+- `nextufs_image.c`: image open/close, disklabel/superblock parsing, inode/data reads
+- `nextufs_directory.c`: directory iteration and name lookup
+- `nextufs_path.c`: pathname resolution and symlink following
+- `nextufs_node.c`: higher-level node/path wrappers used by the frontends
+- `nextufs_layout.c`: low-level metadata I/O, on-disk encoding, summary updates
+- `nextufs_alloc.c`: inode and data allocation/free helpers
+- `nextufs_dir_mutate.c`: directory entry mutation and directory-structure helpers
+- `nextufs_mutate.c`: public mutation operations shared by FUSE and `nextufs_mkfile`
 
-Write-side layout:
+Public API highlights in `nextufs.h`:
 
-- `nextufs_write_io.c`: low-level metadata I/O, on-disk encoding, summary updates
-- `nextufs_write_alloc.c`: inode and data allocation/free helpers
-- `nextufs_write_dir.c`: directory entry mutation and directory-structure helpers
-- `nextufs_write_ops.c`: public offline write operations used by `nextufs_mkfile`
-
-Public API highlights in `nextufs_read.h`:
-
-- `nextufs_get_probe_info`
-- `nextufs_open_image` / `nextufs_close_image`
-- `nextufs_get_root`
-- `nextufs_get_node_by_inode`
-- `nextufs_lookup`
+- `nextufs_probe_info_get`
+- `nextufs_image_open` / `nextufs_image_close`
+- `nextufs_node_get_root`
+- `nextufs_node_get_by_inode`
+- `nextufs_node_lookup`
 - `nextufs_node_stat`
 - `nextufs_node_is_dir` / `nextufs_node_is_reg` / `nextufs_node_is_lnk`
-- `nextufs_check_access`
-- `nextufs_statvfs`
-- `nextufs_read_path`
-- `nextufs_readlink_path`
-- `nextufs_iterate_directory_path`
-- `nextufs_iterate_directory_nodes_path`
+- `nextufs_node_check_access`
+- `nextufs_fs_statvfs`
+- `nextufs_path_read`
+- `nextufs_path_readlink`
+- `nextufs_directory_iterate_path`
+- `nextufs_directory_iterate_nodes_path`
+- `nextufs_path_create_file`, `nextufs_path_rename`, `nextufs_path_truncate`
 
 Regression suite:
 
@@ -82,7 +79,7 @@ This runs:
 - `nextufs_test`: library/API checks against the bundled OpenStep 4.2 raw image
 - `test_fuse.sh`: read-only FUSE smoke test against the same image
 
-Early offline write test:
+Small-file mutation regression:
 
 ```sh
 make -f Makefile.linux test-write
@@ -92,7 +89,7 @@ This creates a scratch copy of `openstep42-base.raw`, writes a small regular
 file under `/private/tmp`, verifies readback with `nextufs_probe`, and runs
 `fsck_next -n` against the extracted filesystem slice.
 
-Larger offline write regression:
+Larger mutation regression:
 
 ```sh
 make -f Makefile.linux test-write-big
@@ -103,7 +100,7 @@ This creates a fresh scratch image, writes a 3000-byte file under
 back through the FUSE mount with `cmp`, and then runs `fsck_next -n` against
 the extracted filesystem slice.
 
-Directory growth write regression:
+Directory growth mutation regression:
 
 ```sh
 make -f Makefile.linux test-write-grow
@@ -115,7 +112,7 @@ multiple directory blocks and contains the final file, verifies the final file
 through the FUSE mount, and then runs `fsck_next -n` against the extracted
 filesystem slice.
 
-Unlink write regression:
+Unlink regression:
 
 ```sh
 make -f Makefile.linux test-unlink
@@ -125,7 +122,7 @@ This creates a file on a fresh scratch image, unlinks it through the offline
 writer, verifies that path lookup now fails in both the probe and FUSE mount,
 and then runs `fsck_next -n` against the extracted filesystem slice.
 
-Mkdir write regression:
+Mkdir regression:
 
 ```sh
 make -f Makefile.linux test-mkdir

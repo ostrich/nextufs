@@ -5,19 +5,19 @@ NeXT source tree.
 
 Current components:
 
-- `nextufs/`: core read/write library work, probe tool, writable FUSE mount,
-  and offline mutation tool used for write regression tests
+- `nextufs/`: shared filesystem library, probe tool, writable FUSE mount, and
+  offline mutation tool used for regression tests
 - `fsck/`: Linux port of the historical NeXT/BSD `fsck`
 - `mkfs/`: Linux port of the historical NeXT/BSD `mkfs`
 
 Current status:
 
 - image probing and FUSE mount are working
-- offline write operations are working and validated against `fsck_next`
-- writable FUSE now covers the current write primitives
+- offline mutation operations are working and validated against `fsck_next`
+- writable FUSE now covers the current mutation primitives
 - writable FUSE defaults to permission-checked operations using the calling
   process credentials
-- implemented write-side operations include `rename`, long symlinks,
+- implemented mutation operations include `rename`, long symlinks,
   truncate/grow/shrink, indirect-block allocation, and special files
 
 Continuation:
@@ -32,13 +32,13 @@ make
 
 That builds all three components.
 
-Run the `nextufs` read-side regression suite:
+Run the `nextufs` library regression suite:
 
 ```sh
 make test
 ```
 
-Run the current offline write regressions:
+Run the current mutation regressions:
 
 ```sh
 make test-write
@@ -58,9 +58,9 @@ make test-permissions
 make test-failure
 ```
 
-Project structure is still transitional. The code is currently split into
-`nextufs_read_*` and `nextufs_write_*` modules; the intended longer-term
-refactor is a subsystem-oriented split.
+Project structure is subsystem-oriented. Shared library code is split by image
+I/O, directory handling, pathname resolution, node APIs, allocation, on-disk
+layout updates, directory mutation, and higher-level mutation operations.
 
 Provenance:
 

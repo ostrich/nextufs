@@ -4,10 +4,10 @@ SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
 FUSE_CFLAGS != pkg-config --cflags fuse3
 FUSE_LIBS != pkg-config --libs fuse3
-LIB_SRCS = nextufs_read_io.c nextufs_read_dir.c nextufs_read_path.c nextufs_read_api.c
+LIB_SRCS = nextufs_image.c nextufs_directory.c nextufs_path.c nextufs_node.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 LIB = libnextufs.a
-WRITE_SRCS = nextufs_write_io.c nextufs_write_alloc.c nextufs_write_dir.c nextufs_write_ops.c
+WRITE_SRCS = nextufs_layout.c nextufs_alloc.c nextufs_dir_mutate.c nextufs_mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
 
 .PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure scratch-dir
@@ -373,4 +373,4 @@ test-failure: all
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
 clean:
-	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS) nextufs.o nextufs_dir.o nextufs_path.o nextufs_api.o
+	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS)

@@ -1,4 +1,4 @@
-#include "nextufs_write_internal.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <string.h>
@@ -6,13 +6,13 @@
 #include <unistd.h>
 
 uint16_t
-nextufs_w_read_be16(const uint8_t *p)
+nextufs__read_be16(const uint8_t *p)
 {
 	return ((uint16_t)p[0] << 8) | (uint16_t)p[1];
 }
 
 uint32_t
-nextufs_w_read_be32(const uint8_t *p)
+nextufs__read_be32(const uint8_t *p)
 {
 	return ((uint32_t)p[0] << 24) |
 	    ((uint32_t)p[1] << 16) |
@@ -21,14 +21,14 @@ nextufs_w_read_be32(const uint8_t *p)
 }
 
 void
-nextufs_w_write_be16(uint8_t *p, uint16_t v)
+nextufs__write_be16(uint8_t *p, uint16_t v)
 {
 	p[0] = (uint8_t)(v >> 8);
 	p[1] = (uint8_t)v;
 }
 
 void
-nextufs_w_write_be32(uint8_t *p, uint32_t v)
+nextufs__write_be32(uint8_t *p, uint32_t v)
 {
 	p[0] = (uint8_t)(v >> 24);
 	p[1] = (uint8_t)(v >> 16);
@@ -37,14 +37,14 @@ nextufs_w_write_be32(uint8_t *p, uint32_t v)
 }
 
 void
-nextufs_w_write_be64(uint8_t *p, uint64_t v)
+nextufs__write_be64(uint8_t *p, uint64_t v)
 {
-	nextufs_w_write_be32(p, (uint32_t)(v >> 32));
-	nextufs_w_write_be32(p + 4, (uint32_t)v);
+	nextufs__write_be32(p, (uint32_t)(v >> 32));
+	nextufs__write_be32(p + 4, (uint32_t)v);
 }
 
 int
-nextufs_w_read_exact(int fd, void *buf, size_t size, off_t offset)
+nextufs__read_exact(int fd, void *buf, size_t size, off_t offset)
 {
 	uint8_t *out = buf;
 	size_t done = 0;
@@ -63,7 +63,7 @@ nextufs_w_read_exact(int fd, void *buf, size_t size, off_t offset)
 }
 
 int
-nextufs_w_write_exact(int fd, const void *buf, size_t size, off_t offset)
+nextufs__write_exact(int fd, const void *buf, size_t size, off_t offset)
 {
 	const uint8_t *in = buf;
 	size_t done = 0;
@@ -82,7 +82,7 @@ nextufs_w_write_exact(int fd, const void *buf, size_t size, off_t offset)
 }
 
 uint64_t
-nextufs_w_cgstart(const struct nextufs_image *img, unsigned cg)
+nextufs__cgstart(const struct nextufs_image *img, unsigned cg)
 {
 	uint64_t cgbase;
 	uint64_t cyc_mask_bits;
@@ -93,15 +93,15 @@ nextufs_w_cgstart(const struct nextufs_image *img, unsigned cg)
 }
 
 off_t
-nextufs_w_cg_block_offset(const struct nextufs_image *img, unsigned cg)
+nextufs__cg_block_offset(const struct nextufs_image *img, unsigned cg)
 {
 	return img->slice_base +
-	    (off_t)((nextufs_w_cgstart(img, cg) + img->sb.cg_off) *
+	    (off_t)((nextufs__cgstart(img, cg) + img->sb.cg_off) *
 	    img->sb.frag_size);
 }
 
 off_t
-nextufs_w_inode_offset(const struct nextufs_image *img, unsigned inode_no)
+nextufs__inode_offset(const struct nextufs_image *img, unsigned inode_no)
 {
 	uint64_t cg;
 	uint64_t cgbase;
@@ -129,20 +129,20 @@ nextufs_w_inode_offset(const struct nextufs_image *img, unsigned inode_no)
 }
 
 size_t
-nextufs_w_dirent_size(size_t name_len)
+nextufs__dirent_size(size_t name_len)
 {
 	return 8U + ((name_len + 1U + 3U) & ~3U);
 }
 
 int
-nextufs_w_read_dirent(const uint8_t *buf, size_t size, size_t off,
-    struct nextufs_write_dirent *ent)
+nextufs__read_dirent(const uint8_t *buf, size_t size, size_t off,
+    struct nextufs_dirent_view *ent)
 {
 	if (off + 8 > size)
 		return -1;
-	ent->ino = nextufs_w_read_be32(buf + off);
-	ent->reclen = nextufs_w_read_be16(buf + off + 4);
-	ent->namlen = nextufs_w_read_be16(buf + off + 6);
+	ent->ino = nextufs__read_be32(buf + off);
+	ent->reclen = nextufs__read_be16(buf + off + 4);
+	ent->namlen = nextufs__read_be16(buf + off + 6);
 	if (ent->reclen < 8 || off + ent->reclen > size ||
 	    off + 8 + ent->namlen > size)
 		return -1;
@@ -151,7 +151,7 @@ nextufs_w_read_dirent(const uint8_t *buf, size_t size, size_t off,
 }
 
 int
-nextufs_w_write_inode_raw(const struct nextufs_image *img, unsigned inode_no,
+nextufs__write_inode_raw(const struct nextufs_image *img, unsigned inode_no,
     const struct nextufs_inode *ino)
 {
 	uint8_t raw[UFS_INODE_SIZE];
@@ -159,29 +159,29 @@ nextufs_w_write_inode_raw(const struct nextufs_image *img, unsigned inode_no,
 	off_t off;
 
 	memset(raw, 0, sizeof(raw));
-	nextufs_w_write_be16(raw + 0x00, ino->mode);
-	nextufs_w_write_be16(raw + 0x02, ino->nlink);
-	nextufs_w_write_be16(raw + 0x04, ino->uid);
-	nextufs_w_write_be16(raw + 0x06, ino->gid);
-	nextufs_w_write_be64(raw + 0x08, ino->size);
-	nextufs_w_write_be32(raw + 0x10, ino->atime);
-	nextufs_w_write_be32(raw + 0x18, ino->mtime);
-	nextufs_w_write_be32(raw + 0x20, ino->ctime);
+	nextufs__write_be16(raw + 0x00, ino->mode);
+	nextufs__write_be16(raw + 0x02, ino->nlink);
+	nextufs__write_be16(raw + 0x04, ino->uid);
+	nextufs__write_be16(raw + 0x06, ino->gid);
+	nextufs__write_be64(raw + 0x08, ino->size);
+	nextufs__write_be32(raw + 0x10, ino->atime);
+	nextufs__write_be32(raw + 0x18, ino->mtime);
+	nextufs__write_be32(raw + 0x20, ino->ctime);
 	for (i = 0; i < 12; i++)
-		nextufs_w_write_be32(raw + 0x28 + (i * 4), ino->db[i]);
+		nextufs__write_be32(raw + 0x28 + (i * 4), ino->db[i]);
 	for (i = 0; i < 3; i++)
-		nextufs_w_write_be32(raw + 0x58 + (i * 4), ino->ib[i]);
-	nextufs_w_write_be32(raw + 0x64, ino->flags);
-	nextufs_w_write_be32(raw + 0x68, ino->blocks);
-	nextufs_w_write_be32(raw + 0x6c, ino->gen);
-	off = nextufs_w_inode_offset(img, inode_no);
+		nextufs__write_be32(raw + 0x58 + (i * 4), ino->ib[i]);
+	nextufs__write_be32(raw + 0x64, ino->flags);
+	nextufs__write_be32(raw + 0x68, ino->blocks);
+	nextufs__write_be32(raw + 0x6c, ino->gen);
+	off = nextufs__inode_offset(img, inode_no);
 	if (off < 0)
 		return -EINVAL;
-	return nextufs_w_write_exact(img->fd, raw, sizeof(raw), off);
+	return nextufs__write_exact(img->fd, raw, sizeof(raw), off);
 }
 
 int
-nextufs_w_update_summary_counts(const struct nextufs_image *img, unsigned cg,
+nextufs__update_summary_counts(const struct nextufs_image *img, unsigned cg,
     int32_t d_ndir, int32_t d_nbfree, int32_t d_nifree, int32_t d_nffree)
 {
 	uint8_t sbuf[2048];
@@ -193,42 +193,42 @@ nextufs_w_update_summary_counts(const struct nextufs_image *img, unsigned cg,
 	uint32_t now;
 
 	sb_off = img->slice_base + 0x2000;
-	rc = nextufs_w_read_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
+	rc = nextufs__read_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
 	if (rc < 0)
 		return rc;
-	v = nextufs_w_read_be32(sbuf + SB_NDIR_OFF);
-	nextufs_w_write_be32(sbuf + SB_NDIR_OFF, (uint32_t)(v + d_ndir));
-	v = nextufs_w_read_be32(sbuf + SB_NBFREE_OFF);
-	nextufs_w_write_be32(sbuf + SB_NBFREE_OFF, (uint32_t)(v + d_nbfree));
-	v = nextufs_w_read_be32(sbuf + SB_NIFREE_OFF);
-	nextufs_w_write_be32(sbuf + SB_NIFREE_OFF, (uint32_t)(v + d_nifree));
-	v = nextufs_w_read_be32(sbuf + SB_NFFREE_OFF);
-	nextufs_w_write_be32(sbuf + SB_NFFREE_OFF, (uint32_t)(v + d_nffree));
+	v = nextufs__read_be32(sbuf + SB_NDIR_OFF);
+	nextufs__write_be32(sbuf + SB_NDIR_OFF, (uint32_t)(v + d_ndir));
+	v = nextufs__read_be32(sbuf + SB_NBFREE_OFF);
+	nextufs__write_be32(sbuf + SB_NBFREE_OFF, (uint32_t)(v + d_nbfree));
+	v = nextufs__read_be32(sbuf + SB_NIFREE_OFF);
+	nextufs__write_be32(sbuf + SB_NIFREE_OFF, (uint32_t)(v + d_nifree));
+	v = nextufs__read_be32(sbuf + SB_NFFREE_OFF);
+	nextufs__write_be32(sbuf + SB_NFFREE_OFF, (uint32_t)(v + d_nffree));
 	now = (uint32_t)time(NULL);
-	nextufs_w_write_be32(sbuf + SB_TIME_OFF, now);
-	rc = nextufs_w_write_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
+	nextufs__write_be32(sbuf + SB_TIME_OFF, now);
+	rc = nextufs__write_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
 	if (rc < 0)
 		return rc;
 
 	cs_off = img->slice_base +
 	    ((off_t)img->sb.cyl_summary_addr * img->sb.frag_size) +
 	    ((off_t)cg * (off_t)sizeof(csum_buf));
-	rc = nextufs_w_read_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
+	rc = nextufs__read_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
 	if (rc < 0)
 		return rc;
-	v = nextufs_w_read_be32(csum_buf + 0);
-	nextufs_w_write_be32(csum_buf + 0, (uint32_t)(v + d_ndir));
-	v = nextufs_w_read_be32(csum_buf + 4);
-	nextufs_w_write_be32(csum_buf + 4, (uint32_t)(v + d_nbfree));
-	v = nextufs_w_read_be32(csum_buf + 8);
-	nextufs_w_write_be32(csum_buf + 8, (uint32_t)(v + d_nifree));
-	v = nextufs_w_read_be32(csum_buf + 12);
-	nextufs_w_write_be32(csum_buf + 12, (uint32_t)(v + d_nffree));
-	return nextufs_w_write_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
+	v = nextufs__read_be32(csum_buf + 0);
+	nextufs__write_be32(csum_buf + 0, (uint32_t)(v + d_ndir));
+	v = nextufs__read_be32(csum_buf + 4);
+	nextufs__write_be32(csum_buf + 4, (uint32_t)(v + d_nbfree));
+	v = nextufs__read_be32(csum_buf + 8);
+	nextufs__write_be32(csum_buf + 8, (uint32_t)(v + d_nifree));
+	v = nextufs__read_be32(csum_buf + 12);
+	nextufs__write_be32(csum_buf + 12, (uint32_t)(v + d_nffree));
+	return nextufs__write_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
 }
 
 int
-nextufs_w_path_dirname_basename(const char *path, char *parent,
+nextufs__path_split(const char *path, char *parent,
     size_t parent_size, char *name, size_t name_size)
 {
 	const char *slash;

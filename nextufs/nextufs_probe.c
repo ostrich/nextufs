@@ -1,4 +1,4 @@
-#include "nextufs_read.h"
+#include "nextufs.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -85,7 +85,7 @@ dump_directory(const struct nextufs_image *img, const struct nextufs_inode *diri
 
 	ctx.count = 0;
 	printf("directory listing for inode %u:\n", inode_no);
-	if (nextufs_iterate_directory(img, dirino, dump_dir_cb, &ctx) < 0)
+	if (nextufs_directory_iterate(img, dirino, dump_dir_cb, &ctx) < 0)
 		fprintf(stderr, "directory iteration failed\n");
 }
 
@@ -127,13 +127,13 @@ main(int argc, char **argv)
 		fprintf(stderr, "usage: %s <raw-image> [path]\n", argv[0]);
 		return 1;
 	}
-	rc = nextufs_open_image(&img, argv[1]);
+	rc = nextufs_image_open(&img, argv[1]);
 	if (rc < 0) {
 		fprintf(stderr, "failed to open image %s\n", argv[1]);
 		return 1;
 	}
 	printf("image: %s\n", argv[1]);
-	nextufs_get_probe_info(&img, &probe);
+	nextufs_probe_info_get(&img, &probe);
 	if (probe.used_disk_label) {
 		printf("disk label:            version=0x%08x off=0x%jx secsize=%u front=%u root=%c\n",
 		    probe.label_version, (uintmax_t)probe.label_off,
@@ -141,15 +141,15 @@ main(int argc, char **argv)
 		    probe.rootpartition ? probe.rootpartition : '?');
 	}
 	print_superblock(&img);
-	rc = nextufs_get_root(&img, &node);
+	rc = nextufs_node_get_root(&img, &node);
 	if (rc < 0) {
-		nextufs_close_image(&img);
+		nextufs_image_close(&img);
 		return 1;
 	}
 	print_inode(&node.inode, node.inode_off, node.inode_no);
 	dump_directory(&img, &node.inode, node.inode_no);
 	if (argc == 3) {
-		rc = nextufs_lookup(&img, argv[2], 1, &node);
+		rc = nextufs_node_lookup(&img, argv[2], 1, &node);
 		if (rc == 0) {
 			uint8_t preview[PREVIEW_BYTES];
 			size_t got = 0;
@@ -160,11 +160,11 @@ main(int argc, char **argv)
 			if ((node.inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFDIR) {
 				dump_directory(&img, &node.inode, node.inode_no);
 			} else if ((node.inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFLNK) {
-				if (nextufs_read_symlink_target(&img, &node.inode, linkbuf,
+				if (nextufs_inode_readlink(&img, &node.inode, linkbuf,
 				    sizeof(linkbuf)) == 0)
 					printf("symlink target:        '%s'\n", linkbuf);
 			} else if ((node.inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFREG) {
-				if (nextufs_read_inode_data(&img, &node.inode, 0, preview,
+				if (nextufs_inode_read_data(&img, &node.inode, 0, preview,
 				    sizeof(preview), &got) == 0)
 					print_data_preview(preview, got);
 			}
@@ -172,6 +172,6 @@ main(int argc, char **argv)
 			fprintf(stderr, "lookup '%s' failed\n", argv[2]);
 		}
 	}
-	nextufs_close_image(&img);
+	nextufs_image_close(&img);
 	return 0;
 }

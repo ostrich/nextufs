@@ -1,4 +1,4 @@
-#include "nextufs_read_internal.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -36,7 +36,7 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 
 	if (depth > NEXTUFS_MAX_LOOKUP_DEPTH)
 		return -ELOOP;
-	if (nextufs_read_inode_by_number(img, NEXTUFS_ROOT_INODE, &current_inode,
+	if (nextufs_inode_read(img, NEXTUFS_ROOT_INODE, &current_inode,
 	    &current_inode_off) < 0)
 		return -EIO;
 	current_inode_no = NEXTUFS_ROOT_INODE;
@@ -66,7 +66,7 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 			free(scratch);
 			return -ENOTDIR;
 		}
-		if (nextufs_find_name_in_directory(img, &current_inode, segment,
+		if (nextufs__find_name_in_directory(img, &current_inode, segment,
 		    &next_inode_no) < 0) {
 			free(scratch);
 			return -EIO;
@@ -75,7 +75,7 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 			free(scratch);
 			return -ENOENT;
 		}
-		if (nextufs_read_inode_by_number(img, next_inode_no, &current_inode,
+		if (nextufs_inode_read(img, next_inode_no, &current_inode,
 		    &current_inode_off) < 0) {
 			free(scratch);
 			return -EIO;
@@ -91,7 +91,7 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 		}
 		if ((current_inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFLNK &&
 		    ((cursor == NULL || *cursor == '\0') ? follow_final_symlink : 1)) {
-			if (nextufs_read_symlink_target(img, &current_inode, link_target,
+			if (nextufs_inode_readlink(img, &current_inode, link_target,
 			    sizeof(link_target)) < 0) {
 				free(scratch);
 				return -EIO;
@@ -142,7 +142,7 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 }
 
 int
-nextufs_lookup_path(const struct nextufs_image *img, const char *path,
+nextufs_path_lookup(const struct nextufs_image *img, const char *path,
     unsigned *inode_no_out, struct nextufs_inode *inode_out,
     off_t *inode_off_out)
 {
@@ -151,7 +151,7 @@ nextufs_lookup_path(const struct nextufs_image *img, const char *path,
 }
 
 int
-nextufs_lookup_path_nofollow(const struct nextufs_image *img, const char *path,
+nextufs_path_lookup_nofollow(const struct nextufs_image *img, const char *path,
     unsigned *inode_no_out, struct nextufs_inode *inode_out,
     off_t *inode_off_out)
 {

@@ -120,48 +120,96 @@ typedef int (*nextufs_dir_iter_cb)(uint32_t ino, const char *name,
 typedef int (*nextufs_dir_node_iter_cb)(const struct nextufs_node *node,
 	const char *name, size_t name_len, void *ctx);
 
-int nextufs_open_image(struct nextufs_image *img, const char *path);
-void nextufs_close_image(struct nextufs_image *img);
-void nextufs_get_probe_info(const struct nextufs_image *img,
+enum nextufs_write_policy {
+	NEXTUFS_WRITE_EDITOR = 0,
+	NEXTUFS_WRITE_PERMISSIONS = 1,
+};
+
+struct nextufs_write_ctx {
+	enum nextufs_write_policy policy;
+	uid_t uid;
+	gid_t gid;
+	const gid_t *groups;
+	size_t group_count;
+};
+
+int nextufs_image_open(struct nextufs_image *img, const char *path);
+void nextufs_image_close(struct nextufs_image *img);
+void nextufs_probe_info_get(const struct nextufs_image *img,
 	struct nextufs_probe_info *info);
-int nextufs_get_root(const struct nextufs_image *img, struct nextufs_node *node);
-int nextufs_get_node_by_inode(const struct nextufs_image *img, unsigned inode_no,
+int nextufs_node_get_root(const struct nextufs_image *img,
 	struct nextufs_node *node);
-int nextufs_lookup(const struct nextufs_image *img, const char *path,
+int nextufs_node_get_by_inode(const struct nextufs_image *img, unsigned inode_no,
+	struct nextufs_node *node);
+int nextufs_node_lookup(const struct nextufs_image *img, const char *path,
 	int follow_final_symlink, struct nextufs_node *node);
 int nextufs_node_stat(const struct nextufs_node *node, struct stat *st);
 int nextufs_node_is_dir(const struct nextufs_node *node);
 int nextufs_node_is_reg(const struct nextufs_node *node);
 int nextufs_node_is_lnk(const struct nextufs_node *node);
-int nextufs_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
-	int mask);
-int nextufs_statvfs(const struct nextufs_image *img, struct statvfs *stvfs);
-int nextufs_read_inode_by_number(const struct nextufs_image *img,
+int nextufs_node_check_access(const struct nextufs_node *node, uid_t uid,
+	gid_t gid, int mask);
+int nextufs_fs_statvfs(const struct nextufs_image *img, struct statvfs *stvfs);
+int nextufs_inode_read(const struct nextufs_image *img,
 	unsigned inode_no, struct nextufs_inode *ino, off_t *ino_off);
-int nextufs_lookup_path(const struct nextufs_image *img, const char *path,
+int nextufs_path_lookup(const struct nextufs_image *img, const char *path,
 	unsigned *inode_no_out, struct nextufs_inode *inode_out,
 	off_t *inode_off_out);
-int nextufs_lookup_path_nofollow(const struct nextufs_image *img,
+int nextufs_path_lookup_nofollow(const struct nextufs_image *img,
 	const char *path, unsigned *inode_no_out, struct nextufs_inode *inode_out,
 	off_t *inode_off_out);
-int nextufs_read_inode_data(const struct nextufs_image *img,
+int nextufs_inode_read_data(const struct nextufs_image *img,
 	const struct nextufs_inode *ino, uint64_t start, uint8_t *buf,
 	size_t buf_size, size_t *bytes_read);
-int nextufs_read_symlink_target(const struct nextufs_image *img,
+int nextufs_inode_readlink(const struct nextufs_image *img,
 	const struct nextufs_inode *ino, char *out, size_t out_size);
-int nextufs_readlink_path(const struct nextufs_image *img, const char *path,
+int nextufs_path_readlink(const struct nextufs_image *img, const char *path,
 	char *out, size_t out_size);
-int nextufs_iterate_directory(const struct nextufs_image *img,
+int nextufs_directory_iterate(const struct nextufs_image *img,
 	const struct nextufs_inode *dirino, nextufs_dir_iter_cb cb, void *ctx);
-int nextufs_iterate_directory_nodes(const struct nextufs_image *img,
+int nextufs_directory_iterate_nodes(const struct nextufs_image *img,
 	const struct nextufs_inode *dirino, nextufs_dir_node_iter_cb cb, void *ctx);
-int nextufs_iterate_directory_path(const struct nextufs_image *img,
+int nextufs_directory_iterate_path(const struct nextufs_image *img,
 	const char *path, int follow_final_symlink, nextufs_dir_iter_cb cb,
 	void *ctx);
-int nextufs_iterate_directory_nodes_path(const struct nextufs_image *img,
+int nextufs_directory_iterate_nodes_path(const struct nextufs_image *img,
 	const char *path, int follow_final_symlink, nextufs_dir_node_iter_cb cb,
 	void *ctx);
-int nextufs_read_path(const struct nextufs_image *img, const char *path,
+int nextufs_path_read(const struct nextufs_image *img, const char *path,
 	uint64_t start, uint8_t *buf, size_t buf_size, size_t *bytes_read);
+int nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, const void *data,
+	size_t data_len);
+int nextufs_path_create_file_from_hostfile(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, const char *host_file);
+int nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path);
+int nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uint16_t mode);
+int nextufs_path_overwrite_file(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, const void *data, size_t data_len);
+int nextufs_path_append_file(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, const void *data, size_t data_len);
+int nextufs_path_rmdir(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path);
+int nextufs_path_link(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *source_path, const char *target_path);
+int nextufs_path_rename(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *source_path, const char *target_path);
+int nextufs_path_symlink(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *target, const char *link_path);
+int nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uint64_t size);
+int nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, const void *data,
+	size_t data_len, uint64_t offset);
+int nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uint16_t mode, uint32_t rdev);
+int nextufs_path_chmod(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uint16_t mode);
+int nextufs_path_chown(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uid_t uid, gid_t gid);
+int nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
+	const char *image_path, const char *path, uint32_t atime, uint32_t mtime);
 
 #endif

@@ -1,4 +1,4 @@
-#include "nextufs_read_internal.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -385,7 +385,7 @@ inode_offset_guess(const struct nextufs_image *img, unsigned inode_no)
 }
 
 int
-nextufs_read_inode_by_number(const struct nextufs_image *img, unsigned inode_no,
+nextufs_inode_read(const struct nextufs_image *img, unsigned inode_no,
     struct nextufs_inode *ino, off_t *ino_off)
 {
 	uint8_t ibuf[UFS_INODE_SIZE];
@@ -483,7 +483,7 @@ resolve_file_block_frag(const struct nextufs_image *img,
 }
 
 int
-nextufs_read_inode_data(const struct nextufs_image *img,
+nextufs_inode_read_data(const struct nextufs_image *img,
     const struct nextufs_inode *ino, uint64_t start, uint8_t *buf,
     size_t buf_size, size_t *bytes_read)
 {
@@ -566,7 +566,7 @@ decode_inline_symlink(const struct nextufs_inode *ino, char *out,
 }
 
 int
-nextufs_read_symlink_target(const struct nextufs_image *img,
+nextufs_inode_readlink(const struct nextufs_image *img,
     const struct nextufs_inode *ino, char *out, size_t out_size)
 {
 	size_t got;
@@ -575,7 +575,7 @@ nextufs_read_symlink_target(const struct nextufs_image *img,
 		return -EINVAL;
 	if (decode_inline_symlink(ino, out, out_size) != 0)
 		return 0;
-	if (nextufs_read_inode_data(img, ino, 0, (uint8_t *)out, out_size - 1,
+	if (nextufs_inode_read_data(img, ino, 0, (uint8_t *)out, out_size - 1,
 	    &got) < 0)
 		return -EIO;
 	out[got] = '\0';
@@ -583,7 +583,7 @@ nextufs_read_symlink_target(const struct nextufs_image *img,
 }
 
 int
-nextufs_open_image(struct nextufs_image *img, const char *path)
+nextufs_image_open(struct nextufs_image *img, const char *path)
 {
 	struct stat st;
 	uint8_t *scanbuf;
@@ -687,7 +687,7 @@ nextufs_open_image(struct nextufs_image *img, const char *path)
 }
 
 void
-nextufs_close_image(struct nextufs_image *img)
+nextufs_image_close(struct nextufs_image *img)
 {
 	if (img->fd >= 0)
 		close(img->fd);

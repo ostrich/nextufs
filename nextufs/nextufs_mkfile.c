@@ -1,4 +1,4 @@
-#include "nextufs_write.h"
+#include "nextufs.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const struct nextufs_write_ctx g_nextufs_editor_ctx = {
+static const struct nextufs_write_ctx g_mkfile_editor_ctx = {
 	.policy = NEXTUFS_WRITE_EDITOR,
 	.uid = 0,
 	.gid = 0,
@@ -64,7 +64,7 @@ parse_global_ctx_args(int argc, char **argv, int *argi,
 {
 	unsigned long v;
 
-	*ctx = g_nextufs_editor_ctx;
+	*ctx = g_mkfile_editor_ctx;
 	while (*argi < argc) {
 		if (strcmp(argv[*argi], "--policy") == 0) {
 			if (*argi + 1 >= argc)
@@ -112,7 +112,7 @@ main(int argc, char **argv)
 	}
 
 	if (argc - argi == 3 && strcmp(argv[argi], "--unlink") == 0) {
-		rc = nextufs_unlink_path(&ctx, argv[argi + 1], argv[argi + 2]);
+		rc = nextufs_path_unlink(&ctx, argv[argi + 1], argv[argi + 2]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -120,7 +120,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 3 && strcmp(argv[argi], "--mkdir") == 0) {
-		rc = nextufs_mkdir_path(&ctx, argv[argi + 1], argv[argi + 2], 0777);
+		rc = nextufs_path_mkdir(&ctx, argv[argi + 1], argv[argi + 2], 0777);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -128,7 +128,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--overwrite") == 0) {
-		rc = nextufs_overwrite_file(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3],
+		rc = nextufs_path_overwrite_file(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3],
 		    strlen(argv[argi + 3]));
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
@@ -137,7 +137,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--append") == 0) {
-		rc = nextufs_append_file(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3],
+		rc = nextufs_path_append_file(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3],
 		    strlen(argv[argi + 3]));
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
@@ -146,7 +146,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 3 && strcmp(argv[argi], "--rmdir") == 0) {
-		rc = nextufs_rmdir_path(&ctx, argv[argi + 1], argv[argi + 2]);
+		rc = nextufs_path_rmdir(&ctx, argv[argi + 1], argv[argi + 2]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -154,7 +154,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--link") == 0) {
-		rc = nextufs_link_path(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
+		rc = nextufs_path_link(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -162,7 +162,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--rename") == 0) {
-		rc = nextufs_rename_path(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
+		rc = nextufs_path_rename(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -170,7 +170,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--symlink") == 0) {
-		rc = nextufs_symlink_path(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
+		rc = nextufs_path_symlink(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -178,7 +178,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--truncate") == 0) {
-		rc = nextufs_truncate_path(&ctx, argv[argi + 1], argv[argi + 2],
+		rc = nextufs_path_truncate(&ctx, argv[argi + 1], argv[argi + 2],
 		    (uint64_t)strtoull(argv[argi + 3], NULL, 0));
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
@@ -187,7 +187,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--pwrite") == 0) {
-		rc = nextufs_pwrite_path(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 4],
+		rc = nextufs_path_pwrite(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 4],
 		    strlen(argv[argi + 4]), (uint64_t)strtoull(argv[argi + 3], NULL, 0));
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
@@ -196,7 +196,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--mknod") == 0) {
-		rc = nextufs_mknod_path(&ctx, argv[argi + 1], argv[argi + 2],
+		rc = nextufs_path_mknod(&ctx, argv[argi + 1], argv[argi + 2],
 		    (uint16_t)strtoul(argv[argi + 3], NULL, 8),
 		    (uint32_t)strtoul(argv[argi + 4], NULL, 0));
 		if (rc < 0) {
@@ -206,7 +206,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--chmod") == 0) {
-		rc = nextufs_chmod_path(&ctx, argv[argi + 1], argv[argi + 2],
+		rc = nextufs_path_chmod(&ctx, argv[argi + 1], argv[argi + 2],
 		    (uint16_t)strtoul(argv[argi + 3], NULL, 8));
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
@@ -220,7 +220,7 @@ main(int argc, char **argv)
 			fprintf(stderr, "nextufs_mkfile: invalid chown ids\n");
 			return 2;
 		}
-		rc = nextufs_chown_path(&ctx, argv[argi + 1], argv[argi + 2], uid, gid);
+		rc = nextufs_path_chown(&ctx, argv[argi + 1], argv[argi + 2], uid, gid);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -228,7 +228,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--utimes") == 0) {
-		rc = nextufs_utimes_path(&ctx, argv[argi + 1], argv[argi + 2],
+		rc = nextufs_path_utimes(&ctx, argv[argi + 1], argv[argi + 2],
 		    (uint32_t)strtoul(argv[argi + 3], NULL, 0),
 		    (uint32_t)strtoul(argv[argi + 4], NULL, 0));
 		if (rc < 0) {
@@ -238,7 +238,7 @@ main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--from-file") == 0) {
-		rc = nextufs_create_file_from_hostfile(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
+		rc = nextufs_path_create_file_from_hostfile(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 3]);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);
 			return 1;
@@ -268,7 +268,7 @@ main(int argc, char **argv)
 		    argv[0], argv[0], argv[0], argv[0]);
 		return 2;
 	}
-	rc = nextufs_create_small_file(&ctx, argv[argi], argv[argi + 1], argv[argi + 2],
+	rc = nextufs_path_create_file(&ctx, argv[argi], argv[argi + 1], argv[argi + 2],
 	    strlen(argv[argi + 2]));
 	if (rc < 0) {
 		fprintf(stderr, "nextufs_mkfile: failed: %d\n", rc);

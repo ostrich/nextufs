@@ -1,4 +1,4 @@
-#include "nextufs_read_internal.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -36,7 +36,7 @@ read_dirent_v1(const uint8_t *buf, size_t size, size_t off, uint32_t *ino,
 }
 
 int
-nextufs_iterate_directory(const struct nextufs_image *img,
+nextufs_directory_iterate(const struct nextufs_image *img,
     const struct nextufs_inode *dirino, nextufs_dir_iter_cb cb, void *ctx)
 {
 	uint8_t *buf;
@@ -53,7 +53,7 @@ nextufs_iterate_directory(const struct nextufs_image *img,
 
 		chunk_size = remaining < img->sb.block_size ?
 		    (size_t)remaining : img->sb.block_size;
-		if (nextufs_read_inode_data(img, dirino,
+		if (nextufs_inode_read_data(img, dirino,
 		    (uint64_t)block_index * img->sb.block_size, buf, chunk_size,
 		    NULL) < 0) {
 			free(buf);
@@ -98,14 +98,14 @@ dir_node_cb(uint32_t ino, const char *name, size_t name_len, void *ctx_ptr)
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_get_node_by_inode(ctx->img, ino, &node);
+	rc = nextufs_node_get_by_inode(ctx->img, ino, &node);
 	if (rc < 0)
 		return rc;
 	return ctx->cb(&node, name, name_len, ctx->ctx);
 }
 
 int
-nextufs_iterate_directory_nodes(const struct nextufs_image *img,
+nextufs_directory_iterate_nodes(const struct nextufs_image *img,
     const struct nextufs_inode *dirino, nextufs_dir_node_iter_cb cb, void *ctx)
 {
 	struct dir_node_ctx node_ctx;
@@ -113,7 +113,7 @@ nextufs_iterate_directory_nodes(const struct nextufs_image *img,
 	node_ctx.img = img;
 	node_ctx.cb = cb;
 	node_ctx.ctx = ctx;
-	return nextufs_iterate_directory(img, dirino, dir_node_cb, &node_ctx);
+	return nextufs_directory_iterate(img, dirino, dir_node_cb, &node_ctx);
 }
 
 struct find_name_ctx {
@@ -136,7 +136,7 @@ find_name_cb(uint32_t ino, const char *name, size_t name_len, void *ctx_ptr)
 }
 
 int
-nextufs_find_name_in_directory(const struct nextufs_image *img,
+nextufs__find_name_in_directory(const struct nextufs_image *img,
     const struct nextufs_inode *dirino, const char *target_name,
     unsigned *target_inode)
 {
@@ -147,7 +147,7 @@ nextufs_find_name_in_directory(const struct nextufs_image *img,
 	ctx.target_len = strlen(target_name);
 	ctx.target_inode = target_inode;
 	*target_inode = 0;
-	rc = nextufs_iterate_directory(img, dirino, find_name_cb, &ctx);
+	rc = nextufs_directory_iterate(img, dirino, find_name_cb, &ctx);
 	if (rc == 1)
 		return 0;
 	return rc;

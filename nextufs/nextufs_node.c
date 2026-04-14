@@ -1,4 +1,4 @@
-#include "nextufs_read.h"
+#include "nextufs.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -6,7 +6,7 @@
 #include <time.h>
 
 void
-nextufs_get_probe_info(const struct nextufs_image *img,
+nextufs_probe_info_get(const struct nextufs_image *img,
     struct nextufs_probe_info *info)
 {
 	memset(info, 0, sizeof(*info));
@@ -22,31 +22,31 @@ nextufs_get_probe_info(const struct nextufs_image *img,
 }
 
 int
-nextufs_get_root(const struct nextufs_image *img, struct nextufs_node *node)
+nextufs_node_get_root(const struct nextufs_image *img, struct nextufs_node *node)
 {
-	return nextufs_lookup(img, "/", 1, node);
+	return nextufs_node_lookup(img, "/", 1, node);
 }
 
 int
-nextufs_get_node_by_inode(const struct nextufs_image *img, unsigned inode_no,
+nextufs_node_get_by_inode(const struct nextufs_image *img, unsigned inode_no,
     struct nextufs_node *node)
 {
 	node->inode_no = inode_no;
-	return nextufs_read_inode_by_number(img, inode_no, &node->inode,
+	return nextufs_inode_read(img, inode_no, &node->inode,
 	    &node->inode_off);
 }
 
 int
-nextufs_lookup(const struct nextufs_image *img, const char *path,
+nextufs_node_lookup(const struct nextufs_image *img, const char *path,
     int follow_final_symlink, struct nextufs_node *node)
 {
 	int rc;
 
 	if (follow_final_symlink) {
-		rc = nextufs_lookup_path(img, path, &node->inode_no, &node->inode,
+		rc = nextufs_path_lookup(img, path, &node->inode_no, &node->inode,
 		    &node->inode_off);
 	} else {
-		rc = nextufs_lookup_path_nofollow(img, path, &node->inode_no,
+		rc = nextufs_path_lookup_nofollow(img, path, &node->inode_no,
 		    &node->inode, &node->inode_off);
 	}
 	return rc;
@@ -91,7 +91,7 @@ nextufs_node_is_lnk(const struct nextufs_node *node)
 }
 
 int
-nextufs_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
+nextufs_node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
     int mask)
 {
 	mode_t bits;
@@ -127,7 +127,7 @@ nextufs_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
 }
 
 int
-nextufs_statvfs(const struct nextufs_image *img, struct statvfs *stvfs)
+nextufs_fs_statvfs(const struct nextufs_image *img, struct statvfs *stvfs)
 {
 	uint64_t free_frags;
 	uint64_t reserved_frags;
@@ -157,61 +157,61 @@ nextufs_statvfs(const struct nextufs_image *img, struct statvfs *stvfs)
 }
 
 int
-nextufs_readlink_path(const struct nextufs_image *img, const char *path,
+nextufs_path_readlink(const struct nextufs_image *img, const char *path,
     char *out, size_t out_size)
 {
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_lookup(img, path, 0, &node);
+	rc = nextufs_node_lookup(img, path, 0, &node);
 	if (rc < 0)
 		return rc;
-	return nextufs_read_symlink_target(img, &node.inode, out, out_size);
+	return nextufs_inode_readlink(img, &node.inode, out, out_size);
 }
 
 int
-nextufs_iterate_directory_path(const struct nextufs_image *img, const char *path,
+nextufs_directory_iterate_path(const struct nextufs_image *img, const char *path,
     int follow_final_symlink, nextufs_dir_iter_cb cb, void *ctx)
 {
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_lookup(img, path, follow_final_symlink, &node);
+	rc = nextufs_node_lookup(img, path, follow_final_symlink, &node);
 	if (rc < 0)
 		return rc;
 	if (!nextufs_node_is_dir(&node))
 		return -ENOTDIR;
-	return nextufs_iterate_directory(img, &node.inode, cb, ctx);
+	return nextufs_directory_iterate(img, &node.inode, cb, ctx);
 }
 
 int
-nextufs_iterate_directory_nodes_path(const struct nextufs_image *img,
+nextufs_directory_iterate_nodes_path(const struct nextufs_image *img,
     const char *path, int follow_final_symlink, nextufs_dir_node_iter_cb cb,
     void *ctx)
 {
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_lookup(img, path, follow_final_symlink, &node);
+	rc = nextufs_node_lookup(img, path, follow_final_symlink, &node);
 	if (rc < 0)
 		return rc;
 	if (!nextufs_node_is_dir(&node))
 		return -ENOTDIR;
-	return nextufs_iterate_directory_nodes(img, &node.inode, cb, ctx);
+	return nextufs_directory_iterate_nodes(img, &node.inode, cb, ctx);
 }
 
 int
-nextufs_read_path(const struct nextufs_image *img, const char *path,
+nextufs_path_read(const struct nextufs_image *img, const char *path,
     uint64_t start, uint8_t *buf, size_t buf_size, size_t *bytes_read)
 {
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_lookup(img, path, 1, &node);
+	rc = nextufs_node_lookup(img, path, 1, &node);
 	if (rc < 0)
 		return rc;
 	if (!nextufs_node_is_reg(&node))
 		return -EINVAL;
-	return nextufs_read_inode_data(img, &node.inode, start, buf, buf_size,
+	return nextufs_inode_read_data(img, &node.inode, start, buf, buf_size,
 	    bytes_read);
 }
