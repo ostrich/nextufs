@@ -3,26 +3,22 @@
 NeXT/OpenStep UFS tooling and filesystem driver work extracted from a larger
 NeXT source tree.
 
-Current components:
+Components:
 
 - `nextufs/`: shared filesystem library, probe tool, writable FUSE mount, and
   offline mutation tool used for regression tests
 - `fsck/`: Linux port of the historical NeXT/BSD `fsck`
 - `mkfs/`: Linux port of the historical NeXT/BSD `mkfs`
 
-Current status:
+Status:
 
 - image probing and FUSE mount are working
-- offline mutation operations are working and validated against `fsck_next`
+- offline mutation operations are working and validated against `fsck.nextufs`
 - writable FUSE now covers the current mutation primitives
 - writable FUSE defaults to permission-checked operations using the calling
   process credentials
 - implemented mutation operations include `rename`, long symlinks,
   truncate/grow/shrink, indirect-block allocation, and special files
-
-Continuation:
-
-- read [CONTINUATION.md](CONTINUATION.md) before resuming development in a new session
 
 Build:
 

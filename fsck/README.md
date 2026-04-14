@@ -34,9 +34,9 @@ Run against the OpenStep sample image:
 
 Historical `fsck` port:
 
-- `fsck_next` builds from the original source with a local compatibility layer
+- `fsck.nextufs` builds from the original source with a local compatibility layer
 - the source now compiles in both `i386` and `x86_64` Linux configurations
-- `fsck_next` is the only historical-port binary that gets produced
+- `fsck.nextufs` is the only historical-port binary that gets produced
 - by default it builds for the host ABI
 - if you want a 32-bit build from the same source tree, use `ARCH_CFLAGS=-m32`
 - both native and `-m32` builds now complete the same clean five-phase read-only run on the OpenStep 4.2 sample slice
@@ -45,15 +45,15 @@ Historical `fsck` port:
 Build the original port:
 
 ```sh
-make -f Makefile.linux fsck_next
-make -f Makefile.linux ARCH_CFLAGS=-m32 fsck_next
+make -f Makefile.linux fsck.nextufs
+make -f Makefile.linux ARCH_CFLAGS=-m32 fsck.nextufs
 ```
 
 Run it on the extracted filesystem slice from the sample image:
 
 ```sh
 dd if=openstep42-base.raw of=/tmp/openstep42-a.raw bs=1024 skip=160 count=2096480 status=none
-./fsck_next -n /tmp/openstep42-a.raw
+./fsck.nextufs -n /tmp/openstep42-a.raw
 ```
 
 Expected result on the sample image is a clean five-phase read-only pass ending with:

@@ -1,14 +1,14 @@
-# mkfs_next
+# mkfs.nextufs
 
 Linux port of the historical NeXT/BSD `mkfs` source from
 an older NeXT/BSD source drop.
 
 Current state:
 
-- builds as `mkfs_next`
+- builds as `mkfs.nextufs`
 - writes big-endian NeXT/OpenStep-style UFS metadata
 - validated locally by creating a raw filesystem image and checking it with
-  `../fsck/fsck_next`
+  `../fsck/fsck.nextufs`
 - the generated image is also readable with
   `../nextufs/nextufs_probe`
 
@@ -21,7 +21,7 @@ make -f Makefile.linux
 Example:
 
 ```sh
-./mkfs_next /tmp/mkfs-next-test.img 65536 63 16 8192 1024 16 10 60 2048 t
+./mkfs.nextufs /tmp/mkfs-next-test.img 65536 63 16 8192 1024 16 10 60 2048 t
 ```
 
 That creates a 64 MiB raw filesystem image using:
@@ -40,8 +40,8 @@ That creates a 64 MiB raw filesystem image using:
 Validation workflow:
 
 ```sh
-./mkfs_next /tmp/mkfs-next-test.img 65536 63 16 8192 1024 16 10 60 2048 t
-../fsck/fsck_next -n /tmp/mkfs-next-test.img
+./mkfs.nextufs /tmp/mkfs-next-test.img 65536 63 16 8192 1024 16 10 60 2048 t
+../fsck/fsck.nextufs -n /tmp/mkfs-next-test.img
 ../nextufs/nextufs_probe /tmp/mkfs-next-test.img
 ```
 

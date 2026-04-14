@@ -87,7 +87,7 @@ make -f Makefile.linux test-write
 
 This creates a scratch copy of `openstep42-base.raw`, writes a small regular
 file under `/private/tmp`, verifies readback with `nextufs_probe`, and runs
-`fsck_next -n` against the extracted filesystem slice.
+`fsck.nextufs -n` against the extracted filesystem slice.
 
 Larger mutation regression:
 
@@ -97,7 +97,7 @@ make -f Makefile.linux test-write-big
 
 This creates a fresh scratch image, writes a 3000-byte file under
 `/private/tmp`, verifies its size with `nextufs_probe`, reads the full file
-back through the FUSE mount with `cmp`, and then runs `fsck_next -n` against
+back through the FUSE mount with `cmp`, and then runs `fsck.nextufs -n` against
 the extracted filesystem slice.
 
 Directory growth mutation regression:
@@ -109,7 +109,7 @@ make -f Makefile.linux test-write-grow
 This creates many empty files under `/private/tmp` on a fresh scratch image to
 force directory growth, verifies through the probe that `/private/tmp` grows to
 multiple directory blocks and contains the final file, verifies the final file
-through the FUSE mount, and then runs `fsck_next -n` against the extracted
+through the FUSE mount, and then runs `fsck.nextufs -n` against the extracted
 filesystem slice.
 
 Unlink regression:
@@ -120,7 +120,7 @@ make -f Makefile.linux test-unlink
 
 This creates a file on a fresh scratch image, unlinks it through the offline
 writer, verifies that path lookup now fails in both the probe and FUSE mount,
-and then runs `fsck_next -n` against the extracted filesystem slice.
+and then runs `fsck.nextufs -n` against the extracted filesystem slice.
 
 Mkdir regression:
 
@@ -130,7 +130,7 @@ make -f Makefile.linux test-mkdir
 
 This creates a new directory on a fresh scratch image, creates a regular file
 inside it, verifies both through the probe and the FUSE mount, and then runs
-`fsck_next -n` against the extracted filesystem slice.
+`fsck.nextufs -n` against the extracted filesystem slice.
 
 Overwrite and append regression:
 
@@ -140,7 +140,7 @@ make -f Makefile.linux test-rewrite
 
 This creates a file on a fresh scratch image, overwrites it in place, appends
 more data to the same inode, verifies the final contents through the probe and
-the FUSE mount, and then runs `fsck_next -n` against the extracted filesystem
+the FUSE mount, and then runs `fsck.nextufs -n` against the extracted filesystem
 slice.
 
 Link and symlink regression:
@@ -150,7 +150,7 @@ make -f Makefile.linux test-link-symlink
 ```
 
 This creates a regular file, adds a hard link and a short inline symlink to it,
-verifies both through the probe and FUSE mount, and then runs `fsck_next -n`
+verifies both through the probe and FUSE mount, and then runs `fsck.nextufs -n`
 against the extracted filesystem slice.
 
 Rmdir regression:
@@ -160,7 +160,7 @@ make -f Makefile.linux test-rmdir
 ```
 
 This creates an empty directory, removes it, verifies that lookup fails through
- both the probe and FUSE mount, and then runs `fsck_next -n`.
+ both the probe and FUSE mount, and then runs `fsck.nextufs -n`.
 
 Metadata regression:
 
@@ -170,7 +170,7 @@ make -f Makefile.linux test-meta
 
 This creates a file, applies `chmod`, `chown`, and timestamp updates through
 the offline writer, verifies the changed metadata through the probe, and then
-runs `fsck_next -n`.
+runs `fsck.nextufs -n`.
 
 Rename regression:
 
@@ -180,7 +180,7 @@ make -f Makefile.linux test-rename
 
 This exercises file and directory rename cases, including replacement of an
 existing file and a cross-directory directory move, then validates the result
-through both the probe and the FUSE mount before running `fsck_next -n`.
+through both the probe and the FUSE mount before running `fsck.nextufs -n`.
 
 Truncate and indirect-allocation regression:
 
@@ -191,7 +191,7 @@ make -f Makefile.linux test-truncate
 This creates a file large enough to require indirect blocks, verifies the
 indirect mapping through the probe, shrinks and regrows the file, checks
 zero-filled growth and later writes through the FUSE mount, and then runs
-`fsck_next -n`.
+`fsck.nextufs -n`.
 
 Special-file regression:
 
@@ -201,7 +201,7 @@ make -f Makefile.linux test-special
 
 This creates FIFO and character-device inodes through the offline writer,
 verifies their metadata through the probe and the FUSE mount, and then runs
-`fsck_next -n`.
+`fsck.nextufs -n`.
 
 Writable FUSE regression:
 
@@ -211,7 +211,7 @@ make -f Makefile.linux test-fuse-write
 
 This exercises create, append, rename, hard link, symlink, mkdir, truncate,
 range write, FIFO creation, unlink, and rmdir through the mounted FUSE
-frontend, then validates the resulting image with the probe and `fsck_next -n`.
+frontend, then validates the resulting image with the probe and `fsck.nextufs -n`.
 
 Permission and ownership regression:
 
@@ -221,7 +221,7 @@ make -f Makefile.linux test-permissions
 
 This exercises permission-mode failures and successes for `chmod`, `chown`,
 `utimes`, sticky-directory `unlink`/`rename`, and oversized `uid`/`gid`
-rejection, then validates the resulting image with `fsck_next -n`.
+rejection, then validates the resulting image with `fsck.nextufs -n`.
 
 Low-space failure-discipline regression:
 
@@ -229,9 +229,9 @@ Low-space failure-discipline regression:
 make -f Makefile.linux test-failure
 ```
 
-This creates a small scratch filesystem with `mkfs_next`, forces `ENOSPC`
+This creates a small scratch filesystem with `mkfs.nextufs`, forces `ENOSPC`
 during file creation and truncate growth, verifies that pre-existing data is
-left intact, and then confirms that `fsck_next -n` still reports a clean
+left intact, and then confirms that `fsck.nextufs -n` still reports a clean
 filesystem.
 
 Probe the OpenStep sample image:

@@ -47,7 +47,7 @@ test-write: all
 	grep -F 'hello from linux' $(SCRATCH_DIR)/nextufs_write_probe.out
 	grep -F 'nextufs' $(SCRATCH_DIR)/nextufs_write_probe.out
 	dd if=$(SCRATCH_DIR)/nextufs-write-test.raw of=$(SCRATCH_DIR)/nextufs-write-test-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-test-a.raw >$(SCRATCH_DIR)/nextufs_write_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-test-a.raw >$(SCRATCH_DIR)/nextufs_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_fsck.out
 
 test-write-big: all
@@ -67,7 +67,7 @@ test-write-big: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-write-big.raw of=$(SCRATCH_DIR)/nextufs-write-big-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-big-a.raw >$(SCRATCH_DIR)/nextufs_write_big_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-big-a.raw >$(SCRATCH_DIR)/nextufs_write_big_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_big_fsck.out
 
 test-write-grow: all
@@ -89,7 +89,7 @@ test-write-grow: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-write-grow.raw of=$(SCRATCH_DIR)/nextufs-write-grow-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-grow-a.raw >$(SCRATCH_DIR)/nextufs_write_grow_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-grow-a.raw >$(SCRATCH_DIR)/nextufs_write_grow_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_grow_fsck.out
 
 test-unlink: all
@@ -108,7 +108,7 @@ test-unlink: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-unlink.raw of=$(SCRATCH_DIR)/nextufs-unlink-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-unlink-a.raw >$(SCRATCH_DIR)/nextufs_unlink_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-unlink-a.raw >$(SCRATCH_DIR)/nextufs_unlink_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_unlink_fsck.out
 
 test-mkdir: all
@@ -131,7 +131,7 @@ test-mkdir: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-mkdir.raw of=$(SCRATCH_DIR)/nextufs-mkdir-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-mkdir-a.raw >$(SCRATCH_DIR)/nextufs_mkdir_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-mkdir-a.raw >$(SCRATCH_DIR)/nextufs_mkdir_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_mkdir_fsck.out
 
 test-rewrite: all
@@ -151,7 +151,7 @@ test-rewrite: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-rewrite.raw of=$(SCRATCH_DIR)/nextufs-rewrite-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-rewrite-a.raw >$(SCRATCH_DIR)/nextufs_rewrite_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rewrite-a.raw >$(SCRATCH_DIR)/nextufs_rewrite_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rewrite_fsck.out
 
 test-link-symlink: all
@@ -172,7 +172,7 @@ test-link-symlink: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-link.raw of=$(SCRATCH_DIR)/nextufs-link-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-link-a.raw >$(SCRATCH_DIR)/nextufs_link_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-link-a.raw >$(SCRATCH_DIR)/nextufs_link_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_link_fsck.out
 
 test-rmdir: all
@@ -191,7 +191,7 @@ test-rmdir: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-rmdir.raw of=$(SCRATCH_DIR)/nextufs-rmdir-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-rmdir-a.raw >$(SCRATCH_DIR)/nextufs_rmdir_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rmdir-a.raw >$(SCRATCH_DIR)/nextufs_rmdir_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rmdir_fsck.out
 
 test-meta: all
@@ -204,7 +204,7 @@ test-meta: all
 	grep -F 'mode=0100600' $(SCRATCH_DIR)/nextufs_meta_probe.out
 	grep -F 'uid=123 gid=456' $(SCRATCH_DIR)/nextufs_meta_probe.out
 	dd if=$(SCRATCH_DIR)/nextufs-meta.raw of=$(SCRATCH_DIR)/nextufs-meta-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-meta-a.raw >$(SCRATCH_DIR)/nextufs_meta_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-meta-a.raw >$(SCRATCH_DIR)/nextufs_meta_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_meta_fsck.out
 
 test-rename: all
@@ -233,7 +233,7 @@ test-rename: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-rename.raw of=$(SCRATCH_DIR)/nextufs-rename-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-rename-a.raw >$(SCRATCH_DIR)/nextufs_rename_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rename-a.raw >$(SCRATCH_DIR)/nextufs_rename_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rename_fsck.out
 
 test-truncate: all
@@ -266,7 +266,7 @@ test-truncate: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-truncate.raw of=$(SCRATCH_DIR)/nextufs-truncate-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-truncate-a.raw >$(SCRATCH_DIR)/nextufs_truncate_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-truncate-a.raw >$(SCRATCH_DIR)/nextufs_truncate_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_truncate_fsck.out
 
 test-special: all
@@ -287,7 +287,7 @@ test-special: all
 		wait $$pid || true; \
 		trap - EXIT INT TERM
 	dd if=$(SCRATCH_DIR)/nextufs-special.raw of=$(SCRATCH_DIR)/nextufs-special-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-special-a.raw >$(SCRATCH_DIR)/nextufs_special_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-special-a.raw >$(SCRATCH_DIR)/nextufs_special_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_special_fsck.out
 
 test-fuse-write: all
@@ -321,7 +321,7 @@ test-fuse-write: all
 	grep -F 'size=14000' $(SCRATCH_DIR)/nextufs_fuse_write_probe.out
 	grep -F 'hello+world' $(SCRATCH_DIR)/nextufs_fuse_write_probe.out
 	dd if=$(SCRATCH_DIR)/nextufs-fuse-write.raw of=$(SCRATCH_DIR)/nextufs-fuse-write-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-fuse-write-a.raw >$(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-fuse-write-a.raw >$(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
 
 test-permissions: all
@@ -350,12 +350,12 @@ test-permissions: all
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow >$(SCRATCH_DIR)/nextufs_permissions_overflow_probe.out 2>&1
 	grep -F "lookup '/private/tmp/nextufs-overflow' failed" $(SCRATCH_DIR)/nextufs_permissions_overflow_probe.out
 	dd if=$(SCRATCH_DIR)/nextufs-permissions.raw of=$(SCRATCH_DIR)/nextufs-permissions-a.raw bs=1024 skip=160 count=2096480 status=none
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-permissions-a.raw >$(SCRATCH_DIR)/nextufs_permissions_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-permissions-a.raw >$(SCRATCH_DIR)/nextufs_permissions_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_permissions_fsck.out
 
 test-failure: all
 	$(MAKE) -C ../mkfs -f Makefile.linux
-	../mkfs/mkfs_next $(SCRATCH_DIR)/nextufs-failure.raw 4096 63 16 8192 1024 16 10 60 2048 t
+	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-failure.raw 4096 63 16 8192 1024 16 10 60 2048 t
 	printf 'ok' >$(SCRATCH_DIR)/nextufs-seed.bin
 	dd if=/dev/zero of=$(SCRATCH_DIR)/nextufs-too-big.bin bs=1000000 count=6 status=none
 	./nextufs_mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /seed $(SCRATCH_DIR)/nextufs-seed.bin
@@ -369,7 +369,7 @@ test-failure: all
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
 	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
 	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
-	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-failure.raw >$(SCRATCH_DIR)/nextufs_failure_fsck.out
+	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-failure.raw >$(SCRATCH_DIR)/nextufs_failure_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
 clean:

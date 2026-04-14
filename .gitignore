@@ -7,8 +7,8 @@
 /nextufs/nextufs_test
 /nextufs/nextufs_mkfile
 /fsck/fsck_probe
-/fsck/fsck_next
-/mkfs/mkfs_next
+/fsck/fsck.nextufs
+/mkfs/mkfs.nextufs
 
 /fsck/.build-next/
 
