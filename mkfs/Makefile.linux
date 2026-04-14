@@ -1,0 +1,21 @@
+CC ?= cc
+CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
+CPPFLAGS += -DNeXT -DNeXT_MOD -DNeXT_NFS -Iinclude
+SCRATCH_DIR = $(CURDIR)/.scratch
+export TMPDIR = $(SCRATCH_DIR)
+
+.PHONY: all clean scratch-dir
+
+all: scratch-dir mkfs_next
+
+scratch-dir:
+	mkdir -p $(SCRATCH_DIR)
+
+mkfs_next: mkfs.o
+	$(CC) $(CFLAGS) -o $@ mkfs.o
+
+mkfs.o: mkfs.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ mkfs.c
+
+clean:
+	rm -f mkfs.o mkfs_next

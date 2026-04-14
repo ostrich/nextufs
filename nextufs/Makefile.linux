@@ -1,0 +1,211 @@
+CC = cc
+CFLAGS = -O2 -g -std=gnu99 -Wall -Wextra -Werror
+SCRATCH_DIR = $(CURDIR)/.scratch
+export TMPDIR = $(SCRATCH_DIR)
+FUSE_CFLAGS != pkg-config --cflags fuse3
+FUSE_LIBS != pkg-config --libs fuse3
+LIB_SRCS = nextufs_read_io.c nextufs_read_dir.c nextufs_read_path.c nextufs_read_api.c
+LIB_OBJS = $(LIB_SRCS:.c=.o)
+LIB = libnextufs.a
+WRITE_SRCS = nextufs_write_io.c nextufs_write_alloc.c nextufs_write_dir.c nextufs_write_ops.c
+WRITE_OBJS = $(WRITE_SRCS:.c=.o)
+
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta scratch-dir
+
+all: scratch-dir $(LIB) nextufs_probe nextufs_fuse nextufs_test nextufs_mkfile
+
+scratch-dir:
+	mkdir -p $(SCRATCH_DIR)
+
+$(LIB): $(LIB_OBJS)
+	ar rcs $@ $(LIB_OBJS)
+
+nextufs_probe: nextufs_probe.o $(LIB)
+	$(CC) $(CFLAGS) -o $@ nextufs_probe.o $(LIB)
+
+nextufs_fuse: nextufs_fuse.o $(LIB)
+	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ nextufs_fuse.o $(LIB) $(FUSE_LIBS)
+
+nextufs_test: nextufs_test.o $(LIB)
+	$(CC) $(CFLAGS) -o $@ nextufs_test.o $(LIB)
+
+nextufs_mkfile: nextufs_mkfile.o $(WRITE_OBJS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ nextufs_mkfile.o $(WRITE_OBJS) $(LIB)
+
+nextufs_fuse.o: nextufs_fuse.c
+	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ nextufs_fuse.c
+
+test: all
+	./nextufs_test openstep42-base.raw
+	./test_fuse.sh openstep42-base.raw
+
+test-write: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-test.raw
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test 'hello from linux nextufs'
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test >$(SCRATCH_DIR)/nextufs_write_probe.out
+	grep -F "lookup '/private/tmp/nextufs-write-test':" $(SCRATCH_DIR)/nextufs_write_probe.out
+	grep -F 'hello from linux' $(SCRATCH_DIR)/nextufs_write_probe.out
+	grep -F 'nextufs' $(SCRATCH_DIR)/nextufs_write_probe.out
+	dd if=$(SCRATCH_DIR)/nextufs-write-test.raw of=$(SCRATCH_DIR)/nextufs-write-test-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-test-a.raw >$(SCRATCH_DIR)/nextufs_write_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_fsck.out
+
+test-write-big: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-big.raw
+	awk 'BEGIN { for (i = 0; i < 3000; i++) printf "%c", 65 + (i % 26) }' >$(SCRATCH_DIR)/nextufs-big-input.bin
+	./nextufs_mkfile --from-file $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big $(SCRATCH_DIR)/nextufs-big-input.bin
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big >$(SCRATCH_DIR)/nextufs_write_big_probe.out
+	grep -F "lookup '/private/tmp/nextufs-write-big':" $(SCRATCH_DIR)/nextufs_write_big_probe.out
+	grep -F 'size=3000' $(SCRATCH_DIR)/nextufs_write_big_probe.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-write-big-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-write-big.raw $(SCRATCH_DIR)/nextufs-write-big-mnt -f -s >$(SCRATCH_DIR)/nextufs_write_big_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-write-big-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		cmp $(SCRATCH_DIR)/nextufs-big-input.bin $(SCRATCH_DIR)/nextufs-write-big-mnt/private/tmp/nextufs-write-big; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-write-big-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-write-big.raw of=$(SCRATCH_DIR)/nextufs-write-big-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-big-a.raw >$(SCRATCH_DIR)/nextufs_write_big_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_big_fsck.out
+
+test-write-grow: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-grow.raw
+	i=0; while [ $$i -lt 120 ]; do \
+		./nextufs_mkfile $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp/nextufs-grow-$$i '' || exit $$?; \
+		i=`expr $$i + 1`; \
+	done
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp >$(SCRATCH_DIR)/nextufs_write_grow_probe.out
+	grep -F 'size=3072' $(SCRATCH_DIR)/nextufs_write_grow_probe.out
+	grep -F "nextufs-grow-119" $(SCRATCH_DIR)/nextufs_write_grow_probe.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-write-grow-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-write-grow.raw $(SCRATCH_DIR)/nextufs-write-grow-mnt -f -s >$(SCRATCH_DIR)/nextufs_write_grow_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-write-grow-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		test -f $(SCRATCH_DIR)/nextufs-write-grow-mnt/private/tmp/nextufs-grow-119; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-write-grow-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-write-grow.raw of=$(SCRATCH_DIR)/nextufs-write-grow-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-write-grow-a.raw >$(SCRATCH_DIR)/nextufs_write_grow_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_grow_fsck.out
+
+test-unlink: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-unlink.raw
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test 'unlink me'
+	./nextufs_mkfile --unlink $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_probe.out 2>&1
+	grep -F "lookup '/private/tmp/nextufs-unlink-test' failed" $(SCRATCH_DIR)/nextufs_unlink_probe.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-unlink-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-unlink.raw $(SCRATCH_DIR)/nextufs-unlink-mnt -f -s >$(SCRATCH_DIR)/nextufs_unlink_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-unlink-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		test ! -e $(SCRATCH_DIR)/nextufs-unlink-mnt/private/tmp/nextufs-unlink-test; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-unlink-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-unlink.raw of=$(SCRATCH_DIR)/nextufs-unlink-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-unlink-a.raw >$(SCRATCH_DIR)/nextufs_unlink_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_unlink_fsck.out
+
+test-mkdir: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-mkdir.raw
+	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child 'inside dir'
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test >$(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
+	grep -F "lookup '/private/tmp/nextufs-dir-test':" $(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
+	grep -F "name='child'" $(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child >$(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
+	grep -F 'inside dir' $(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-mkdir-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-mkdir.raw $(SCRATCH_DIR)/nextufs-mkdir-mnt -f -s >$(SCRATCH_DIR)/nextufs_mkdir_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-mkdir-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		test -d $(SCRATCH_DIR)/nextufs-mkdir-mnt/private/tmp/nextufs-dir-test; \
+		grep -F 'inside dir' $(SCRATCH_DIR)/nextufs-mkdir-mnt/private/tmp/nextufs-dir-test/child; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-mkdir-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-mkdir.raw of=$(SCRATCH_DIR)/nextufs-mkdir-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-mkdir-a.raw >$(SCRATCH_DIR)/nextufs_mkdir_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_mkdir_fsck.out
+
+test-rewrite: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-rewrite.raw
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'start'
+	./nextufs_mkfile --overwrite $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'middle'
+	./nextufs_mkfile --append $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test '+end'
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test >$(SCRATCH_DIR)/nextufs_rewrite_probe.out
+	grep -F 'middle+end' $(SCRATCH_DIR)/nextufs_rewrite_probe.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-rewrite-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-rewrite.raw $(SCRATCH_DIR)/nextufs-rewrite-mnt -f -s >$(SCRATCH_DIR)/nextufs_rewrite_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-rewrite-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		grep -F 'middle+end' $(SCRATCH_DIR)/nextufs-rewrite-mnt/private/tmp/nextufs-rewrite-test; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-rewrite-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-rewrite.raw of=$(SCRATCH_DIR)/nextufs-rewrite-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-rewrite-a.raw >$(SCRATCH_DIR)/nextufs_rewrite_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rewrite_fsck.out
+
+test-link-symlink: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-link.raw
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src 'linked data'
+	./nextufs_mkfile --link $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src /private/tmp/nextufs-link-hard
+	./nextufs_mkfile --symlink $(SCRATCH_DIR)/nextufs-link.raw nextufs-link-hard /private/tmp/nextufs-link-soft
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-hard >$(SCRATCH_DIR)/nextufs_link_probe_hard.out
+	grep -F 'linked data' $(SCRATCH_DIR)/nextufs_link_probe_hard.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-link-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-link.raw $(SCRATCH_DIR)/nextufs-link-mnt -f -s >$(SCRATCH_DIR)/nextufs_link_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-link-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		readlink $(SCRATCH_DIR)/nextufs-link-mnt/private/tmp/nextufs-link-soft | grep -F 'nextufs-link-hard'; \
+		grep -F 'linked data' $(SCRATCH_DIR)/nextufs-link-mnt/private/tmp/nextufs-link-soft; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-link-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-link.raw of=$(SCRATCH_DIR)/nextufs-link-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-link-a.raw >$(SCRATCH_DIR)/nextufs_link_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_link_fsck.out
+
+test-rmdir: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-rmdir.raw
+	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
+	./nextufs_mkfile --rmdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_probe.out 2>&1
+	grep -F "lookup '/private/tmp/nextufs-rmdir-test' failed" $(SCRATCH_DIR)/nextufs_rmdir_probe.out
+	mkdir -p $(SCRATCH_DIR)/nextufs-rmdir-mnt
+	./nextufs_fuse $(SCRATCH_DIR)/nextufs-rmdir.raw $(SCRATCH_DIR)/nextufs-rmdir-mnt -f -s >$(SCRATCH_DIR)/nextufs_rmdir_fuse.log 2>&1 & \
+		pid=$$!; \
+		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-rmdir-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
+		sleep 1; \
+		test ! -e $(SCRATCH_DIR)/nextufs-rmdir-mnt/private/tmp/nextufs-rmdir-test; \
+		fusermount3 -u $(SCRATCH_DIR)/nextufs-rmdir-mnt; \
+		wait $$pid || true; \
+		trap - EXIT INT TERM
+	dd if=$(SCRATCH_DIR)/nextufs-rmdir.raw of=$(SCRATCH_DIR)/nextufs-rmdir-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-rmdir-a.raw >$(SCRATCH_DIR)/nextufs_rmdir_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rmdir_fsck.out
+
+test-meta: all
+	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-meta.raw
+	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 'meta'
+	./nextufs_mkfile --chmod $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 0600
+	./nextufs_mkfile --chown $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 123 456
+	./nextufs_mkfile --utimes $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 111111111 222222222
+	./nextufs_probe $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test >$(SCRATCH_DIR)/nextufs_meta_probe.out
+	grep -F 'mode=0100600' $(SCRATCH_DIR)/nextufs_meta_probe.out
+	grep -F 'uid=123 gid=456' $(SCRATCH_DIR)/nextufs_meta_probe.out
+	dd if=$(SCRATCH_DIR)/nextufs-meta.raw of=$(SCRATCH_DIR)/nextufs-meta-a.raw bs=1024 skip=160 count=2096480 status=none
+	../fsck/fsck_next -n $(SCRATCH_DIR)/nextufs-meta-a.raw >$(SCRATCH_DIR)/nextufs_meta_fsck.out
+	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_meta_fsck.out
+
+clean:
+	rm -f nextufs_probe nextufs_probe.o nextufs_fuse nextufs_fuse.o nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS) nextufs.o nextufs_dir.o nextufs_path.o nextufs_api.o
