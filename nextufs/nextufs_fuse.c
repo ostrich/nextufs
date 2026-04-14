@@ -1,6 +1,7 @@
 #define FUSE_USE_VERSION 31
 
 #include "nextufs.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -144,36 +145,6 @@ nextufs_refresh_image(void)
 }
 
 static int
-nextufs_fuse_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
-    int mask)
-{
-	mode_t perms;
-	mode_t bits;
-
-	if (mask == F_OK)
-		return 0;
-	if (uid == 0) {
-		if ((mask & X_OK) != 0 && (node->inode.mode & 0111) == 0)
-			return -EACCES;
-		return 0;
-	}
-	if (uid == node->inode.uid)
-		perms = (node->inode.mode >> 6) & 07;
-	else if (gid == node->inode.gid)
-		perms = (node->inode.mode >> 3) & 07;
-	else
-		perms = node->inode.mode & 07;
-	bits = 0;
-	if ((mask & R_OK) != 0)
-		bits |= 04;
-	if ((mask & W_OK) != 0)
-		bits |= 02;
-	if ((mask & X_OK) != 0)
-		bits |= 01;
-	return (perms & bits) == bits ? 0 : -EACCES;
-}
-
-static int
 nextufs_getattr(const char *path, struct stat *st, struct fuse_file_info *fi)
 {
 	struct nextufs_node node;
@@ -309,7 +280,10 @@ nextufs_access(const char *path, int mask)
 	fctx = fuse_get_context();
 	if (fctx == NULL)
 		return 0;
-	return nextufs_fuse_check_access(&node, fctx->uid, fctx->gid, mask);
+	if (g_write_policy == NEXTUFS_WRITE_EDITOR)
+		return 0;
+	return nextufs__node_check_access(&node, fctx->uid, fctx->gid, NULL, 0,
+	    mask, 1);
 }
 
 static int

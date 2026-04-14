@@ -4,18 +4,25 @@ SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
 FUSE_CFLAGS != pkg-config --cflags fuse3
 FUSE_LIBS != pkg-config --libs fuse3
-LIB_SRCS = nextufs_image.c nextufs_directory.c nextufs_path.c nextufs_node.c
+LIB_SRCS = nextufs_image.c nextufs_directory.c nextufs_path.c nextufs_node.c \
+	nextufs_layout.c nextufs_alloc.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 LIB = libnextufs.a
-WRITE_SRCS = nextufs_layout.c nextufs_alloc.c nextufs_dir_mutate.c nextufs_mutate.c
+WRITE_SRCS = nextufs_dir_mutate.c nextufs_mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
 
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure scratch-dir
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure scratch-dir fsck-tool mkfs-tool
 
 all: scratch-dir $(LIB) nextufs_probe nextufs_fuse nextufs_test nextufs_mkfile
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
+
+fsck-tool:
+	$(MAKE) -C ../fsck -f Makefile.linux
+
+mkfs-tool:
+	$(MAKE) -C ../mkfs -f Makefile.linux
 
 $(LIB): $(LIB_OBJS)
 	ar rcs $@ $(LIB_OBJS)
@@ -39,7 +46,7 @@ test: all
 	./nextufs_test openstep42-base.raw
 	./test_fuse.sh openstep42-base.raw
 
-test-write: all
+test-write: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-test.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test 'hello from linux nextufs'
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test >$(SCRATCH_DIR)/nextufs_write_probe.out
@@ -50,7 +57,7 @@ test-write: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-test-a.raw >$(SCRATCH_DIR)/nextufs_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_fsck.out
 
-test-write-big: all
+test-write-big: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-big.raw
 	awk 'BEGIN { for (i = 0; i < 3000; i++) printf "%c", 65 + (i % 26) }' >$(SCRATCH_DIR)/nextufs-big-input.bin
 	./nextufs_mkfile --from-file $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big $(SCRATCH_DIR)/nextufs-big-input.bin
@@ -70,7 +77,7 @@ test-write-big: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-big-a.raw >$(SCRATCH_DIR)/nextufs_write_big_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_big_fsck.out
 
-test-write-grow: all
+test-write-grow: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-write-grow.raw
 	i=0; while [ $$i -lt 120 ]; do \
 		./nextufs_mkfile $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp/nextufs-grow-$$i '' || exit $$?; \
@@ -92,7 +99,7 @@ test-write-grow: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-write-grow-a.raw >$(SCRATCH_DIR)/nextufs_write_grow_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_grow_fsck.out
 
-test-unlink: all
+test-unlink: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-unlink.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test 'unlink me'
 	./nextufs_mkfile --unlink $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test
@@ -111,7 +118,7 @@ test-unlink: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-unlink-a.raw >$(SCRATCH_DIR)/nextufs_unlink_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_unlink_fsck.out
 
-test-mkdir: all
+test-mkdir: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-mkdir.raw
 	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child 'inside dir'
@@ -134,7 +141,7 @@ test-mkdir: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-mkdir-a.raw >$(SCRATCH_DIR)/nextufs_mkdir_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_mkdir_fsck.out
 
-test-rewrite: all
+test-rewrite: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-rewrite.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'start'
 	./nextufs_mkfile --overwrite $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'middle'
@@ -154,7 +161,7 @@ test-rewrite: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rewrite-a.raw >$(SCRATCH_DIR)/nextufs_rewrite_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rewrite_fsck.out
 
-test-link-symlink: all
+test-link-symlink: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-link.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src 'linked data'
 	./nextufs_mkfile --link $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src /private/tmp/nextufs-link-hard
@@ -175,7 +182,7 @@ test-link-symlink: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-link-a.raw >$(SCRATCH_DIR)/nextufs_link_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_link_fsck.out
 
-test-rmdir: all
+test-rmdir: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-rmdir.raw
 	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
 	./nextufs_mkfile --rmdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
@@ -194,7 +201,7 @@ test-rmdir: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rmdir-a.raw >$(SCRATCH_DIR)/nextufs_rmdir_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rmdir_fsck.out
 
-test-meta: all
+test-meta: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-meta.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 'meta'
 	./nextufs_mkfile --chmod $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 0600
@@ -207,7 +214,7 @@ test-meta: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-meta-a.raw >$(SCRATCH_DIR)/nextufs_meta_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_meta_fsck.out
 
-test-rename: all
+test-rename: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-rename.raw
 	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-a
 	./nextufs_mkfile --mkdir $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b
@@ -236,7 +243,7 @@ test-rename: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-rename-a.raw >$(SCRATCH_DIR)/nextufs_rename_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_rename_fsck.out
 
-test-truncate: all
+test-truncate: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-truncate.raw
 	awk 'BEGIN { for (i = 0; i < 120000; i++) printf "%c", 65 + (i % 26) }' >$(SCRATCH_DIR)/nextufs-truncate-input.bin
 	printf '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0' >$(SCRATCH_DIR)/nextufs-zero-16.bin
@@ -269,7 +276,7 @@ test-truncate: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-truncate-a.raw >$(SCRATCH_DIR)/nextufs_truncate_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_truncate_fsck.out
 
-test-special: all
+test-special: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-special.raw
 	./nextufs_mkfile --mknod $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-fifo 010644 0
 	./nextufs_mkfile --mknod $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-char 020600 259
@@ -290,7 +297,7 @@ test-special: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-special-a.raw >$(SCRATCH_DIR)/nextufs_special_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_special_fsck.out
 
-test-fuse-write: all
+test-fuse-write: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-fuse-write.raw
 	mkdir -p $(SCRATCH_DIR)/nextufs-fuse-write-mnt
 	printf 'tail' >$(SCRATCH_DIR)/nextufs-fuse-tail.bin
@@ -324,7 +331,7 @@ test-fuse-write: all
 	../fsck/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-fuse-write-a.raw >$(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
 
-test-permissions: all
+test-permissions: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-permissions.raw
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 'perm data'
 	./nextufs_mkfile --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 1000 200

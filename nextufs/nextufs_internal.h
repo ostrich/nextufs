@@ -15,6 +15,7 @@
 #define UFS_INODE_SIZE 128U
 #define CG_MAGIC 0x00090255U
 #define NRPOS 8
+#define NEXTUFS_IC_FASTLINK 0x0001U
 
 #define SB_TIME_OFF 0x20U
 #define SB_NDIR_OFF 0x0c0U
@@ -47,6 +48,9 @@ struct nextufs_dirent_view {
 int nextufs__find_name_in_directory(const struct nextufs_image *img,
 	const struct nextufs_inode *dirino, const char *target_name,
 	unsigned *target_inode);
+int nextufs__node_check_access(const struct nextufs_node *node, uid_t uid,
+	gid_t gid, const gid_t *groups, size_t group_count, int mask,
+	int allow_write);
 
 uint16_t nextufs__read_be16(const uint8_t *p);
 uint32_t nextufs__read_be32(const uint8_t *p);

@@ -76,42 +76,14 @@ nextufs__ctx_in_group(const struct nextufs_write_ctx *ctx, gid_t gid)
 	return 0;
 }
 
-static mode_t
-nextufs__ctx_perms_for_node(const struct nextufs_write_ctx *ctx,
-    const struct nextufs_node *node)
-{
-	if (ctx->uid == node->inode.uid)
-		return (node->inode.mode >> 6) & 07;
-	if (nextufs__ctx_in_group(ctx, node->inode.gid))
-		return (node->inode.mode >> 3) & 07;
-	return node->inode.mode & 07;
-}
-
 static int
 nextufs__require_permissions(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *node, int mask)
 {
-	mode_t bits;
-	mode_t perms;
-
 	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
 		return 0;
-	if (mask == F_OK)
-		return 0;
-	if (nextufs__ctx_is_root(ctx)) {
-		if ((mask & X_OK) != 0 && (node->inode.mode & 0111) == 0)
-			return -EACCES;
-		return 0;
-	}
-	perms = nextufs__ctx_perms_for_node(ctx, node);
-	bits = 0;
-	if ((mask & R_OK) != 0)
-		bits |= 04;
-	if ((mask & W_OK) != 0)
-		bits |= 02;
-	if ((mask & X_OK) != 0)
-		bits |= 01;
-	return (perms & bits) == bits ? 0 : -EACCES;
+	return nextufs__node_check_access(node, ctx->uid, ctx->gid, ctx->groups,
+	    ctx->group_count, mask, 1);
 }
 
 static int

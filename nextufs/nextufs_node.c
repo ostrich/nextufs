@@ -1,4 +1,5 @@
 #include "nextufs.h"
+#include "nextufs_internal.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -91,13 +92,14 @@ nextufs_node_is_lnk(const struct nextufs_node *node)
 }
 
 int
-nextufs_node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
-    int mask)
+nextufs__node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
+    const gid_t *groups, size_t group_count, int mask, int allow_write)
 {
 	mode_t bits;
 	mode_t perms;
+	size_t i;
 
-	if (mask & W_OK)
+	if (!allow_write && (mask & W_OK))
 		return -EROFS;
 	if (mask == F_OK)
 		return 0;
@@ -110,10 +112,19 @@ nextufs_node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
 	}
 	if (uid == node->inode.uid)
 		perms = (node->inode.mode >> 6) & 07;
-	else if (gid == node->inode.gid)
-		perms = (node->inode.mode >> 3) & 07;
-	else
+	else {
 		perms = node->inode.mode & 07;
+		if (gid == node->inode.gid)
+			perms = (node->inode.mode >> 3) & 07;
+		else {
+			for (i = 0; i < group_count; i++) {
+				if (groups[i] == node->inode.gid) {
+					perms = (node->inode.mode >> 3) & 07;
+					break;
+				}
+			}
+		}
+	}
 	bits = 0;
 	if ((mask & R_OK) != 0)
 		bits |= 04;
@@ -124,6 +135,13 @@ nextufs_node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
 	if ((perms & bits) != bits)
 		return -EACCES;
 	return 0;
+}
+
+int
+nextufs_node_check_access(const struct nextufs_node *node, uid_t uid, gid_t gid,
+    int mask)
+{
+	return nextufs__node_check_access(node, uid, gid, NULL, 0, mask, 0);
 }
 
 int

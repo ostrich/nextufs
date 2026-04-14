@@ -1,39 +1,8 @@
 #include "nextufs_internal.h"
 
 #include <errno.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-static uint16_t
-read_be16(const uint8_t *p)
-{
-	return ((uint16_t)p[0] << 8) | (uint16_t)p[1];
-}
-
-static uint32_t
-read_be32(const uint8_t *p)
-{
-	return ((uint32_t)p[0] << 24) |
-	    ((uint32_t)p[1] << 16) |
-	    ((uint32_t)p[2] << 8) |
-	    (uint32_t)p[3];
-}
-
-static int
-read_dirent_v1(const uint8_t *buf, size_t size, size_t off, uint32_t *ino,
-    uint16_t *reclen, uint16_t *namlen, const char **name)
-{
-	if (off + 8 > size)
-		return -1;
-	*ino = read_be32(buf + off);
-	*reclen = read_be16(buf + off + 4);
-	*namlen = read_be16(buf + off + 6);
-	if (*reclen < 8 || off + *reclen > size || off + 8 + *namlen > size)
-		return -1;
-	*name = (const char *)(buf + off + 8);
-	return 0;
-}
 
 int
 nextufs_directory_iterate(const struct nextufs_image *img,
@@ -60,24 +29,20 @@ nextufs_directory_iterate(const struct nextufs_image *img,
 			return -EIO;
 		}
 		while (off < chunk_size) {
-			uint32_t d_ino;
-			uint16_t d_reclen;
-			uint16_t d_namlen;
-			const char *d_name;
+			struct nextufs_dirent_view ent;
 
-			if (read_dirent_v1(buf, chunk_size, off, &d_ino, &d_reclen,
-			    &d_namlen, &d_name) < 0)
+			if (nextufs__read_dirent(buf, chunk_size, off, &ent) < 0)
 				break;
-			if (d_ino != 0 && d_namlen != 0) {
+			if (ent.ino != 0 && ent.namlen != 0) {
 				int rc;
 
-				rc = cb(d_ino, d_name, d_namlen, ctx);
+				rc = cb(ent.ino, ent.name, ent.namlen, ctx);
 				if (rc != 0) {
 					free(buf);
 					return rc;
 				}
 			}
-			off += d_reclen;
+			off += ent.reclen;
 		}
 		remaining -= chunk_size;
 	}
