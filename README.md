@@ -45,7 +45,7 @@ Mount through FUSE:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
-./nextufs/nextufs_fuse /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
 Check a filesystem:

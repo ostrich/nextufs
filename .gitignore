@@ -3,7 +3,7 @@
 *.a
 
 /nextufs/nextufs_probe
-/nextufs/nextufs_fuse
+/nextufs/nextufs
 /nextufs/nextufs_test
 /nextufs/nextufs_mkfile
 /nextufs/nextufs_stress

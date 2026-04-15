@@ -6,7 +6,7 @@ FUSE frontend, and the offline mutation utilities.
 ## Programs
 
 - `nextufs_probe`: inspect a filesystem source and resolve paths
-- `nextufs_fuse`: mount a source through FUSE
+- `nextufs`: mount a source through FUSE
 - `nextufs_mkfile`: offline mutation tool used by tests and development
 - `nextufs_stress`: deterministic mutation stress harness
 - `nextufs_test`: library regression binary
@@ -38,12 +38,12 @@ Mount a source:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
-./nextufs_fuse /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
 ## FUSE Modes
 
-`nextufs_fuse` supports two write-policy modes:
+`nextufs` supports two write-policy modes:
 
 - `permissions` (default)
   - operations are checked against the calling process `uid` and `gid`
@@ -57,19 +57,19 @@ mkdir -p /tmp/nextufs-mnt
 Default mount behavior:
 
 ```sh
-./nextufs_fuse /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
 Explicit editor mode:
 
 ```sh
-./nextufs_fuse /path/to/source /tmp/nextufs-mnt -o nextufs_mode=editor -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o nextufs_mode=editor -f -s
 ```
 
 Explicit permissions mode:
 
 ```sh
-./nextufs_fuse /path/to/source /tmp/nextufs-mnt -o nextufs_mode=permissions -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o nextufs_mode=permissions -f -s
 ```
 
 Apply an offline mutation:

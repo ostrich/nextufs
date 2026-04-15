@@ -657,7 +657,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 	char *argv[8];
 	unsigned tries;
 
-	if (snprintf(fuse_path, sizeof(fuse_path), "%s/nextufs_fuse",
+	if (snprintf(fuse_path, sizeof(fuse_path), "%s/nextufs",
 	    ctx->exe_dir) >= (int)sizeof(fuse_path))
 		return -ENAMETOOLONG;
 	if (snprintf(scratch_path, sizeof(scratch_path), "%s/.scratch",
