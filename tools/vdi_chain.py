@@ -310,9 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  vdi_chain.py scan \"/path/to/VirtualBox/VMs/OPENSTEP 4.2\"\n"
             "  vdi_chain.py trace \"/path/to/VM/Snapshots/{uuid}.vdi\"\n"
-            "  vdi_chain.py scan --json /path/to/vm-dir\n\n"
-            "Use 'scan' to map all base and snapshot relationships under a VM directory.\n"
-            "Use 'trace' to print one VDI's full parent chain from base to the selected file."
+            "  vdi_chain.py scan --json /path/to/vm-dir"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -320,7 +318,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = sub.add_parser(
         "scan",
-        help="scan a directory tree for VDI chains",
+        help="map all base and snapshot relationships under a VM directory",
         description=(
             "Scan a directory tree for .vdi files, group them into parent/child chains, "
             "and identify bases, heads, intermediates, standalones, and orphans."
@@ -336,7 +334,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     trace = sub.add_parser(
         "trace",
-        help="trace the chain for one VDI file",
+        help="print one VDI's full parent chain from base to the selected file",
         description=(
             "Trace one VDI back through its parents and print the full chain from base "
             "to the selected file."
