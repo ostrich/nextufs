@@ -41,9 +41,15 @@ mkdir -p /tmp/nextufs-mnt
 ./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
+Mount read-write:
+
+```sh
+./nextufs /path/to/source /tmp/nextufs-mnt -o rw -f -s
+```
+
 ## FUSE Modes
 
-`nextufs` supports two write-policy modes:
+`nextufs` supports two write-policy modes for writable mounts:
 
 - `permissions` (default)
   - operations are checked against the calling process `uid` and `gid`
@@ -54,22 +60,22 @@ mkdir -p /tmp/nextufs-mnt
   - this is useful for image repair, migration, and administrative editing
   - use this when you want the mount to behave like an image editor
 
-Default mount behavior:
+Default mount behavior is read-only:
 
 ```sh
 ./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
-Explicit editor mode:
+Read-write editor mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o nextufs_mode=editor -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=editor -f -s
 ```
 
-Explicit permissions mode:
+Read-write permissions mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o nextufs_mode=permissions -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=permissions -f -s
 ```
 
 Apply an offline mutation:

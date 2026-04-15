@@ -68,7 +68,7 @@ test-write-big: all fsck-tool
 	grep -F "lookup '/private/tmp/nextufs-write-big':" $(SCRATCH_DIR)/nextufs_write_big_probe.out
 	grep -F 'size=3000' $(SCRATCH_DIR)/nextufs_write_big_probe.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-write-big-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-write-big.raw $(SCRATCH_DIR)/nextufs-write-big-mnt -f -s >$(SCRATCH_DIR)/nextufs_write_big_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-write-big.raw $(SCRATCH_DIR)/nextufs-write-big-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_write_big_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-write-big-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -90,7 +90,7 @@ test-write-grow: all fsck-tool
 	grep -F 'size=3072' $(SCRATCH_DIR)/nextufs_write_grow_probe.out
 	grep -F "nextufs-grow-119" $(SCRATCH_DIR)/nextufs_write_grow_probe.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-write-grow-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-write-grow.raw $(SCRATCH_DIR)/nextufs-write-grow-mnt -f -s >$(SCRATCH_DIR)/nextufs_write_grow_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-write-grow.raw $(SCRATCH_DIR)/nextufs-write-grow-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_write_grow_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-write-grow-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -109,7 +109,7 @@ test-unlink: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_probe.out 2>&1
 	grep -F "lookup '/private/tmp/nextufs-unlink-test' failed" $(SCRATCH_DIR)/nextufs_unlink_probe.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-unlink-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-unlink.raw $(SCRATCH_DIR)/nextufs-unlink-mnt -f -s >$(SCRATCH_DIR)/nextufs_unlink_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-unlink.raw $(SCRATCH_DIR)/nextufs-unlink-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_unlink_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-unlink-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -131,7 +131,7 @@ test-mkdir: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child >$(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
 	grep -F 'inside dir' $(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-mkdir-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-mkdir.raw $(SCRATCH_DIR)/nextufs-mkdir-mnt -f -s >$(SCRATCH_DIR)/nextufs_mkdir_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-mkdir.raw $(SCRATCH_DIR)/nextufs-mkdir-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_mkdir_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-mkdir-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -152,7 +152,7 @@ test-rewrite: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test >$(SCRATCH_DIR)/nextufs_rewrite_probe.out
 	grep -F 'middle+end' $(SCRATCH_DIR)/nextufs_rewrite_probe.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rewrite-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-rewrite.raw $(SCRATCH_DIR)/nextufs-rewrite-mnt -f -s >$(SCRATCH_DIR)/nextufs_rewrite_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-rewrite.raw $(SCRATCH_DIR)/nextufs-rewrite-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rewrite_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-rewrite-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -172,7 +172,7 @@ test-link-symlink: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-hard >$(SCRATCH_DIR)/nextufs_link_probe_hard.out
 	grep -F 'linked data' $(SCRATCH_DIR)/nextufs_link_probe_hard.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-link-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-link.raw $(SCRATCH_DIR)/nextufs-link-mnt -f -s >$(SCRATCH_DIR)/nextufs_link_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-link.raw $(SCRATCH_DIR)/nextufs-link-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_link_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-link-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -192,7 +192,7 @@ test-rmdir: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_probe.out 2>&1
 	grep -F "lookup '/private/tmp/nextufs-rmdir-test' failed" $(SCRATCH_DIR)/nextufs_rmdir_probe.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rmdir-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-rmdir.raw $(SCRATCH_DIR)/nextufs-rmdir-mnt -f -s >$(SCRATCH_DIR)/nextufs_rmdir_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-rmdir.raw $(SCRATCH_DIR)/nextufs-rmdir-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rmdir_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-rmdir-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -232,7 +232,7 @@ test-rename: all fsck-tool
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/subdir >$(SCRATCH_DIR)/nextufs_rename_probe_dir.out
 	grep -F "lookup '/private/tmp/nextufs-rename-b/subdir':" $(SCRATCH_DIR)/nextufs_rename_probe_dir.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rename-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-rename.raw $(SCRATCH_DIR)/nextufs-rename-mnt -f -s >$(SCRATCH_DIR)/nextufs_rename_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-rename.raw $(SCRATCH_DIR)/nextufs-rename-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rename_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-rename-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -261,7 +261,7 @@ test-truncate: all fsck-tool
 	./nextufs_mkfile --truncate $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate 16384
 	./nextufs_mkfile --pwrite $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate 12288 tail
 	mkdir -p $(SCRATCH_DIR)/nextufs-truncate-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-truncate.raw $(SCRATCH_DIR)/nextufs-truncate-mnt -f -s >$(SCRATCH_DIR)/nextufs_truncate_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-truncate.raw $(SCRATCH_DIR)/nextufs-truncate-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_truncate_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-truncate-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -287,7 +287,7 @@ test-special: all fsck-tool
 	grep -F 'mode=020600' $(SCRATCH_DIR)/nextufs_special_probe_char.out
 	grep -F 'rdev:         259' $(SCRATCH_DIR)/nextufs_special_probe_char.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-special-mnt
-	./nextufs $(SCRATCH_DIR)/nextufs-special.raw $(SCRATCH_DIR)/nextufs-special-mnt -f -s >$(SCRATCH_DIR)/nextufs_special_fuse.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-special.raw $(SCRATCH_DIR)/nextufs-special-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_special_fuse.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-special-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \
@@ -304,7 +304,7 @@ test-fuse-write: all fsck-tool
 	cp --reflink=auto openstep42-base.raw $(SCRATCH_DIR)/nextufs-fuse-write.raw
 	mkdir -p $(SCRATCH_DIR)/nextufs-fuse-write-mnt
 	printf 'tail' >$(SCRATCH_DIR)/nextufs-fuse-tail.bin
-	./nextufs $(SCRATCH_DIR)/nextufs-fuse-write.raw $(SCRATCH_DIR)/nextufs-fuse-write-mnt -f -s >$(SCRATCH_DIR)/nextufs_fuse_write.log 2>&1 & \
+	./nextufs $(SCRATCH_DIR)/nextufs-fuse-write.raw $(SCRATCH_DIR)/nextufs-fuse-write-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_fuse_write.log 2>&1 & \
 		pid=$$!; \
 		trap 'kill $$pid 2>/dev/null || true; fusermount3 -u $(SCRATCH_DIR)/nextufs-fuse-write-mnt >/dev/null 2>&1 || true' EXIT INT TERM; \
 		sleep 1; \

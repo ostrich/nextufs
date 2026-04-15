@@ -19,6 +19,8 @@ static const char *g_image_path;
 static char g_image_path_buf[PATH_MAX];
 static enum nextufs_write_policy g_write_policy = NEXTUFS_WRITE_PERMISSIONS;
 static int g_mount_readonly;
+static int g_mount_request_rw;
+static int g_mount_saw_access_opt;
 
 static void
 nextufs_fill_mutation_ctx(struct nextufs_write_ctx *ctx)
@@ -72,13 +74,20 @@ nextufs_strip_mode_from_optarg(const char *optarg, char **rebuilt_out)
 	for (token = strtok_r(copy, ",", &saveptr);
 	    token != NULL;
 	    token = strtok_r(NULL, ",", &saveptr)) {
-		if (strncmp(token, "nextufs_mode=", 13) == 0) {
-			if (nextufs_parse_mode_option(token + 13) < 0) {
+		if (strncmp(token, "mode=", 5) == 0) {
+			if (nextufs_parse_mode_option(token + 5) < 0) {
 				free(rebuilt);
 				free(copy);
 				return -EINVAL;
 			}
 			continue;
+		}
+		if (strcmp(token, "rw") == 0) {
+			g_mount_request_rw = 1;
+			g_mount_saw_access_opt = 1;
+		} else if (strcmp(token, "ro") == 0) {
+			g_mount_request_rw = 0;
+			g_mount_saw_access_opt = 1;
 		}
 		if (kept_any)
 			strcat(rebuilt, ",");
@@ -587,23 +596,20 @@ main(int argc, char **argv)
 		return 1;
 	}
 	g_image_path = g_image_path_buf;
-	g_mount_readonly = 0;
-	rc = nextufs_refresh_image();
-	if (rc == -EROFS) {
-		g_mount_readonly = 1;
-		rc = nextufs_refresh_image();
-		if (rc == 0) {
-			if (fuse_opt_add_arg(&args, "-o") != 0 ||
-			    fuse_opt_add_arg(&args, "ro") != 0) {
-				fprintf(stderr, "failed to set read-only fuse args\n");
-				fuse_opt_free_args(&args);
-				return 1;
-			}
+	g_mount_readonly = !g_mount_request_rw;
+	if (!g_mount_request_rw && !g_mount_saw_access_opt) {
+		if (fuse_opt_add_arg(&args, "-o") != 0 ||
+		    fuse_opt_add_arg(&args, "ro") != 0) {
+			fprintf(stderr, "failed to set read-only fuse args\n");
+			fuse_opt_free_args(&args);
+			return 1;
 		}
 	}
+	rc = nextufs_refresh_image();
 	if (rc < 0) {
 		fprintf(stderr, "failed to open source %s: %s\n", argv[1],
 		    strerror(-rc));
+		fuse_opt_free_args(&args);
 		return 1;
 	}
 	rc = fuse_main(args.argc, args.argv, &nextufs_ops, NULL);

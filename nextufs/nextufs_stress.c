@@ -684,7 +684,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 		argv[4] = "-s";
 		argv[5] = "-o";
 		argv[6] = ctx->write_ctx.policy == NEXTUFS_WRITE_EDITOR ?
-		    "nextufs_mode=editor" : "nextufs_mode=permissions";
+		    "rw,mode=editor" : "rw,mode=permissions";
 		argv[7] = NULL;
 		execv(argv[0], argv);
 		_exit(127);
