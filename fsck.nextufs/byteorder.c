@@ -178,15 +178,15 @@ swap_dirblock(buf, size, dir_write_pass)
 		unsigned short reclen;
 
 		dp = (struct direct *)(buf + off);
+		if (dir_write_pass != 0)
+			reclen = dp->d_reclen;
 		dp->d_ino = swap32(dp->d_ino);
 		dp->d_reclen = swap16(dp->d_reclen);
 		dp->d_namlen = swap16(dp->d_namlen);
-		reclen = dp->d_reclen;
-		if (dir_write_pass != 0)
-			off += reclen;
+		if (dir_write_pass == 0)
+			reclen = dp->d_reclen;
 		if (reclen == 0 || off + reclen > size)
 			break;
-		if (dir_write_pass == 0)
-			off += reclen;
+		off += reclen;
 	}
 }

@@ -15,7 +15,7 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
 	state.c
 FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
 
-.PHONY: all clean scratch-dir repair-tools repair-lab repair-smoke repair-parity-smoke repair-parity-all
+.PHONY: all clean scratch-dir repair-tools repair-lab repair-smoke repair-repair-all repair-parity-smoke repair-parity-all
 
 all: scratch-dir $(FSCK_BIN)
 
@@ -72,6 +72,9 @@ repair-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n unreferenced-alpha >/dev/null
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n unreferenced-dir >/dev/null
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n zero-length-dir >/dev/null
+
+repair-repair-all: repair-lab $(FSCK_BIN)
+	bash $(TESTS_DIR)/scripts/repair_all_cases.sh
 
 repair-parity-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-bitmap-bad >/dev/null

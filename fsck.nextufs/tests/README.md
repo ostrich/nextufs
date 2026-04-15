@@ -97,6 +97,7 @@ Typical workflow:
 ```sh
 make -C fsck.nextufs -f Makefile.linux repair-lab
 make -C fsck.nextufs -f Makefile.linux repair-smoke
+make -C fsck.nextufs -f Makefile.linux repair-repair-all
 fsck.nextufs/tests/scripts/run_case.sh shipped -n bad-block-count
 FSCK_REFERENCE_BIN=/path/to/fsck.nextufs \
   fsck.nextufs/tests/scripts/compare_case.sh -n bad-block-count
@@ -122,5 +123,7 @@ Current limitations:
 - `fsck.nextufs` now supports swapped-image writeback and can be used for
   real repair runs on the cached corpus
   - representative `-y` cases repair successfully
+  - `repair-repair-all` runs the full corpus as `-y` followed by `-n` on the
+    same working image and is intended to catch swapped-write regressions
   - comparison remains available when a second checker binary is
     provided
