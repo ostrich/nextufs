@@ -18,6 +18,86 @@
 #include <sys/stat.h>
 #include "fsck.h"
 
+static int
+fsck_file_pread(struct filecntl *fcp, void *buf, size_t size, off_t offset)
+{
+	uint8_t *out = buf;
+	size_t done = 0;
+
+	if (fcp->use_image)
+		return nextufs_image_pread(&fcp->image, buf, size, offset);
+	while (done < size) {
+		ssize_t n;
+
+		n = pread(fcp->rfdes, out + done, size - done,
+		    offset + (off_t)done);
+		if (n < 0)
+			return -1;
+		if (n == 0)
+			return -1;
+		done += (size_t)n;
+	}
+	return 0;
+}
+
+static int
+fsck_file_pwrite(struct filecntl *fcp, const void *buf, size_t size, off_t offset)
+{
+	const uint8_t *in = buf;
+	size_t done = 0;
+
+	if (fcp->use_image)
+		return nextufs_image_pwrite(&fcp->image, buf, size, offset);
+	while (done < size) {
+		ssize_t n;
+
+		n = pwrite(fcp->wfdes, in + done, size - done,
+		    offset + (off_t)done);
+		if (n < 0)
+			return -1;
+		if (n == 0)
+			return -1;
+		done += (size_t)n;
+	}
+	return 0;
+}
+
+int
+fsck_file_is_writable(struct filecntl *fcp)
+{
+	if (fcp->use_image)
+		return fcp->image.writable;
+	return fcp->wfdes >= 0;
+}
+
+int
+fsck_file_fsync(struct filecntl *fcp)
+{
+	if (!fsck_file_is_writable(fcp))
+		return 0;
+	if (fcp->use_image)
+		return nextufs_image_fsync(&fcp->image);
+	return fsync(fcp->wfdes);
+}
+
+void
+fsck_file_close(struct filecntl *fcp)
+{
+	if (fcp->use_image) {
+		nextufs_image_close(&fcp->image);
+		fcp->use_image = 0;
+		fcp->image.fd = -1;
+	}
+	if (fcp->rfdes >= 0) {
+		(void)close(fcp->rfdes);
+		fcp->rfdes = -1;
+	}
+	if (fcp->wfdes >= 0) {
+		(void)close(fcp->wfdes);
+		fcp->wfdes = -1;
+	}
+}
+
 void
 rwerr(char *s, daddr_t blk)
 {
@@ -33,18 +113,17 @@ bread(struct filecntl *fcp, char *buf, daddr_t blk, long size)
 {
 	char *cp;
 	int i, errs;
+	off_t offset;
 
-	if (lseek(fcp->rfdes, (long)dbtob(blk), 0) < 0)
-		rwerr("SEEK", blk);
-	else if (read(fcp->rfdes, buf, (int)size) == size)
+	offset = (off_t)dbtob(blk);
+	if (fsck_file_pread(fcp, buf, (size_t)size, offset) == 0)
 		return (0);
 	rwerr("READ", blk);
-	if (lseek(fcp->rfdes, (long)dbtob(blk), 0) < 0)
-		rwerr("SEEK", blk);
 	errs = 0;
 	pfatal("THE FOLLOWING SECTORS COULD NOT BE READ:");
 	for (cp = buf, i = 0; i < size; i += DEV_BSIZE, cp += DEV_BSIZE) {
-		if (read(fcp->rfdes, cp, DEV_BSIZE) < 0) {
+		if (fsck_file_pread(fcp, cp, DEV_BSIZE,
+		    offset + (off_t)i) < 0) {
 			printf(" %ld,", (long)(blk + i / DEV_BSIZE));
 			bzero(cp, DEV_BSIZE);
 			errs++;
@@ -59,21 +138,20 @@ bwrite(struct filecntl *fcp, char *buf, daddr_t blk, int size)
 {
 	int i;
 	char *cp;
+	off_t offset;
 
-	if (fcp->wfdes < 0)
+	if (!fsck_file_is_writable(fcp))
 		return;
-	if (lseek(fcp->wfdes, (long)dbtob(blk), 0) < 0)
-		rwerr("SEEK", blk);
-	else if (write(fcp->wfdes, buf, (int)size) == size) {
+	offset = (off_t)dbtob(blk);
+	if (fsck_file_pwrite(fcp, buf, (size_t)size, offset) == 0) {
 		fcp->mod = 1;
 		return;
 	}
 	rwerr("WRITE", blk);
-	if (lseek(fcp->wfdes, (long)dbtob(blk), 0) < 0)
-		rwerr("SEEK", blk);
 	pfatal("THE FOLLOWING SECTORS COULD NOT BE WRITTEN:");
 	for (cp = buf, i = 0; i < size; i += DEV_BSIZE, cp += DEV_BSIZE)
-		if (write(fcp->wfdes, cp, DEV_BSIZE) < 0)
+		if (fsck_file_pwrite(fcp, cp, DEV_BSIZE,
+		    offset + (off_t)i) < 0)
 			printf(" %ld,", (long)(blk + i / DEV_BSIZE));
 	printf("\n");
 }

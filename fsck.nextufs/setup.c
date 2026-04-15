@@ -24,10 +24,8 @@ setup(char *dev)
 	daddr_t super = bflag ? bflag : SBLOCK;
 	int i, j;
 	long size;
-	int force_readonly = 0;
 	BUFAREA asblk;
 	static char devstr[MAXPATHLEN];
-	static char openpath[MAXPATHLEN];
 #	define altsblock asblk.b_unp->b_fs
 	strcpy(devstr, dev);
 restat:
@@ -128,20 +126,42 @@ restat:
 	if (mounted(devstr))
 		mountedfs++;
 #endif
-	if (fsck_source_prepare_path(devstr, openpath, sizeof(openpath),
-	    &force_readonly) < 0)
-		strcpy(openpath, devstr);
-	if ((dfile.rfdes = open(openpath, 0)) < 0) {
-		printf("Can't open %s\n", devstr);
-		return (0);
-	}
 	if (preen == 0)
 		printf("** %s", devstr);
-	if (nflag || force_readonly || (dfile.wfdes = open(openpath, 1)) < 0) {
-		dfile.wfdes = -1;
-		if (preen)
-			pfatal("NO WRITE ACCESS");
-		printf(" (NO WRITE)");
+	dfile.rfdes = -1;
+	dfile.wfdes = -1;
+	dfile.use_image = 0;
+	dfile.image.fd = -1;
+	if (fsck_source_use_image_backend(devstr)) {
+		int rc;
+
+		if (!nflag)
+			rc = nextufs_image_open_rw(&dfile.image, devstr);
+		else
+			rc = -1;
+		if (rc < 0) {
+			if (nextufs_image_open(&dfile.image, devstr) < 0) {
+				printf("Can't open %s\n", devstr);
+				return (0);
+			}
+		}
+		dfile.use_image = 1;
+		if (nflag || !dfile.image.writable) {
+			if (preen)
+				pfatal("NO WRITE ACCESS");
+			printf(" (NO WRITE)");
+		}
+	} else {
+		if ((dfile.rfdes = open(devstr, 0)) < 0) {
+			printf("Can't open %s\n", devstr);
+			return (0);
+		}
+		if (nflag || (dfile.wfdes = open(devstr, 1)) < 0) {
+			dfile.wfdes = -1;
+			if (preen)
+				pfatal("NO WRITE ACCESS");
+			printf(" (NO WRITE)");
+		}
 	}
 	if (preen == 0)
 		printf("\n");

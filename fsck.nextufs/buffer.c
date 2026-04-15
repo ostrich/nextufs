@@ -138,6 +138,5 @@ ckfini(void)
 	}
 	flush(&dfile, &inoblk);
 	flush(&dfile, &cgblk);
-	(void)close(dfile.rfdes);
-	(void)close(dfile.wfdes);
+	fsck_file_close(&dfile);
 }

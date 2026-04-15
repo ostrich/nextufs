@@ -24,7 +24,7 @@ reply(char *s)
 	if (preen)
 		pfatal("INTERNAL ERROR: GOT TO reply()");
 	printf("\n%s? ", s);
-	if (nflag || dfile.wfdes < 0) {
+	if (nflag || !fsck_file_is_writable(&dfile)) {
 		printf(" no\n\n");
 		exitstat = 8;
 		return (0);

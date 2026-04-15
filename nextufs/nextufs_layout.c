@@ -126,6 +126,30 @@ nextufs__image_fsync(const struct nextufs_image *img)
 	return ops->fsync(img->backend_ctx);
 }
 
+int
+nextufs_image_pread(const struct nextufs_image *img, void *buf, size_t size,
+    off_t offset)
+{
+	if (offset < 0)
+		return -EINVAL;
+	return nextufs__read_exact(img, buf, size, img->slice_base + offset);
+}
+
+int
+nextufs_image_pwrite(const struct nextufs_image *img, const void *buf,
+    size_t size, off_t offset)
+{
+	if (offset < 0)
+		return -EINVAL;
+	return nextufs__write_exact(img, buf, size, img->slice_base + offset);
+}
+
+int
+nextufs_image_fsync(const struct nextufs_image *img)
+{
+	return nextufs__image_fsync(img);
+}
+
 uint64_t
 nextufs__cgstart(const struct nextufs_image *img, unsigned cg)
 {

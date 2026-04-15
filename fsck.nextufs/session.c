@@ -156,7 +156,7 @@ checkfilesys_active(char *filesys)
 	}
 #if	NeXT
 	if (usingblkdev && (!mountedfs || readonlyfs))
-		fsync(dfile.wfdes);
+		(void)fsck_file_fsync(&dfile);
 #endif
 	if (mountedfs)
 		exit(4);

@@ -141,6 +141,11 @@ struct nextufs_write_ctx {
 int nextufs_image_open(struct nextufs_image *img, const char *path);
 int nextufs_image_open_rw(struct nextufs_image *img, const char *path);
 void nextufs_image_close(struct nextufs_image *img);
+int nextufs_image_pread(const struct nextufs_image *img, void *buf, size_t size,
+	off_t offset);
+int nextufs_image_pwrite(const struct nextufs_image *img, const void *buf,
+	size_t size, off_t offset);
+int nextufs_image_fsync(const struct nextufs_image *img);
 int nextufs_source_extract_slice(const char *source_path, int out_fd);
 void nextufs_probe_info_get(const struct nextufs_image *img,
 	struct nextufs_probe_info *info);

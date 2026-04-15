@@ -9,7 +9,7 @@
 - standalone VDI images
 - VDI differencing chains
 - read-only checking with `-n`
-- repair mode with `-y`
+- in-place repair mode with `-y` when the source is writable
 - byte-swapped filesystem handling on little-endian hosts
 
 ## Build
@@ -31,15 +31,16 @@ Attempt repairs:
 
 ```sh
 ./fsck.nextufs -y /path/to/filesystem.img
+./fsck.nextufs -y /path/to/disk-or-vdi-source
 ```
 
 Notes:
 
-- raw filesystem images are checked in place
-- container-backed and sliced sources are currently staged to a temporary raw
-  slice before checking
-- those staged sources are therefore read-only from `fsck.nextufs`'s point of
-  view and will show `NO WRITE`
+- raw filesystem images, disk images, and VDI sources are checked directly
+  through the shared `nextufs` source backend
+- `-n` still opens the source read-only and will show `NO WRITE`
+- `-y` can repair standalone and chained VDI sources in place when the image
+  files are writable
 
 ## Test Lab
 

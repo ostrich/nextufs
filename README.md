@@ -22,9 +22,9 @@ It includes:
 - VDI differencing chains
 
 Writable support is available in `nextufs` for raw sources and writable VDI
-chains. `fsck.nextufs` can also inspect raw disk images and VDI sources by
-staging the active filesystem slice read-only. `mkfs.nextufs` creates raw
-filesystem images.
+chains. `fsck.nextufs` checks and repairs raw sources, standalone VDIs, and
+VDI differencing chains directly through the shared `nextufs` source backend.
+`mkfs.nextufs` creates raw filesystem images.
 
 ## Build
 
@@ -65,6 +65,7 @@ Check a filesystem:
 
 ```sh
 ./fsck.nextufs/fsck.nextufs -n /path/to/filesystem.img
+./fsck.nextufs/fsck.nextufs -y /path/to/disk-or-vdi-source
 ```
 
 Create a filesystem:

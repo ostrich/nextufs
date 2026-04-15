@@ -11,6 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include "../nextufs/nextufs.h"
 
 #define	MAXDUP		10
 #define	MAXBAD		10
@@ -78,6 +79,8 @@ struct filecntl {
 	int	rfdes;
 	int	wfdes;
 	int	mod;
+	char	use_image;
+	struct nextufs_image image;
 };
 
 enum fixstate {DONTKNOW, NOFIX, FIX};
@@ -309,6 +312,9 @@ void	rwerr(char *s, daddr_t blk);
 void	ckfini(void);
 int	bread(struct filecntl *fcp, char *buf, daddr_t blk, long size);
 void	bwrite(struct filecntl *fcp, char *buf, daddr_t blk, int size);
+int	fsck_file_is_writable(struct filecntl *fcp);
+int	fsck_file_fsync(struct filecntl *fcp);
+void	fsck_file_close(struct filecntl *fcp);
 daddr_t	allocblk(int frags);
 void	freeblk(daddr_t blkno, int frags);
 void	getpathname(char *namebuf, ino_t curdir, ino_t ino);
@@ -321,8 +327,7 @@ int	mounted(char *name);
 int	is_mounted_on(char *dir, char *dev);
 void	*xmalloc(unsigned long size);
 char	*setup(char *dev);
-int	fsck_source_prepare_path(const char *path, char *resolved_path,
-	    size_t resolved_size, int *force_readonly);
+int	fsck_source_use_image_backend(const char *path);
 void	fsck_source_cleanup(void);
 struct mntent *mntdup(struct mntent *mnt);
 int	pass1check(struct inodesc *idesc);
