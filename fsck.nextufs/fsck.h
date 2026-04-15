@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,6 +128,9 @@ struct fsck_ctx {
 	char	ctx_rawflg;
 #endif
 	char	*ctx_devname;
+	char	ctx_source_path[PATH_MAX];
+	char	ctx_source_is_temp;
+	char	ctx_source_force_readonly;
 #ifdef NeXT_MOD
 	char	ctx_Pflag;
 #endif
@@ -197,6 +201,9 @@ void fsck_ctx_init_from_runtime(struct fsck_ctx *ctx);
 #define	rawflg		(fsck_ctx_current()->ctx_rawflg)
 #endif
 #define	devname		(fsck_ctx_current()->ctx_devname)
+#define	source_path	(fsck_ctx_current()->ctx_source_path)
+#define	source_is_temp	(fsck_ctx_current()->ctx_source_is_temp)
+#define	source_force_readonly (fsck_ctx_current()->ctx_source_force_readonly)
 #ifdef NeXT_MOD
 #define	Pflag		(fsck_ctx_current()->ctx_Pflag)
 #endif
@@ -314,6 +321,9 @@ int	mounted(char *name);
 int	is_mounted_on(char *dir, char *dev);
 void	*xmalloc(unsigned long size);
 char	*setup(char *dev);
+int	fsck_source_prepare_path(const char *path, char *resolved_path,
+	    size_t resolved_size, int *force_readonly);
+void	fsck_source_cleanup(void);
 struct mntent *mntdup(struct mntent *mnt);
 int	pass1check(struct inodesc *idesc);
 int	pass2check(struct inodesc *idesc);

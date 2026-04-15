@@ -170,6 +170,7 @@ checkfilesys(char *filesys)
 	fsck_ctx_init_from_runtime(&ctx);
 	fsck_ctx_set_current(&ctx);
 	checkfilesys_active(filesys);
+	fsck_source_cleanup();
 	fsck_process_exitstat |= ctx.ctx_exitstat;
 	fsck_ctx_set_current(NULL);
 }

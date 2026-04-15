@@ -1,35 +1,32 @@
-/* Filesystem sizing and fragment-accounting tables. */
+/* Fragment-accounting tables and bitmap helpers. */
 
-#ifdef	KERNEL
-#include "sys/param.h"
-#else
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <sys/param.h>
-#endif
+#include <ufs/fs.h>
+#include <ufs/inode.h>
+#define KERNEL
+#include <ufs/fsdir.h>
+#undef KERNEL
+#include "fsck.h"
 
 /*
  * Bit patterns for identifying fragments in the block map
  * used as ((map & around) == inside)
  */
-int around[9] = {
+static int around[9] = {
 	0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff
 };
-int inside[9] = {
+static int inside[9] = {
 	0x0, 0x2, 0x6, 0xe, 0x1e, 0x3e, 0x7e, 0xfe, 0x1fe
 };
 
 /*
  * Given a block map bit pattern, the frag tables tell whether a
- * particular size fragment is available. 
- *
- * used as:
- * if ((1 << (size - 1)) & fragtbl[fs->fs_frag][map] {
- *	at least one fragment of the indicated size is available
- * }
- *
- * These tables are used by the scanc instruction on the VAX to
- * quickly find an appropriate fragment.
+ * particular size fragment is available.
  */
-u_char fragtbl124[256] = {
+static unsigned char fragtbl124[256] = {
 	0x00, 0x16, 0x16, 0x2a, 0x16, 0x16, 0x26, 0x4e,
 	0x16, 0x16, 0x16, 0x3e, 0x2a, 0x3e, 0x4e, 0x8a,
 	0x16, 0x16, 0x16, 0x3e, 0x16, 0x16, 0x36, 0x5e,
@@ -64,7 +61,7 @@ u_char fragtbl124[256] = {
 	0x9e, 0x9e, 0x9e, 0xbe, 0xaa, 0xbe, 0xce, 0x8a,
 };
 
-u_char fragtbl8[256] = {
+static unsigned char fragtbl8[256] = {
 	0x00, 0x01, 0x01, 0x02, 0x01, 0x01, 0x02, 0x04,
 	0x01, 0x01, 0x01, 0x03, 0x02, 0x03, 0x04, 0x08,
 	0x01, 0x01, 0x01, 0x03, 0x01, 0x01, 0x03, 0x05,
@@ -99,9 +96,100 @@ u_char fragtbl8[256] = {
 	0x10, 0x11, 0x11, 0x12, 0x20, 0x21, 0x40, 0x80,
 };
 
-/*
- * The actual fragtbl array.
- */
-u_char *fragtbl[MAXFRAG + 1] = {
+static unsigned char *fragtbl[MAXFRAG + 1] = {
 	0, fragtbl124, fragtbl124, 0, fragtbl124, 0, 0, 0, fragtbl8,
 };
+
+void
+fragacct(struct fs *fs, int fragmap, int32_t fraglist[], int cnt)
+{
+	int inblk;
+	int field;
+	int subfield;
+	int siz;
+	int pos;
+
+	inblk = (int)(fragtbl[fs->fs_frag][fragmap]) << 1;
+	fragmap <<= 1;
+	for (siz = 1; siz < fs->fs_frag; siz++) {
+		if ((inblk & (1 << (siz + (fs->fs_frag % NBBY)))) == 0)
+			continue;
+		field = around[siz];
+		subfield = inside[siz];
+		for (pos = siz; pos <= fs->fs_frag; pos++) {
+			if ((fragmap & field) == subfield) {
+				fraglist[siz] += cnt;
+				pos += siz;
+				field <<= siz;
+				subfield <<= siz;
+			}
+			field <<= 1;
+			subfield <<= 1;
+		}
+	}
+}
+
+int
+isblock(struct fs *fs, unsigned char *cp, daddr_t h)
+{
+	unsigned char mask;
+
+	switch ((int)fs->fs_frag) {
+	case 8:
+		return (cp[h] == 0xff);
+	case 4:
+		mask = 0x0f << ((h & 0x1) << 2);
+		return ((cp[h >> 1] & mask) == mask);
+	case 2:
+		mask = 0x03 << ((h & 0x3) << 1);
+		return ((cp[h >> 2] & mask) == mask);
+	case 1:
+		mask = 0x01 << (h & 0x7);
+		return ((cp[h >> 3] & mask) == mask);
+	default:
+		panic("isblock");
+		return 0;
+	}
+}
+
+void
+clrblock(struct fs *fs, unsigned char *cp, daddr_t h)
+{
+	switch ((int)fs->fs_frag) {
+	case 8:
+		cp[h] = 0;
+		return;
+	case 4:
+		cp[h >> 1] &= ~(0x0f << ((h & 0x1) << 2));
+		return;
+	case 2:
+		cp[h >> 2] &= ~(0x03 << ((h & 0x3) << 1));
+		return;
+	case 1:
+		cp[h >> 3] &= ~(0x01 << (h & 0x7));
+		return;
+	default:
+		panic("clrblock");
+	}
+}
+
+void
+setblock(struct fs *fs, unsigned char *cp, daddr_t h)
+{
+	switch ((int)fs->fs_frag) {
+	case 8:
+		cp[h] = 0xff;
+		return;
+	case 4:
+		cp[h >> 1] |= (0x0f << ((h & 0x1) << 2));
+		return;
+	case 2:
+		cp[h >> 2] |= (0x03 << ((h & 0x3) << 1));
+		return;
+	case 1:
+		cp[h >> 3] |= (0x01 << (h & 0x7));
+		return;
+	default:
+		panic("setblock");
+	}
+}

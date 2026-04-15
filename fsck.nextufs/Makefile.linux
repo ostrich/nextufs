@@ -10,9 +10,9 @@ REPAIR_TOOL = $(TESTS_DIR)/tools/corrupt_raw_case
 
 FSCK_BIN = fsck.nextufs
 FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
-	inode_ops.c inode_scan.c main.c operator.c pass1.c pass1b.c pass2.c \
-	pass3.c pass4.c pass5.c session.c setup.c state.c ufs_tables.c \
-	ufs_subr_user.c
+	frag_support.c inode_ops.c inode_scan.c main.c operator.c pass1.c \
+	pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c source.c \
+	state.c
 FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
 
 .PHONY: all clean scratch-dir repair-tools repair-lab repair-smoke repair-parity-smoke repair-parity-all
@@ -22,12 +22,15 @@ all: scratch-dir $(FSCK_BIN)
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
-$(FSCK_BIN): $(FSCK_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(FSCK_OBJS)
+$(FSCK_BIN): $(FSCK_OBJS) ../nextufs/libnextufs.a
+	$(CC) $(CFLAGS) -o $@ $(FSCK_OBJS) ../nextufs/libnextufs.a
 
 .build-next/%.o: %.c
 	mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+../nextufs/libnextufs.a:
+	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
 
 clean:
 	rm -f $(FSCK_BIN)

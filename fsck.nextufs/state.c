@@ -34,6 +34,7 @@ fsck_ctx_init(struct fsck_ctx *ctx)
 {
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->ctx_lfname = "lost+found";
+	ctx->ctx_source_path[0] = '\0';
 	ctx->ctx_endpathname = &ctx->ctx_pathname[BUFSIZ - 2];
 	ctx->ctx_emptydir = (struct dirtemplate){ 0, DIRBLKSIZ, 0, "", 0, 0, 0, "" };
 	ctx->ctx_dirhead = (struct dirtemplate){

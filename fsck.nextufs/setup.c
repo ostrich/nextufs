@@ -24,8 +24,10 @@ setup(char *dev)
 	daddr_t super = bflag ? bflag : SBLOCK;
 	int i, j;
 	long size;
+	int force_readonly = 0;
 	BUFAREA asblk;
 	static char devstr[MAXPATHLEN];
+	static char openpath[MAXPATHLEN];
 #	define altsblock asblk.b_unp->b_fs
 	strcpy(devstr, dev);
 restat:
@@ -126,13 +128,16 @@ restat:
 	if (mounted(devstr))
 		mountedfs++;
 #endif
-	if ((dfile.rfdes = open(devstr, 0)) < 0) {
+	if (fsck_source_prepare_path(devstr, openpath, sizeof(openpath),
+	    &force_readonly) < 0)
+		strcpy(openpath, devstr);
+	if ((dfile.rfdes = open(openpath, 0)) < 0) {
 		printf("Can't open %s\n", devstr);
 		return (0);
 	}
 	if (preen == 0)
 		printf("** %s", devstr);
-	if (nflag || (dfile.wfdes = open(devstr, 1)) < 0) {
+	if (nflag || force_readonly || (dfile.wfdes = open(openpath, 1)) < 0) {
 		dfile.wfdes = -1;
 		if (preen)
 			pfatal("NO WRITE ACCESS");
