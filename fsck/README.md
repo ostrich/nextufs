@@ -4,9 +4,7 @@ Read-only NeXT/OpenStep UFS validation tooling.
 
 Current scope:
 
-- open a raw filesystem slice with `pread`
-- accept a generic source for `fsck.nextufs`, including raw disk images and
-  VirtualBox VDI containers
+- open a raw image with `pread`
 - inspect the first sector as an MBR
 - decode a NeXT `dlV3` disk label and select a filesystem slice
 - decode the UFS superblock and inode geometry
@@ -39,8 +37,6 @@ Historical `fsck` port:
 - `fsck.nextufs` builds from the original source with a local compatibility layer
 - the source now compiles in both `i386` and `x86_64` Linux configurations
 - `fsck.nextufs` is the only historical-port binary that gets produced
-- `fsck.nextufs` now accepts VDI-backed sources by extracting the selected UFS
-  slice to a temporary raw file before running the checker
 - by default it builds for the host ABI
 - if you want a 32-bit build from the same source tree, use `ARCH_CFLAGS=-m32`
 - both native and `-m32` builds now complete the same clean five-phase read-only run on the OpenStep 4.2 sample slice
@@ -59,17 +55,6 @@ Run it on the extracted filesystem slice from the sample image:
 dd if=openstep42-base.raw of=/tmp/openstep42-a.raw bs=1024 skip=160 count=2096480 status=none
 ./fsck.nextufs -n /tmp/openstep42-a.raw
 ```
-
-Run it directly on a VDI-backed source:
-
-```sh
-./fsck.nextufs -n "/path/to/OPENSTEP 4.2.vdi"
-```
-
-For container-backed sources such as VDI, `fsck.nextufs` currently runs
-read-only with `NO WRITEBACK`. It extracts the selected UFS slice to a
-temporary raw file, runs the checker on that temporary file, and does not
-write repairs back into the original container source.
 
 Expected result on the sample image is a clean five-phase read-only pass ending with:
 

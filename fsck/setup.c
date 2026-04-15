@@ -37,12 +37,8 @@ setup(char *dev)
 	long size;
 	BUFAREA asblk;
 	static char devstr[MAXPATHLEN];
-	char openstr[MAXPATHLEN];
-	int forced_readonly;
 #	define altsblock asblk.b_unp->b_fs
 	strcpy(devstr, dev);
-	strcpy(openstr, dev);
-	forced_readonly = 0;
 restat:
 	if (stat(devstr, &statb) < 0) {
 		printf("Can't stat %s\n", devstr);
@@ -141,23 +137,17 @@ restat:
 	if (mounted(devstr))
 		mountedfs++;
 #endif
-	if (fsck_prepare_source(devstr, openstr, sizeof(openstr),
-	    &forced_readonly) < 0) {
-		printf("Can't prepare %s\n", devstr);
-		return (0);
-	}
-	if ((dfile.rfdes = open(openstr, 0)) < 0) {
+	if ((dfile.rfdes = open(devstr, 0)) < 0) {
 		printf("Can't open %s\n", devstr);
-		fsck_cleanup_prepared_source();
 		return (0);
 	}
 	if (preen == 0)
 		printf("** %s", devstr);
-	if (forced_readonly || nflag || (dfile.wfdes = open(openstr, 1)) < 0) {
+	if (nflag || (dfile.wfdes = open(devstr, 1)) < 0) {
 		dfile.wfdes = -1;
-		if (preen && !forced_readonly)
+		if (preen)
 			pfatal("NO WRITE ACCESS");
-		printf(forced_readonly ? " (NO WRITEBACK)" : " (NO WRITE)");
+		printf(" (NO WRITE)");
 	}
 	if (preen == 0)
 		printf("\n");

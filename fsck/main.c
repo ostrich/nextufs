@@ -170,31 +170,18 @@ checkfilesys(char *filesys)
 #if	NeXT
 	int	expected_state;
 #endif
-	char saved_nflag, saved_yflag;
-
-	saved_nflag = nflag;
-	saved_yflag = yflag;
 
 	if ((devname = setup(filesys)) == 0) {
-		fsck_cleanup_prepared_source();
 		if (preen)
 			pfatal("CAN'T CHECK FILE SYSTEM.");
 		return;
 	}
-	if (preparedsource) {
-		nflag = 1;
-		yflag = 0;
-	}
-	devname = filesys;
 #if	NeXT
 	/* setup determines if file system is mounted */
 	expected_state = (mountedfs && ! readonlyfs)
 		? FS_STATE_DIRTY : FS_STATE_CLEAN;
 	if (preen && sblock.fs_state == expected_state && !Pflag) {
 		pinfo("file system clean: skipping check\n");
-		nflag = saved_nflag;
-		yflag = saved_yflag;
-		fsck_cleanup_prepared_source();
 		return;
 	}
 #endif
@@ -321,8 +308,6 @@ checkfilesys(char *filesys)
 		sbdirty();
 	}
 	ckfini();
-	nflag = saved_nflag;
-	yflag = saved_yflag;
 	free(blockmap);
 	free(statemap);
 	free((char *)lncntp);

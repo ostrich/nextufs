@@ -173,7 +173,6 @@ ckfini(void)
 	flush(&dfile, &cgblk);
 	(void)close(dfile.rfdes);
 	(void)close(dfile.wfdes);
-	fsck_cleanup_prepared_source();
 }
 
 int
