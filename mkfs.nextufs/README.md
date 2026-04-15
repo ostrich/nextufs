@@ -14,7 +14,7 @@ make -f Makefile.linux
 ./mkfs.nextufs /tmp/nextufs.img 65536
 ```
 
-With only `special` and `size`, `mkfs.nextufs` uses built-in defaults for the
+With only `target` and `size`, `mkfs.nextufs` uses built-in defaults for the
 filesystem geometry and allocation policy.
 
 `size` is expressed in 1 KiB sectors, so `65536` creates a 64 MiB image.
@@ -30,8 +30,8 @@ enough for a valid UFS layout.
 
 Argument order:
 
-- `special`
-  output image path
+- `target`
+  output image or device path
 - `size`
   filesystem size in 1 KiB sectors
 - `nsect`

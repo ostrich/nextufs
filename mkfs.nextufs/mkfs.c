@@ -6,10 +6,10 @@ void
 print_usage(FILE *out)
 {
 	fprintf(out,
-	    "usage: mkfs.nextufs [-N] <special> <size> [nsect ntrak bsize fsize cpg minfree rps nbpi opt]\n");
+	    "usage: mkfs.nextufs [-N] <target> <size> [nsect ntrak bsize fsize cpg minfree rps nbpi opt]\n");
 	fprintf(out, "\n");
 	fprintf(out, "Required arguments:\n");
-	fprintf(out, "  special   output image path\n");
+	fprintf(out, "  target    output image or device path\n");
 	fprintf(out, "  size      filesystem size in 1 KiB sectors\n");
 	fprintf(out, "\n");
 	fprintf(out, "Optional geometry and policy arguments:\n");
@@ -25,9 +25,9 @@ print_usage(FILE *out)
 	fprintf(out, "  opt       allocation policy           default: t (time)\n");
 	fprintf(out, "\n");
 	fprintf(out, "Notes:\n");
-	fprintf(out, "  - With only <special> and <size>, mkfs.nextufs uses the defaults above.\n");
-	fprintf(out, "  - size does not need to be a special multiple; it must be a positive\n");
-	fprintf(out, "    count of 1 KiB sectors large enough for a valid filesystem layout.\n");
+	fprintf(out, "  - With only <target> and <size>, mkfs.nextufs uses the defaults above.\n");
+	fprintf(out, "  - size is a positive count of 1 KiB sectors and must be large enough\n");
+	fprintf(out, "    for a valid filesystem layout.\n");
 	fprintf(out, "  - Additional geometry combinations may still be rejected if they are\n");
 	fprintf(out, "    inconsistent with UFS layout constraints.\n");
 	fprintf(out, "\n");
