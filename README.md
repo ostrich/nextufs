@@ -85,6 +85,8 @@ make test
 The project is also exercised with:
 
 - deterministic mutation stress tests for raw and FUSE-backed sources
+- copied chained-VDI repair and mutation testing, including offline and
+  FUSE-backed runs
 - a cached `fsck.nextufs` corruption corpus with repair and comparison workflows
 - `mkfs.nextufs` reproducibility checks for canonical invocations
 

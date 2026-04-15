@@ -41,6 +41,10 @@ Notes:
 - `-n` still opens the source read-only and will show `NO WRITE`
 - `-y` can repair standalone and chained VDI sources in place when the image
   files are writable
+- for a VDI differencing chain, point `fsck.nextufs` at the chain head, not
+  the base image
+- use [`../tools/vdi_chain.py`](../tools/vdi_chain.py) to identify the current
+  head of a VirtualBox snapshot chain before running `fsck.nextufs`
 
 ## Test Lab
 
