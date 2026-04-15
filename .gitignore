@@ -12,14 +12,12 @@
 /mkfs.nextufs/mkfs.nextufs
 
 /fsck.nextufs/.build-next/
-/fsck.nextufs/.scratch/
 /fsck.nextufs/tests/cache/
 /fsck.nextufs/tests/work/
 /fsck.nextufs/tests/tools/corrupt_raw_case
 
 /nextufs/openstep42-base.raw
 /nextufs/openstep42-base.vdi
-/fsck.legacy/openstep42-base.raw
 /CONTINUATION.md
 /NOTES.md
 /TODO.md

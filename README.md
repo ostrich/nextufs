@@ -1,63 +1,74 @@
 # nextufs
 
-NeXT/OpenStep-compatible UFS tooling and filesystem driver work.
+`nextufs` is a small toolchain for working with NeXT/OpenStep UFS filesystems.
+It includes:
 
-Components:
+- `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
+- `fsck.nextufs/`: filesystem checker and repair tool
+- `mkfs.nextufs/`: filesystem builder
 
-- `nextufs/`: shared filesystem library, probe tool, writable FUSE mount, and
-  offline mutation tool used for regression tests
-- `fsck.nextufs/`: primary `fsck.nextufs` implementation
-- `mkfs.nextufs/`: `mkfs.nextufs` filesystem builder
+## Features
 
-Status:
+- inspect NeXT/OpenStep UFS filesystems
+- mount them through FUSE
+- create and mutate filesystems offline
+- check and repair filesystem metadata
+- work with raw sources and VirtualBox VDI containers
 
-- source probing and FUSE mount are working for raw disk images and VirtualBox
-  VDI containers
-- source probing supports raw disk images plus standalone/chained VDI
-- offline mutation operations are working and validated against `fsck.nextufs`
-- writable mutation and FUSE paths now cover raw disk images plus writable VDI
-  containers
-- writable FUSE defaults to permission-checked operations using the calling
-  process credentials
-- implemented mutation operations include `rename`, long symlinks,
-  truncate/grow/shrink, indirect-block allocation, and special files
+## Source Support
 
-Build:
+- raw disk images
+- standalone VDI images
+- VDI differencing chains
+
+Writable support is available in `nextufs` for raw sources and writable VDI
+chains. `fsck.nextufs` and `mkfs.nextufs` currently operate on raw filesystem
+images.
+
+## Build
 
 ```sh
 make
 ```
 
-That builds all three components.
+## Quick Start
 
-Run the `nextufs` library regression suite:
+Inspect a source:
+
+```sh
+./nextufs/nextufs_probe /path/to/source
+./nextufs/nextufs_probe /path/to/source /etc/passwd
+```
+
+Mount through FUSE:
+
+```sh
+mkdir -p /tmp/nextufs-mnt
+./nextufs/nextufs_fuse /path/to/source /tmp/nextufs-mnt -f -s
+```
+
+Check a filesystem:
+
+```sh
+./fsck.nextufs/fsck.nextufs -n /path/to/filesystem.img
+```
+
+Create a filesystem:
+
+```sh
+./mkfs.nextufs/mkfs.nextufs /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
+```
+
+## Tests
+
+Run the main regression suite:
 
 ```sh
 make test
 ```
 
-Run the current mutation regressions:
+Component-specific notes are in:
 
-```sh
-make test-write
-make test-write-big
-make test-write-grow
-make test-unlink
-make test-mkdir
-make test-rewrite
-make test-link-symlink
-make test-rmdir
-make test-meta
-make test-rename
-make test-truncate
-make test-special
-make test-fuse-write
-make test-permissions
-make test-failure
-```
-
-Project structure is subsystem-oriented. Shared library code is split by image
-I/O, directory handling, pathname resolution, node APIs, allocation, on-disk
-layout updates, directory mutation, and higher-level mutation operations.
-
-Sample images used by the larger regression flows are not distributed in git.
+- [nextufs/README.md](nextufs/README.md)
+- [fsck.nextufs/README.md](fsck.nextufs/README.md)
+- [mkfs.nextufs/README.md](mkfs.nextufs/README.md)
