@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * These functions are moved out of the legacy utilities file because they are
- * operator/session interaction policy, not buffer or traversal logic. Prompt
- * behavior, messages, exit paths, and signal effects are preserved.
- */
+/* Operator interaction, prompts, and process-level reporting. */
 
 #include <stdio.h>
 #include <ctype.h>

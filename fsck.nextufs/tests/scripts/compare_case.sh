@@ -12,6 +12,12 @@ CASE_NAME="$2"
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TEST_ROOT="$ROOT/fsck.nextufs/tests"
 TMP_DIR="$TEST_ROOT/work/compare"
+LEGACY_BIN="${FSCK_LEGACY_BIN:-}"
+
+if [[ -z "$LEGACY_BIN" ]]; then
+  echo "FSCK_LEGACY_BIN is required for compare_case.sh" >&2
+  exit 2
+fi
 
 mkdir -p "$TMP_DIR"
 

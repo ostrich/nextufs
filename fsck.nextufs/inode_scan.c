@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file contains the legacy inode/block traversal logic. Direct-block
- * ordering, indirect recursion, truncation repair conditions, and inode-block
- * caching are preserved.
- */
+/* Inode and block traversal helpers. */
 
 #include <stdio.h>
 #include <pwd.h>

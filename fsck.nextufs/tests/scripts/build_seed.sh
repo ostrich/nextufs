@@ -20,9 +20,9 @@ fi
 
 (
   cd "$ROOT"
-  make -C mkfs -f Makefile.linux >/dev/null
+  make -C mkfs.nextufs -f Makefile.linux >/dev/null
   make -C nextufs -f Makefile.linux nextufs_mkfile >/dev/null
-  ./mkfs/mkfs.nextufs "$SEED" 32768 63 16 8192 1024 16 10 60 2048 t >/dev/null
+  ./mkfs.nextufs/mkfs.nextufs "$SEED" 32768 63 16 8192 1024 16 10 60 2048 t >/dev/null
   ./nextufs/nextufs_mkfile "$SEED" /alpha "alpha"
   ./nextufs/nextufs_mkfile --mkdir "$SEED" /dir
   ./nextufs/nextufs_mkfile "$SEED" /dir/file "nested"

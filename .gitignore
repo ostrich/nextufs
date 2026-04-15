@@ -9,7 +9,7 @@
 /nextufs/nextufs_stress
 /fsck.legacy
 /fsck.nextufs/fsck.nextufs
-/mkfs/mkfs.nextufs
+/mkfs.nextufs/mkfs.nextufs
 
 /fsck.nextufs/.build-next/
 /fsck.nextufs/.scratch/

@@ -1,22 +1,6 @@
-/* 
- * Mach Operating System
- * Copyright (c) 1987 Carnegie-Mellon University
- * All rights reserved.  The CMU software License Agreement specifies
- * the terms and conditions for use and redistribution.
- **********************************************************************
- * HISTORY
- * 24-Jan-89  Peter King (king) at NeXT
- *	NFS 4.0 Changes.  Cleaned out old directory cruft.
- *
- **********************************************************************
- */
+/* Local directory-entry definitions for NeXT/OpenStep UFS. */
 
 #include <stdint.h>
-
-/* 
- * Copyright (c) 1988 by Sun Microsystems, Inc.
- * @(#) from SUN 2.6; from UCB 4.5 82/11/13
- */
 
 /*
  * A directory consists of some number of blocks of DIRBLKSIZ

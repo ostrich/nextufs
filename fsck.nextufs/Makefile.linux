@@ -2,7 +2,7 @@ CC = cc
 WARN_CFLAGS = -O2 -g -std=gnu99 -fcommon -Wall -Wextra
 ARCH_CFLAGS ?=
 CFLAGS = $(ARCH_CFLAGS) $(WARN_CFLAGS)
-CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -I../fsck.legacy/include
+CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -Iinclude
 SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
 TESTS_DIR = $(CURDIR)/tests
@@ -43,32 +43,32 @@ repair-tools: scratch-dir
 repair-lab: repair-tools
 	bash $(TESTS_DIR)/scripts/build_corpus.sh
 
-repair-smoke: repair-lab
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-block-count >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-dot-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-dotdot-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-file-type >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n cg-bitmap-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n cg-summary-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n dir-entry-unallocated >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n dup-block >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n extraneous-dir-link >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n missing-dot >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n missing-dotdot >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n misaligned-dir-size >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n out-of-range-block >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n partial-indirect >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n partially-allocated-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n root-not-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n root-unallocated >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n short-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-cstotal-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-free-counts >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-minfree >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-optim >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n unreferenced-alpha >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n unreferenced-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n zero-length-dir >/dev/null
+repair-smoke: repair-lab $(FSCK_BIN)
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-block-count >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-dot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-dotdot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-file-type >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n cg-bitmap-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n cg-summary-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n dir-entry-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n dup-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n extraneous-dir-link >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n missing-dot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n missing-dotdot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n misaligned-dir-size >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n out-of-range-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n partial-indirect >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n partially-allocated-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n root-not-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n root-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n short-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-cstotal-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-free-counts >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-minfree >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-optim >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n unreferenced-alpha >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n unreferenced-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh modern -n zero-length-dir >/dev/null
 
 repair-parity-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-bitmap-bad >/dev/null

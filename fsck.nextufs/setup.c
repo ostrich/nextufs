@@ -1,13 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)setup.c	5.3 (Berkeley) 5/15/86";
-#endif
+/* Filesystem-open and superblock setup logic. */
 
 #include <stdio.h>
 #include <sys/param.h>

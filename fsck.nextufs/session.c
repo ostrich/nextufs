@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file lifts the one-filesystem orchestration and source-name helpers out
- * of legacy main.c without changing their control flow, pass ordering, or
- * summary/exit behavior.
- */
+/* One-filesystem orchestration and source-name helpers. */
 
 #include <stdio.h>
 #include <sys/param.h>

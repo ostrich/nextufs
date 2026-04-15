@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file contains the legacy directory traversal and validation logic moved
- * out of dir.c. The control flow, state transitions, and on-disk edits are
- * preserved.
- */
+/* Directory traversal and validation helpers. */
 
 #include <stdio.h>
 #include <sys/param.h>

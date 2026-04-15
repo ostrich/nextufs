@@ -1,14 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)pass2.c	1.3 88/05/12 4.0NFSSRC SMI"; /* from UCB 5.2 3/5/86 */
-						/* @(#) from SUN 1.5    */
-#endif
+/* Phase 2: pathname and directory structure checks. */
 
 #include <stdio.h>
 #include <sys/param.h>

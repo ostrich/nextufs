@@ -22,7 +22,7 @@ fsck-tool:
 	$(MAKE) -C ../fsck -f Makefile.linux
 
 mkfs-tool:
-	$(MAKE) -C ../mkfs -f Makefile.linux
+	$(MAKE) -C ../mkfs.nextufs -f Makefile.linux
 
 $(LIB): $(LIB_OBJS)
 	ar rcs $@ $(LIB_OBJS)
@@ -364,7 +364,7 @@ test-permissions: all fsck-tool
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_permissions_fsck.out
 
 test-failure: all fsck-tool mkfs-tool
-	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-failure.raw 4096 63 16 8192 1024 16 10 60 2048 t
+	../mkfs.nextufs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-failure.raw 4096 63 16 8192 1024 16 10 60 2048 t
 	printf 'ok' >$(SCRATCH_DIR)/nextufs-seed.bin
 	dd if=/dev/zero of=$(SCRATCH_DIR)/nextufs-too-big.bin bs=1000000 count=6 status=none
 	./nextufs_mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /seed $(SCRATCH_DIR)/nextufs-seed.bin
@@ -382,7 +382,7 @@ test-failure: all fsck-tool mkfs-tool
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
 test-stress: all fsck-tool mkfs-tool
-	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	../mkfs.nextufs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress.raw 8192 63 16 8192 1024 16 10 60 2048 t
 	./nextufs_stress --seed 0x13579bdf --ops 250 --quiet $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress.log
 	../fsck.nextufs/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress.log
@@ -398,12 +398,12 @@ test-stress-base: all fsck-tool
 
 test-stress-batch: all fsck-tool mkfs-tool
 	rm -rf $(SCRATCH_DIR)/nextufs-stress-batch-fail
-	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-batch.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	../mkfs.nextufs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-batch.raw 8192 63 16 8192 1024 16 10 60 2048 t
 	./nextufs_stress --seed 0x13579bdf --ops 120 --batch 4 --save-fail-dir $(SCRATCH_DIR)/nextufs-stress-batch-fail --quiet $(SCRATCH_DIR)/nextufs-stress-batch.raw >$(SCRATCH_DIR)/nextufs_stress_batch.log
 	grep -F 'nextufs_stress: batch ok' $(SCRATCH_DIR)/nextufs_stress_batch.log
 
 test-stress-fuse: all fsck-tool mkfs-tool
-	../mkfs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-fuse.raw 8192 63 16 8192 1024 16 10 60 2048 t
+	../mkfs.nextufs/mkfs.nextufs $(SCRATCH_DIR)/nextufs-stress-fuse.raw 8192 63 16 8192 1024 16 10 60 2048 t
 	./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 --quiet $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse.log
 	../fsck.nextufs/fsck.nextufs -n $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_fuse.log

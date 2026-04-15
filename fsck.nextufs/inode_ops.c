@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file contains the legacy inode reporting and mutation helpers moved out
- * of inode.c. Link-count adjustments, inode clearing, and block release timing
- * preserve the original behavior.
- */
+/* Inode reporting, clearing, and mutation helpers. */
 
 #include <stdio.h>
 #include <pwd.h>

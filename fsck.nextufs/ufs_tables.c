@@ -1,23 +1,4 @@
-/* 
- **********************************************************************
- * Mach Operating System
- * Copyright (c) 1987 Carnegie-Mellon University
- * All rights reserved.  The CMU software License Agreement specifies
- * the terms and conditions for use and redistribution.
- **********************************************************************
- * HISTORY
- * 28-Oct-86  David Golub (dbg) at Carnegie-Mellon University
- *	Get "param.h" from somewhere else if outside the kernel.
- *
- */ 
- 
-/*
- * Copyright (c) 1982, 1986 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- *
- *	@(#)ufs_tables.c	7.1 (Berkeley) 6/5/86
- */
+/* Filesystem sizing and fragment-accounting tables. */
 
 #ifdef	KERNEL
 #include "sys/param.h"

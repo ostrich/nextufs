@@ -1,11 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- *
- *	@(#)fsck.h	1.2 88/05/05 4.0NFSSRC SMI;	from UCB 5.1 6/5/85
- *				@(#) from SUN 1.7
- */
+/* Shared declarations for fsck.nextufs. */
 
 #include <signal.h>
 #include <stddef.h>

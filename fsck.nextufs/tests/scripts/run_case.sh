@@ -28,7 +28,11 @@ cp "$FIXTURE" "$WORK"
 
 case "$ENGINE" in
   legacy)
-    BIN="$ROOT/fsck.legacy/fsck.nextufs"
+    BIN="${FSCK_LEGACY_BIN:-}"
+    if [[ -z "$BIN" ]]; then
+      echo "FSCK_LEGACY_BIN is required for legacy runs" >&2
+      exit 2
+    fi
     ;;
   modern)
     BIN="$ROOT/fsck.nextufs/fsck.nextufs"

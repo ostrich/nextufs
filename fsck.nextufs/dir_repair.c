@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file contains the legacy namespace repair helpers moved out of dir.c.
- * The lost+found flow, entry insertion, directory growth, and link-count
- * updates preserve the original sequencing.
- */
+/* Directory and namespace repair helpers. */
 
 #include <stdio.h>
 #include <sys/param.h>

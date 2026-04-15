@@ -6,7 +6,7 @@ Goals:
 - keep corruption fixtures pristine
 - make every corruption deterministic and reproducible
 - use disposable working copies for any mutating `fsck` run
-- use legacy `fsck.nextufs` as the initial repair oracle
+- support optional parity comparison against an external reference checker
 
 Layout:
 - `tools/`: small helper binaries used to generate corruption cases
@@ -96,10 +96,12 @@ Typical workflow:
 
 ```sh
 make -C fsck.nextufs -f Makefile.linux repair-lab
-fsck.nextufs/tests/scripts/run_case.sh legacy -n bad-block-count
+make -C fsck.nextufs -f Makefile.linux repair-smoke
 fsck.nextufs/tests/scripts/run_case.sh modern -n bad-block-count
-fsck.nextufs/tests/scripts/compare_case.sh -n bad-block-count
-fsck.nextufs/tests/scripts/compare_all_cases.sh -n
+FSCK_LEGACY_BIN=/path/to/fsck.nextufs \
+  fsck.nextufs/tests/scripts/compare_case.sh -n bad-block-count
+FSCK_LEGACY_BIN=/path/to/fsck.nextufs \
+  fsck.nextufs/tests/scripts/compare_all_cases.sh -n
 ```
 
 The scripts always:
@@ -114,13 +116,11 @@ Current limitations:
 - the `lostfound-*` fixtures are not yet clean oracle cases
   - they still trigger enough surrounding fallout that they do not yet isolate
     the exact `lost+found` create/reallocate repair paths cleanly
-- legacy `fsck.legacy/fsck.nextufs` remains a detection oracle for the cached swapped-image
-  corpus under `-n`
-  - the older source model still drops write access on swapped filesystems in
-    `setup()`, so legacy `-y` runs do not provide a useful repair oracle on
-    these images
+- an external reference `fsck.nextufs` binary can still be used as a detection
+  oracle for the cached swapped-image corpus under `-n`
+  - set `FSCK_LEGACY_BIN` when running the parity scripts
 - `fsck.nextufs` now supports swapped-image writeback and can be used for
   real repair runs on the cached corpus
   - representative `-y` cases repair successfully
-  - full-cache `-n` parity remains the main semantic check against the legacy
-    checker
+  - parity comparison remains available when an external reference binary is
+    provided

@@ -1,20 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-#ifndef lint
-static const char copyright[] __attribute__((unused)) =
-"@(#) Copyright (c) 1980 Regents of the University of California.\n\
- All rights reserved.\n";
-#endif
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)main.c	1.6 88/05/23 4.0NFSSRC SMI"; /* from UCB 5.4 3/5/86 */
-						/* @(#) from SUN 1.32   */
-#endif
+/* Process entry point and multi-filesystem driver. */
 
 #include <stdio.h>
 #include <sys/param.h>

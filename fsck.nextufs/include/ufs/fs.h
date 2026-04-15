@@ -1,35 +1,6 @@
-/* 
- * Mach Operating System
- * Copyright (c) 1987 Carnegie-Mellon University
- * All rights reserved.  The CMU software License Agreement specifies
- * the terms and conditions for use and redistribution.
- */
+/* Local filesystem-format definitions for NeXT/OpenStep UFS. */
 
 #include <stdint.h>
-/*
- * HISTORY
- * 27-Sep-89  Morris Meyer (mmeyer) at NeXT
- *	NFS 4.0 Changes.
- *
- * 25-Jan-86  Avadis Tevanian (avie) at Carnegie-Mellon University
- *	Upgraded to 4.3.
- *
- * 03-Aug-85  Mike Accetta (mja) at Carnegie-Mellon University
- *	CS_RPAUSE:  Added freefrags() and freeinodes() macros and
- *	FS_FLOWAT, FS_FHIWAT, FS_ILOWAT, FS_IHIWAT, FS_FNOSPC and
- *	FS_INOSPC definitions.
- *
- */
- 
-/*
- * Copyright (c) 1982, 1986 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- *
- *	@(#)fs.h	7.1 (Berkeley) 6/4/86
- */
-
-/*	@(#)fs.h	2.1 88/05/20 4.0NFSSRC SMI;	from UCB 7.1 6/4/86	*/
 
 /*
  * Each disk drive contains some number of file systems.

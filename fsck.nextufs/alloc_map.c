@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file groups the legacy free-space bitmap manipulation helpers moved out
- * of utilities.c. Allocation scan order and block-accounting updates are
- * preserved.
- */
+/* Block and inode allocation-map helpers. */
 
 #include <stdio.h>
 #include <sys/param.h>

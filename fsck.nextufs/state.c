@@ -1,10 +1,4 @@
-/*
- * Equivalence note:
- * This file replaces the legacy ambient checker globals with an explicit
- * per-run context plus a small process-level option bundle used by main.c.
- * Callers still observe the same behavior because the pass logic continues to
- * read the same conceptual state, now through the current context.
- */
+/* Per-run checker state and process-level runtime options. */
 
 #include <string.h>
 #include <sys/param.h>

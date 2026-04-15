@@ -1,39 +1,7 @@
-/* 
- * Mach Operating System
- * Copyright (c) 1987 Carnegie-Mellon University
- * All rights reserved.  The CMU software License Agreement specifies
- * the terms and conditions for use and redistribution.
- *
- * HISTORY
- * 27-Sep-89  Morris Meyer (mmeyer) at NeXT
- *	NFS 4.0 Changes.
- *
- * 13-Feb-88  John Seamons (jks) at NeXT
- *	NeXT: increased DEV_BSIZE from 512 to 1024.
- *
- * 06-Jan-88  Jay Kistler (jjk) at Carnegie Mellon University
- *	Added declarations for __STDC__.
- *
- * 10-Aug-87  Peter King (king) at NeXT
- *	SUN_VFS:  Change d_ino to d_fileno.  Add dd_bbase, dd_entno, dd_bsize,
- *	      and dd_buf fields.
- *
- * 24-Jul-86  Michael Young (mwyoung) at Carnegie-Mellon University
- *	Prevent repeated inclusion.
- *
- */
- 
-#import <sys/types.h>
-#include <stdint.h>
-/*
- * Copyright (c) 1982, 1986 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- *
- *	@(#)dir.h	7.1 (Berkeley) 6/4/86
- */
+/* Local directory-layout definitions for NeXT/OpenStep UFS. */
 
-/* @(#)dir.h	1.4 87/06/02 3.2/4.3NFSSRC */
+#include <sys/types.h>
+#include <stdint.h>
 
 #ifndef	_DIR_
 #define	_DIR_	1

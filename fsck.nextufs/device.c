@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file groups low-level device access and mounted-filesystem discovery.
- * The logic is moved, not changed: read/write retry behavior, prompting, and
- * mounted-state detection remain the legacy behavior.
- */
+/* Low-level device I/O and mounted-filesystem discovery. */
 
 #include <stdio.h>
 #include <sys/param.h>

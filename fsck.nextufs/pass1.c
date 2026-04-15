@@ -1,20 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-/*
- * HISTORY
- * 20-Sep-88  Avadis Tevanian (avie) at NeXT
- *	Support for fast symbolic links.
- */
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)pass1.c	1.3 88/05/12 4.0NFSSRC SMI"; /* from UCB 5.3 5/13/86 */
-						/* @(#) from SUN 1.4     */
-#endif
+/* Phase 1: block and inode validation. */
 
 #include <stdio.h>
 #include <sys/param.h>

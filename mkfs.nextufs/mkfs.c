@@ -1,19 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-#ifndef lint
-char copyright[] =
-"@(#) Copyright (c) 1980 Regents of the University of California.\n\
- All rights reserved.\n";
-#endif
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)mkfs.c    1.2 88/03/10 4.0NFSSRC; from    5.3 (Berkeley) 9/11/85";
-#endif
+/* Filesystem image construction logic for mkfs.nextufs. */
 
 /*
  * make file system for cylinder-group style file systems

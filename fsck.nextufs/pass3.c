@@ -1,14 +1,4 @@
-/*
- * Copyright (c) 1980 Regents of the University of California.
- * All rights reserved.  The Berkeley software License Agreement
- * specifies the terms and conditions for redistribution.
- */
-
-#ifndef lint
-static const char sccsid[] __attribute__((unused)) =
-	"@(#)pass3.c	1.3 88/05/12 4.0NFSSRC SMI"; /* from UCB 5.2 6/5/85 */
-						/* @(#) from SUN 1.3    */
-#endif
+/* Phase 3: disconnected-directory recovery. */
 
 #include <stdio.h>
 #include <sys/param.h>

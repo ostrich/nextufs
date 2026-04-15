@@ -1,16 +1,13 @@
 # mkfs.nextufs
 
-Linux port of the historical NeXT/BSD `mkfs` source from
-an older NeXT/BSD source drop.
+`mkfs.nextufs` creates NeXT/OpenStep-style UFS filesystems in raw disk-image
+files.
 
-Current state:
-
+Current capabilities:
 - builds as `mkfs.nextufs`
 - writes big-endian NeXT/OpenStep-style UFS metadata
-- validated locally by creating a raw filesystem image and checking it with
-  `../fsck.nextufs/fsck.nextufs`
-- the generated image is also readable with
-  `../nextufs/nextufs_probe`
+- produces images that can be checked with `../fsck.nextufs/fsck.nextufs`
+  and inspected with `../nextufs/nextufs_probe`
 
 Build:
 
@@ -45,4 +42,4 @@ Validation workflow:
 ../nextufs/nextufs_probe /tmp/mkfs-next-test.img
 ```
 
-The port builds cleanly with the current `Makefile.linux` warning settings.
+The utility builds cleanly with the current `Makefile.linux` warning settings.

@@ -1,9 +1,4 @@
-/*
- * Equivalence note:
- * This file isolates the legacy buffer-cache behavior. Buffer eviction,
- * superblock-summary flush ordering, and final teardown sequence are preserved
- * verbatim from the old checker.
- */
+/* Buffer-cache and buffered writeback helpers. */
 
 #include <stdio.h>
 #include <sys/param.h>
