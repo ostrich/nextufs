@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - replace the inode number in `/dir/file` with a value beyond `imax`
 
-Primary legacy expectation:
+Primary expectation:
 - pass 2 reports an inode out of range

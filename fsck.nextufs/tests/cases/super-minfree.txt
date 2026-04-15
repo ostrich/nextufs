@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - set `fs_minfree` to an impossible value
 
-Primary legacy expectation:
+Primary expectation:
 - setup reports impossible `MINFREE`

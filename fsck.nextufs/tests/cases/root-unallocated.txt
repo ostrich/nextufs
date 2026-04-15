@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - clear root inode allocation state
 
-Primary legacy expectation:
+Primary expectation:
 - pass 2 reports root inode unallocated

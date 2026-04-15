@@ -1,14 +1,13 @@
 # nextufs
 
-NeXT/OpenStep UFS tooling and filesystem driver work extracted from a larger
-NeXT source tree.
+NeXT/OpenStep-compatible UFS tooling and filesystem driver work.
 
 Components:
 
 - `nextufs/`: shared filesystem library, probe tool, writable FUSE mount, and
   offline mutation tool used for regression tests
 - `fsck.nextufs/`: primary `fsck.nextufs` implementation
-- `mkfs.nextufs/`: Linux port of the historical NeXT/BSD `mkfs`
+- `mkfs.nextufs/`: `mkfs.nextufs` filesystem builder
 
 Status:
 
@@ -61,10 +60,4 @@ Project structure is subsystem-oriented. Shared library code is split by image
 I/O, directory handling, pathname resolution, node APIs, allocation, on-disk
 layout updates, directory mutation, and higher-level mutation operations.
 
-Provenance:
-
-- `fsck.nextufs/` and `mkfs.nextufs/` were derived from historical NeXT/BSD sources
-- some UFS compatibility headers and implementation details were derived from
-  NeXTMach-era sources and copied locally where needed
-
-Large sample images are kept locally for development and are ignored by git.
+Sample images used by the larger regression flows are not distributed in git.

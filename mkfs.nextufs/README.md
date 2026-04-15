@@ -1,10 +1,8 @@
 # mkfs.nextufs
 
-`mkfs.nextufs` creates NeXT/OpenStep-style UFS filesystems in raw disk-image
-files.
+`mkfs.nextufs` creates NeXT/OpenStep-style UFS filesystems in raw image files.
 
 Current capabilities:
-- builds as `mkfs.nextufs`
 - writes big-endian NeXT/OpenStep-style UFS metadata
 - produces images that can be checked with `../fsck.nextufs/fsck.nextufs`
   and inspected with `../nextufs/nextufs_probe`

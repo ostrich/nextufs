@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - rename the `file` directory entry in `/dir` to `..`
 
-Primary legacy expectation:
+Primary expectation:
 - pass 2 reports an extra `..` entry

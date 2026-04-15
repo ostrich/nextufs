@@ -4,7 +4,7 @@ Seed assumptions:
 Corruption:
 - increment `di_blocks` for `/alpha`
 
-Primary legacy expectation:
+Primary expectation:
 - pass 1 reports incorrect block count for the inode
 
 Working-copy policy:

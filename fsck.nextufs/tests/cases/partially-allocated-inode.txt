@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - clear `/alpha` mode but leave its size and block pointers intact
 
-Primary legacy expectation:
+Primary expectation:
 - pass 1 reports a partially allocated inode

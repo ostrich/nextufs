@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - set `/alpha` first direct block to a fragment number beyond `fmax`
 
-Primary legacy expectation:
+Primary expectation:
 - pass 1 reports a bad block

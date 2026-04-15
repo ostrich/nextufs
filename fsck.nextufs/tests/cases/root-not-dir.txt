@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - change root inode mode to a regular-file type
 
-Primary legacy expectation:
+Primary expectation:
 - pass 2 reports root inode not directory

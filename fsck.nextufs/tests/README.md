@@ -6,7 +6,7 @@ Goals:
 - keep corruption fixtures pristine
 - make every corruption deterministic and reproducible
 - use disposable working copies for any mutating `fsck` run
-- support optional parity comparison against an external reference checker
+- support optional comparison against a second checker build
 
 Layout:
 - `tools/`: small helper binaries used to generate corruption cases
@@ -16,7 +16,7 @@ Layout:
 - `cache/`: ignored generated assets
   - `seeds/`: pristine clean seed images
   - `corrupt/`: pristine corrupted fixtures
-  - `expected/`: captured oracle output
+  - `expected/`: captured checker output
 - `work/`: ignored disposable working copies
 
 Current seed:
@@ -97,10 +97,10 @@ Typical workflow:
 ```sh
 make -C fsck.nextufs -f Makefile.linux repair-lab
 make -C fsck.nextufs -f Makefile.linux repair-smoke
-fsck.nextufs/tests/scripts/run_case.sh modern -n bad-block-count
-FSCK_LEGACY_BIN=/path/to/fsck.nextufs \
+fsck.nextufs/tests/scripts/run_case.sh shipped -n bad-block-count
+FSCK_REFERENCE_BIN=/path/to/fsck.nextufs \
   fsck.nextufs/tests/scripts/compare_case.sh -n bad-block-count
-FSCK_LEGACY_BIN=/path/to/fsck.nextufs \
+FSCK_REFERENCE_BIN=/path/to/fsck.nextufs \
   fsck.nextufs/tests/scripts/compare_all_cases.sh -n
 ```
 
@@ -113,14 +113,14 @@ The scripts always:
 This keeps the corpus immutable while still allowing repair-mode runs.
 
 Current limitations:
-- the `lostfound-*` fixtures are not yet clean oracle cases
+- the `lostfound-*` fixtures are not yet clean single-purpose cases
   - they still trigger enough surrounding fallout that they do not yet isolate
     the exact `lost+found` create/reallocate repair paths cleanly
-- an external reference `fsck.nextufs` binary can still be used as a detection
-  oracle for the cached swapped-image corpus under `-n`
-  - set `FSCK_LEGACY_BIN` when running the parity scripts
+- another `fsck.nextufs` binary can be used as a detection comparison target
+  for the cached swapped-image corpus under `-n`
+  - set `FSCK_REFERENCE_BIN` when running the comparison scripts
 - `fsck.nextufs` now supports swapped-image writeback and can be used for
   real repair runs on the cached corpus
   - representative `-y` cases repair successfully
-  - parity comparison remains available when an external reference binary is
+  - comparison remains available when a second checker binary is
     provided

@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - set `/dir` size to a value not divisible by `DIRBLKSIZ`
 
-Primary legacy expectation:
+Primary expectation:
 - descent reports directory length not multiple of `DIRBLKSIZ`

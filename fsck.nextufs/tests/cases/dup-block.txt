@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - point `/dir/file` at `/alpha`'s first data block
 
-Primary legacy expectation:
+Primary expectation:
 - pass 1 reports duplicate blocks

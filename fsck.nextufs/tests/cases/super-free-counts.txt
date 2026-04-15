@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - perturb the superblock free-block and free-frag counts
 
-Primary legacy expectation:
+Primary expectation:
 - pass 5 reports wrong free block counts in the superblock

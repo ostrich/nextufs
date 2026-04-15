@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - set `/dir` size to zero
 
-Primary legacy expectation:
+Primary expectation:
 - descent reports zero length directory

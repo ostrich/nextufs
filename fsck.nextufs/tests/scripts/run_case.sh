@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-  echo "usage: $0 <legacy|modern> <-n|-y|-p> <case>" >&2
+  echo "usage: $0 <reference|shipped> <-n|-y|-p> <case>" >&2
   exit 2
 fi
 
@@ -27,14 +27,14 @@ OUT="$EXPECT_DIR/$CASE_NAME-${ENGINE}-${MODE#-}.out"
 cp "$FIXTURE" "$WORK"
 
 case "$ENGINE" in
-  legacy)
-    BIN="${FSCK_LEGACY_BIN:-}"
+  reference)
+    BIN="${FSCK_REFERENCE_BIN:-}"
     if [[ -z "$BIN" ]]; then
-      echo "FSCK_LEGACY_BIN is required for legacy runs" >&2
+      echo "FSCK_REFERENCE_BIN is required for reference runs" >&2
       exit 2
     fi
     ;;
-  modern)
+  shipped)
     BIN="$ROOT/fsck.nextufs/fsck.nextufs"
     ;;
   *)

@@ -4,7 +4,7 @@ Seed assumptions:
 Corruption:
 - clear the inode number in the second directory entry of `/dir`
 
-Primary legacy expectation:
+Primary expectation:
 - pass 2 reports missing `..`
 
 Working-copy policy:

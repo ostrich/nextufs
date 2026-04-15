@@ -21,4 +21,9 @@
 /nextufs/openstep42-base.vdi
 /fsck.legacy/openstep42-base.raw
 /CONTINUATION.md
+/NOTES.md
+/TODO.md
+/PLAN.md
+/TRACKING.md
+/fsck.nextufs/tests/MATRIX.md
 /third_party/

@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - clear the root-directory entry for `dir` without clearing the inode
 
-Primary legacy expectation:
+Primary expectation:
 - pass 3 treats `/dir` as disconnected and later repair may reconnect it

@@ -44,31 +44,31 @@ repair-lab: repair-tools
 	bash $(TESTS_DIR)/scripts/build_corpus.sh
 
 repair-smoke: repair-lab $(FSCK_BIN)
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-block-count >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-dot-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-dotdot-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n bad-file-type >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n cg-bitmap-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n cg-summary-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n dir-entry-unallocated >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n dup-block >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n extraneous-dir-link >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n missing-dot >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n missing-dotdot >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n misaligned-dir-size >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n out-of-range-block >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n partial-indirect >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n partially-allocated-inode >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n root-not-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n root-unallocated >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n short-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-cstotal-bad >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-free-counts >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-minfree >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n super-optim >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n unreferenced-alpha >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n unreferenced-dir >/dev/null
-	bash $(TESTS_DIR)/scripts/run_case.sh modern -n zero-length-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-block-count >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-dot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-dotdot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-file-type >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n cg-bitmap-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n cg-summary-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n dir-entry-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n dup-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n extraneous-dir-link >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n missing-dot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n missing-dotdot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n misaligned-dir-size >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n out-of-range-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n partial-indirect >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n partially-allocated-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n root-not-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n root-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n short-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n super-cstotal-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n super-free-counts >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n super-minfree >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n super-optim >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n unreferenced-alpha >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n unreferenced-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n zero-length-dir >/dev/null
 
 repair-parity-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-bitmap-bad >/dev/null

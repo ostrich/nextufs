@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - replace `/alpha` mode with an unknown allocated file type
 
-Primary legacy expectation:
+Primary expectation:
 - pass 1 reports unknown file type

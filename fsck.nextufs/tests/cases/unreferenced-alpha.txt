@@ -4,7 +4,7 @@ Seed assumptions:
 Corruption:
 - clear the root-directory entry for `alpha` without clearing the inode
 
-Primary legacy expectation:
+Primary expectation:
 - later passes report an unreferenced file and link-count fallout
 
 Working-copy policy:

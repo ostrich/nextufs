@@ -4,5 +4,5 @@ Seed assumptions:
 Corruption:
 - set `fs_optim` to an undefined value
 
-Primary legacy expectation:
+Primary expectation:
 - setup reports undefined optimization preference
