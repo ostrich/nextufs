@@ -1,6 +1,6 @@
 # nextufs
 
-`nextufs` is a small toolchain for working with NeXT/OpenStep UFS filesystems.
+`nextufs` is a small toolchain for working with NEXTSTEP/OPENSTEP UFS filesystems.
 It includes:
 
 - `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
@@ -9,7 +9,7 @@ It includes:
 
 ## Features
 
-- inspect NeXT/OpenStep UFS filesystems
+- inspect NEXTSTEP/OPENSTEP UFS filesystems
 - mount them through FUSE
 - create and mutate filesystems offline
 - check and repair filesystem metadata
