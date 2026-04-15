@@ -7,20 +7,18 @@
 /nextufs/nextufs_test
 /nextufs/nextufs_mkfile
 /nextufs/nextufs_stress
-/fsck/fsck_probe
-/fsck/fsck.nextufs
-/fsck.modern/fsck.nextufs.modern
+/fsck.legacy
+/fsck.nextufs/fsck.nextufs
 /mkfs/mkfs.nextufs
 
-/fsck/.build-next/
-/fsck.modern/.build-next/
-/fsck.modern/.scratch/
-/fsck.modern/tests/cache/
-/fsck.modern/tests/work/
-/fsck.modern/tests/tools/corrupt_raw_case
+/fsck.nextufs/.build-next/
+/fsck.nextufs/.scratch/
+/fsck.nextufs/tests/cache/
+/fsck.nextufs/tests/work/
+/fsck.nextufs/tests/tools/corrupt_raw_case
 
 /nextufs/openstep42-base.raw
 /nextufs/openstep42-base.vdi
-/fsck/openstep42-base.raw
+/fsck.legacy/openstep42-base.raw
 /CONTINUATION.md
 /third_party/

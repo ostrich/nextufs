@@ -1,15 +1,15 @@
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure fsck fsck-modern mkfs nextufs
+.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure fsck fsck-legacy mkfs nextufs
 
-all: nextufs fsck fsck-modern mkfs
+all: nextufs fsck fsck-legacy mkfs
 
 nextufs:
 	$(MAKE) -C nextufs -f Makefile.linux
 
 fsck:
-	$(MAKE) -C fsck -f Makefile.linux
+	$(MAKE) -C fsck.nextufs -f Makefile.linux
 
-fsck-modern:
-	$(MAKE) -C fsck.modern -f Makefile.linux
+fsck-legacy:
+	$(MAKE) -C fsck.legacy -f Makefile.linux
 
 mkfs:
 	$(MAKE) -C mkfs -f Makefile.linux
@@ -64,6 +64,6 @@ test-failure:
 
 clean:
 	$(MAKE) -C nextufs -f Makefile.linux clean
-	$(MAKE) -C fsck -f Makefile.linux clean
-	$(MAKE) -C fsck.modern -f Makefile.linux clean
+	$(MAKE) -C fsck.nextufs -f Makefile.linux clean
+	$(MAKE) -C fsck.legacy -f Makefile.linux clean
 	$(MAKE) -C mkfs -f Makefile.linux clean

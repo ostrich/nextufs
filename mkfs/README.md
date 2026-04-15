@@ -8,7 +8,7 @@ Current state:
 - builds as `mkfs.nextufs`
 - writes big-endian NeXT/OpenStep-style UFS metadata
 - validated locally by creating a raw filesystem image and checking it with
-  `../fsck/fsck.nextufs`
+  `../fsck.nextufs/fsck.nextufs`
 - the generated image is also readable with
   `../nextufs/nextufs_probe`
 
@@ -41,7 +41,7 @@ Validation workflow:
 
 ```sh
 ./mkfs.nextufs /tmp/mkfs-next-test.img 65536 63 16 8192 1024 16 10 60 2048 t
-../fsck/fsck.nextufs -n /tmp/mkfs-next-test.img
+../fsck.nextufs/fsck.nextufs -n /tmp/mkfs-next-test.img
 ../nextufs/nextufs_probe /tmp/mkfs-next-test.img
 ```
 

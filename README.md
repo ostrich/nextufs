@@ -7,7 +7,8 @@ Components:
 
 - `nextufs/`: shared filesystem library, probe tool, writable FUSE mount, and
   offline mutation tool used for regression tests
-- `fsck/`: Linux port of the historical NeXT/BSD `fsck`
+- `fsck.nextufs/`: primary `fsck.nextufs` implementation
+- `fsck.legacy/`: preserved historical NeXT/BSD-derived `fsck` source tree
 - `mkfs/`: Linux port of the historical NeXT/BSD `mkfs`
 
 Status:
@@ -63,7 +64,7 @@ layout updates, directory mutation, and higher-level mutation operations.
 
 Provenance:
 
-- the `fsck/` and `mkfs/` ports were derived from historical NeXT/BSD sources
+- the `fsck.legacy/` and `mkfs/` ports were derived from historical NeXT/BSD sources
 - some UFS compatibility headers and implementation details were derived from
   NeXTMach-era sources and copied locally where needed
 
