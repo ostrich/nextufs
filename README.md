@@ -59,7 +59,7 @@ Mount through FUSE:
 ```sh
 mkdir -p /tmp/nextufs-mnt
 ./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -f -s
-./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=editor -f -s
+./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
 ```
 
 Check a filesystem:

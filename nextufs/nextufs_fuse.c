@@ -17,37 +17,79 @@
 static struct nextufs_image g_img = { .fd = -1 };
 static const char *g_image_path;
 static char g_image_path_buf[PATH_MAX];
-static enum nextufs_write_policy g_write_policy = NEXTUFS_WRITE_PERMISSIONS;
+enum nextufs_mount_mode {
+	NEXTUFS_MOUNT_SU = 0,
+	NEXTUFS_MOUNT_USER = 1,
+};
+
+static enum nextufs_mount_mode g_mount_mode = NEXTUFS_MOUNT_SU;
 static int g_mount_readonly;
 static int g_mount_request_rw;
 static int g_mount_saw_access_opt;
+static uid_t g_mount_uid;
+static gid_t g_mount_gid;
+static int g_mount_uid_set;
+static int g_mount_gid_set;
+
+static void
+nextufs_effective_ids(uid_t *uid_out, gid_t *gid_out)
+{
+	const struct fuse_context *fctx;
+	uid_t uid;
+	gid_t gid;
+
+	uid = getuid();
+	gid = getgid();
+	fctx = fuse_get_context();
+	if (fctx != NULL) {
+		uid = fctx->uid;
+		gid = fctx->gid;
+	}
+	if (g_mount_uid_set)
+		uid = g_mount_uid;
+	if (g_mount_gid_set)
+		gid = g_mount_gid;
+	*uid_out = uid;
+	*gid_out = gid;
+}
 
 static void
 nextufs_fill_mutation_ctx(struct nextufs_write_ctx *ctx)
 {
-	const struct fuse_context *fctx;
-
 	memset(ctx, 0, sizeof(*ctx));
-	ctx->policy = g_write_policy;
-	fctx = fuse_get_context();
-	if (fctx != NULL) {
-		ctx->uid = fctx->uid;
-		ctx->gid = fctx->gid;
-	}
+	ctx->policy = g_mount_mode == NEXTUFS_MOUNT_SU ?
+	    NEXTUFS_WRITE_EDITOR : NEXTUFS_WRITE_PERMISSIONS;
+	nextufs_effective_ids(&ctx->uid, &ctx->gid);
 }
 
 static int
 nextufs_parse_mode_option(const char *value)
 {
-	if (strcmp(value, "editor") == 0) {
-		g_write_policy = NEXTUFS_WRITE_EDITOR;
+	if (strcmp(value, "su") == 0) {
+		g_mount_mode = NEXTUFS_MOUNT_SU;
 		return 0;
 	}
-	if (strcmp(value, "permissions") == 0) {
-		g_write_policy = NEXTUFS_WRITE_PERMISSIONS;
+	if (strcmp(value, "user") == 0) {
+		g_mount_mode = NEXTUFS_MOUNT_USER;
 		return 0;
 	}
 	return -1;
+}
+
+static int
+nextufs_parse_id_option(const char *value, unsigned int *id_out)
+{
+	char *endptr;
+	unsigned long parsed;
+
+	if (value == NULL || *value == '\0')
+		return -EINVAL;
+	errno = 0;
+	parsed = strtoul(value, &endptr, 10);
+	if (errno != 0 || *endptr != '\0' || parsed > UINT_MAX)
+		return -EINVAL;
+	*id_out = (unsigned int)parsed;
+	return 0;
 }
 
 static int
@@ -80,6 +122,30 @@ nextufs_strip_mode_from_optarg(const char *optarg, char **rebuilt_out)
 				free(copy);
 				return -EINVAL;
 			}
+			continue;
+		}
+		if (strncmp(token, "uid=", 4) == 0) {
+			unsigned int parsed;
+
+			if (nextufs_parse_id_option(token + 4, &parsed) < 0) {
+				free(rebuilt);
+				free(copy);
+				return -EINVAL;
+			}
+			g_mount_uid = (uid_t)parsed;
+			g_mount_uid_set = 1;
+			continue;
+		}
+		if (strncmp(token, "gid=", 4) == 0) {
+			unsigned int parsed;
+
+			if (nextufs_parse_id_option(token + 4, &parsed) < 0) {
+				free(rebuilt);
+				free(copy);
+				return -EINVAL;
+			}
+			g_mount_gid = (gid_t)parsed;
+			g_mount_gid_set = 1;
 			continue;
 		}
 		if (strcmp(token, "rw") == 0) {
@@ -154,6 +220,19 @@ nextufs_require_writable(void)
 }
 
 static int
+nextufs_require_access(const struct nextufs_node *node, int mask)
+{
+	uid_t uid;
+	gid_t gid;
+
+	if (g_mount_mode == NEXTUFS_MOUNT_SU)
+		return 0;
+	nextufs_effective_ids(&uid, &gid);
+	return nextufs__node_check_access(node, uid, gid, NULL, 0, mask,
+	    !g_mount_readonly);
+}
+
+static int
 nextufs_getattr(const char *path, struct stat *st, struct fuse_file_info *fi)
 {
 	struct nextufs_node node;
@@ -178,6 +257,14 @@ nextufs_open(const char *path, struct fuse_file_info *fi)
 		return rc;
 	if (!nextufs_node_is_reg(&node))
 		return -EISDIR;
+	if ((fi->flags & O_ACCMODE) == O_RDWR)
+		rc = nextufs_require_access(&node, R_OK | W_OK);
+	else if ((fi->flags & O_ACCMODE) == O_WRONLY)
+		rc = nextufs_require_access(&node, W_OK);
+	else
+		rc = nextufs_require_access(&node, R_OK);
+	if (rc < 0)
+		return rc;
 	if ((fi->flags & (O_WRONLY | O_RDWR)) != 0 && g_mount_readonly)
 		return -EROFS;
 	if ((fi->flags & O_TRUNC) != 0) {
@@ -199,10 +286,17 @@ static int
 nextufs_read(const char *path, char *buf, size_t size, off_t offset,
     struct fuse_file_info *fi)
 {
+	struct nextufs_node node;
 	size_t got;
 	int rc;
 	(void)fi;
 
+	rc = nextufs_node_lookup(&g_img, path, 1, &node);
+	if (rc < 0)
+		return rc;
+	rc = nextufs_require_access(&node, R_OK);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_read(&g_img, path, (uint64_t)offset, (uint8_t *)buf, size,
 	    &got);
 	if (rc < 0)
@@ -285,6 +379,9 @@ nextufs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		return rc;
 	if (!nextufs_node_is_dir(&node))
 		return -ENOTDIR;
+	rc = nextufs_require_access(&node, R_OK | X_OK);
+	if (rc < 0)
+		return rc;
 	filler(buf, ".", NULL, 0, 0);
 	filler(buf, "..", NULL, 0, 0);
 	ctx.buf = buf;
@@ -296,22 +393,13 @@ nextufs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int
 nextufs_access(const char *path, int mask)
 {
-	const struct fuse_context *fctx;
 	struct nextufs_node node;
 	int rc;
 
 	rc = nextufs_node_lookup(&g_img, path, 1, &node);
 	if (rc < 0)
 		return rc;
-	fctx = fuse_get_context();
-	if (fctx == NULL)
-		return 0;
-	if ((mask & W_OK) != 0 && g_mount_readonly)
-		return -EROFS;
-	if (g_write_policy == NEXTUFS_WRITE_EDITOR)
-		return 0;
-	return nextufs__node_check_access(&node, fctx->uid, fctx->gid, NULL, 0,
-	    mask, 1);
+	return nextufs_require_access(&node, mask);
 }
 
 static int
@@ -584,6 +672,11 @@ main(int argc, char **argv)
 		    argv[0]);
 		return 1;
 	}
+	g_mount_mode = NEXTUFS_MOUNT_SU;
+	g_mount_request_rw = 0;
+	g_mount_saw_access_opt = 0;
+	g_mount_uid_set = 0;
+	g_mount_gid_set = 0;
 	rc = nextufs_build_fuse_args(argc, argv, &args);
 	if (rc < 0) {
 		fprintf(stderr, "failed to parse fuse args: %s\n", strerror(-rc));

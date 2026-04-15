@@ -49,16 +49,15 @@ Mount read-write:
 
 ## FUSE Modes
 
-`nextufs` supports two write-policy modes for writable mounts:
+`nextufs` supports two mount modes:
 
-- `permissions` (default)
-  - operations are checked against the calling process `uid` and `gid`
-  - this is the closer match to normal Unix filesystem behavior
-  - use this when you want the mounted source to behave like a regular filesystem
-- `editor`
-  - metadata edits are allowed without normal ownership and permission checks
-  - this is useful for image repair, migration, and administrative editing
-  - use this when you want the mount to behave like an image editor
+- `su` (default)
+  - ignores normal ownership and permission checks
+  - use this for inspection, repair, migration, and administrative editing
+- `user`
+  - enforces read, write, and search checks using a Unix-style `uid` and `gid`
+  - defaults to the mounting user's `uid` and `gid`
+  - accepts `uid=` and `gid=` overrides when you want to emulate a different user
 
 Default mount behavior is read-only:
 
@@ -66,16 +65,22 @@ Default mount behavior is read-only:
 ./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
-Read-write editor mode:
+Read-write superuser mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=editor -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
 ```
 
-Read-write permissions mode:
+Read-write user mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=permissions -f -s
+./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=user -f -s
+```
+
+Read-only user mode with explicit identity:
+
+```sh
+./nextufs /path/to/source /tmp/nextufs-mnt -o ro,mode=user,uid=1000,gid=1000 -f -s
 ```
 
 Apply an offline mutation:
