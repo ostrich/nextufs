@@ -1,0 +1,32 @@
+CC = cc
+WARN_CFLAGS = -O2 -g -std=gnu99 -fcommon -Wall -Wextra
+ARCH_CFLAGS ?=
+CFLAGS = $(ARCH_CFLAGS) $(WARN_CFLAGS)
+CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -I../fsck/include
+SCRATCH_DIR = $(CURDIR)/.scratch
+export TMPDIR = $(SCRATCH_DIR)
+
+FSCK_BIN = fsck.nextufs.modern
+FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
+	inode_ops.c inode_scan.c main.c operator.c pass1.c pass1b.c pass2.c \
+	pass3.c pass4.c pass5.c session.c setup.c state.c ufs_tables.c \
+	ufs_subr_user.c
+FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
+
+.PHONY: all clean scratch-dir
+
+all: scratch-dir $(FSCK_BIN)
+
+scratch-dir:
+	mkdir -p $(SCRATCH_DIR)
+
+$(FSCK_BIN): $(FSCK_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(FSCK_OBJS)
+
+.build-next/%.o: %.c
+	mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+clean:
+	rm -f $(FSCK_BIN)
+	rm -rf .build-next

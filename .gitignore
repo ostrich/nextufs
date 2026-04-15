@@ -9,9 +9,12 @@
 /nextufs/nextufs_stress
 /fsck/fsck_probe
 /fsck/fsck.nextufs
+/fsck.modern/fsck.nextufs.modern
 /mkfs/mkfs.nextufs
 
 /fsck/.build-next/
+/fsck.modern/.build-next/
+/fsck.modern/.scratch/
 
 /nextufs/openstep42-base.raw
 /nextufs/openstep42-base.vdi
