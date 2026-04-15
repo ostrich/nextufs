@@ -32,6 +32,19 @@ filesystem images.
 make
 ```
 
+Install to the default prefix:
+
+```sh
+make install
+```
+
+Override the install location:
+
+```sh
+make prefix=$HOME/.local install
+DESTDIR=/tmp/pkgroot make install
+```
+
 ## Quick Start
 
 Inspect a source:
