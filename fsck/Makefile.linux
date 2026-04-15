@@ -3,7 +3,7 @@ FSCK_WARN_CFLAGS = -O2 -g -std=gnu89 -fcommon -Wall -Wextra
 ARCH_CFLAGS ?=
 FSCK_CFLAGS = $(ARCH_CFLAGS) $(FSCK_WARN_CFLAGS)
 PROBE_CFLAGS = -O2 -g -std=gnu99 -Wall -Wextra -Werror
-CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -Iinclude
+CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -Iinclude -I../nextufs
 SCRATCH_DIR = $(CURDIR)/.scratch
 FSCK_BIN = fsck.nextufs
 export TMPDIR = $(SCRATCH_DIR)
@@ -19,13 +19,14 @@ fsck_probe: fsck_ro.o
 	$(CC) $(PROBE_CFLAGS) -o $@ fsck_ro.o
 
 FSCK_SRCS = dir.c inode.c main.c pass1.c pass1b.c pass2.c pass3.c \
-	pass4.c pass5.c setup.c utilities.c ufs_tables.c ufs_subr_user.c \
+	pass4.c pass5.c setup.c source.c utilities.c ufs_tables.c ufs_subr_user.c \
 	byteorder.c
 
 FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
 
 $(FSCK_BIN): $(FSCK_OBJS)
-	$(CC) $(FSCK_CFLAGS) -o $@ $(FSCK_OBJS)
+	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
+	$(CC) $(FSCK_CFLAGS) -o $@ $(FSCK_OBJS) ../nextufs/libnextufs.a
 
 .build-next/%.o: %.c
 	mkdir -p $(dir $@)

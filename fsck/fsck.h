@@ -16,6 +16,7 @@
 #include <strings.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 #define	MAXDUP		10	/* limit on dup blks (per inode) */
 #define	MAXBAD		10	/* limit on bad blks (per inode) */
@@ -171,6 +172,7 @@ int	debug;			/* output debugging info */
 char	preen;			/* just fix normal inconsistencies */
 char	mountedfs;		/* checking mounted device */
 int	exitstat;		/* exit status (set to 8 if 'No' response) */
+char	preparedsource;		/* checking extracted temporary slice */
 
 char	*blockmap;		/* ptr to primary blk allocation map */
 char	*statemap;		/* ptr to inode state table */
@@ -265,6 +267,9 @@ int	mounted(char *name);
 int	is_mounted_on(char *dir, char *dev);
 void	*xmalloc(unsigned long size);
 char	*setup(char *dev);
+int	fsck_prepare_source(const char *source, char *prepared_path,
+	    size_t prepared_path_size, int *forced_readonly_out);
+void	fsck_cleanup_prepared_source(void);
 struct mntent *mntdup(struct mntent *mnt);
 int	pass1check(struct inodesc *idesc);
 int	pass2check(struct inodesc *idesc);
