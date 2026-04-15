@@ -21,7 +21,7 @@ $(MKFS_BIN): $(MKFS_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(MKFS_OBJS) $(MKFS_BIN) mkfs_next
+	rm -f $(MKFS_OBJS) $(MKFS_BIN)
 
 test-reproducible: all
 	rm -f $(SCRATCH_DIR)/mkfs-repro-min-a.img $(SCRATCH_DIR)/mkfs-repro-min-b.img \

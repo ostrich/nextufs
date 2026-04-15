@@ -22,8 +22,9 @@ It includes:
 - VDI differencing chains
 
 Writable support is available in `nextufs` for raw sources and writable VDI
-chains. `fsck.nextufs` and `mkfs.nextufs` currently operate on raw filesystem
-images.
+chains. `fsck.nextufs` can also inspect raw disk images and VDI sources by
+staging the active filesystem slice read-only. `mkfs.nextufs` creates raw
+filesystem images.
 
 ## Build
 
@@ -66,6 +67,12 @@ Run the main regression suite:
 ```sh
 make test
 ```
+
+The project is also exercised with:
+
+- deterministic mutation stress tests for raw and FUSE-backed sources
+- a cached `fsck.nextufs` corruption corpus with repair and comparison workflows
+- `mkfs.nextufs` reproducibility checks for canonical invocations
 
 Component-specific notes are in:
 
