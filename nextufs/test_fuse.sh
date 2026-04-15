@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: $0 <raw-image>" >&2
+  echo "usage: $0 <source>" >&2
   exit 2
 fi
 

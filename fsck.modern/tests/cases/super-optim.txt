@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed superblock `fs_optim` is valid
+
+Corruption:
+- set `fs_optim` to an undefined value
+
+Primary legacy expectation:
+- setup reports undefined optimization preference

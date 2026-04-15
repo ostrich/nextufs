@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/dir`
+
+Corruption:
+- set `/dir` size to a value not divisible by `DIRBLKSIZ`
+
+Primary legacy expectation:
+- descent reports directory length not multiple of `DIRBLKSIZ`

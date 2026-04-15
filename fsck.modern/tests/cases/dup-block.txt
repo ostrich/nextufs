@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/alpha` and `/dir/file`
+
+Corruption:
+- point `/dir/file` at `/alpha`'s first data block
+
+Primary legacy expectation:
+- pass 1 reports duplicate blocks

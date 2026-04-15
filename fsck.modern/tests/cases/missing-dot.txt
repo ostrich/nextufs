@@ -1,0 +1,11 @@
+Seed assumptions:
+- clean seed contains `/dir`
+
+Corruption:
+- clear the inode number in the first directory entry of `/dir`
+
+Primary legacy expectation:
+- pass 2 reports missing `.`
+
+Working-copy policy:
+- never run repair on the pristine cached fixture

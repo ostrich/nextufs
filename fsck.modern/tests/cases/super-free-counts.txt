@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed superblock free counts are correct
+
+Corruption:
+- perturb the superblock free-block and free-frag counts
+
+Primary legacy expectation:
+- pass 5 reports wrong free block counts in the superblock

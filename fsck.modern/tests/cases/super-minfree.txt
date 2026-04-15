@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed superblock `fs_minfree` is valid
+
+Corruption:
+- set `fs_minfree` to an impossible value
+
+Primary legacy expectation:
+- setup reports impossible `MINFREE`

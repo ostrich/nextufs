@@ -45,6 +45,13 @@ struct nextufs_dirent_view {
 	const char *name;
 };
 
+struct nextufs_image_backend_ops {
+	int (*read)(void *ctx, void *buf, size_t size, off_t offset);
+	int (*write)(void *ctx, const void *buf, size_t size, off_t offset);
+	int (*fsync)(void *ctx);
+	void (*close)(void *ctx);
+};
+
 int nextufs__find_name_in_directory(const struct nextufs_image *img,
 	const struct nextufs_inode *dirino, const char *target_name,
 	unsigned *target_inode);
@@ -57,8 +64,13 @@ uint32_t nextufs__read_be32(const uint8_t *p);
 void nextufs__write_be16(uint8_t *p, uint16_t v);
 void nextufs__write_be32(uint8_t *p, uint32_t v);
 void nextufs__write_be64(uint8_t *p, uint64_t v);
-int nextufs__read_exact(int fd, void *buf, size_t size, off_t offset);
-int nextufs__write_exact(int fd, const void *buf, size_t size, off_t offset);
+int nextufs__read_exact_fd(int fd, void *buf, size_t size, off_t offset);
+int nextufs__write_exact_fd(int fd, const void *buf, size_t size, off_t offset);
+int nextufs__read_exact(const struct nextufs_image *img, void *buf, size_t size,
+	off_t offset);
+int nextufs__write_exact(const struct nextufs_image *img, const void *buf,
+	size_t size, off_t offset);
+int nextufs__image_fsync(const struct nextufs_image *img);
 uint64_t nextufs__cgstart(const struct nextufs_image *img, unsigned cg);
 off_t nextufs__cg_block_offset(const struct nextufs_image *img, unsigned cg);
 off_t nextufs__inode_offset(const struct nextufs_image *img, unsigned inode_no);

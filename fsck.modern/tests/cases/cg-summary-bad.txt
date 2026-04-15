@@ -1,0 +1,2 @@
+Perturbs cylinder-group summary counts without changing actual allocation state.
+Targets pass 5 `SUMMARY INFORMATION BAD`.

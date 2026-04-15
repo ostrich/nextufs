@@ -82,7 +82,7 @@ main(int argc, char **argv)
 	struct expect_node_ctx node_ctx;
 
 	if (argc != 2) {
-		fprintf(stderr, "usage: %s <raw-image>\n", argv[0]);
+		fprintf(stderr, "usage: %s <source>\n", argv[0]);
 		return 2;
 	}
 	if (nextufs_image_open(&img, argv[1]) < 0)

@@ -36,7 +36,7 @@ nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
 	if (buf == NULL)
 		return -ENOMEM;
 	cg_off = nextufs__cg_block_offset(img, cg);
-	rc = nextufs__read_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__read_exact(img, buf, img->sb.cg_size, cg_off);
 	if (rc < 0) {
 		free(buf);
 		return rc;
@@ -76,7 +76,7 @@ nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
 	if ((mode & NEXTUFS_IFMT) == NEXTUFS_IFDIR)
 		nextufs__write_be32(buf + CG_CS_NDIR_OFF,
 		    nextufs__read_be32(buf + CG_CS_NDIR_OFF) + 1U);
-	rc = nextufs__write_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
 	free(buf);
 	if (rc < 0)
 		return rc;
@@ -107,7 +107,7 @@ nextufs__free_inode_in_group(const struct nextufs_image *img, unsigned inode_no,
 	if (buf == NULL)
 		return -ENOMEM;
 	cg_off = nextufs__cg_block_offset(img, cg);
-	rc = nextufs__read_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__read_exact(img, buf, img->sb.cg_size, cg_off);
 	if (rc < 0) {
 		free(buf);
 		return rc;
@@ -130,7 +130,7 @@ nextufs__free_inode_in_group(const struct nextufs_image *img, unsigned inode_no,
 	if ((mode & NEXTUFS_IFMT) == NEXTUFS_IFDIR)
 		nextufs__write_be32(buf + CG_CS_NDIR_OFF,
 		    nextufs__read_be32(buf + CG_CS_NDIR_OFF) - 1U);
-	rc = nextufs__write_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
 	free(buf);
 	if (rc < 0)
 		return rc;
@@ -229,7 +229,7 @@ nextufs__allocate_frags_from_free_block_in_group(const struct nextufs_image *img
 	if (buf == NULL)
 		return -ENOMEM;
 	cg_off = nextufs__cg_block_offset(img, cg);
-	rc = nextufs__read_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__read_exact(img, buf, img->sb.cg_size, cg_off);
 	if (rc < 0) {
 		free(buf);
 		return rc;
@@ -288,7 +288,7 @@ nextufs__allocate_frags_from_free_block_in_group(const struct nextufs_image *img
 				nextufs__write_be16(bposp, (uint16_t)(bpos - 1U));
 			}
 		}
-		rc = nextufs__write_exact(img->fd, buf, img->sb.cg_size, cg_off);
+		rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
 		free(buf);
 		if (rc < 0)
 			return rc;
@@ -355,7 +355,7 @@ nextufs__extend_fragment_run(const struct nextufs_image *img, uint32_t frag_base
 	if (buf == NULL)
 		return -ENOMEM;
 	cg_off = nextufs__cg_block_offset(img, cg);
-	rc = nextufs__read_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__read_exact(img, buf, img->sb.cg_size, cg_off);
 	if (rc < 0) {
 		free(buf);
 		return rc;
@@ -382,7 +382,7 @@ nextufs__extend_fragment_run(const struct nextufs_image *img, uint32_t frag_base
 	    nextufs__read_be32(buf + CG_CS_NFFREE_OFF) - added_frags);
 	now = (uint32_t)time(NULL);
 	nextufs__write_be32(buf + CG_TIME_OFF, now);
-	rc = nextufs__write_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
 	free(buf);
 	if (rc < 0)
 		return rc;
@@ -416,7 +416,7 @@ nextufs__free_fragment_run(const struct nextufs_image *img, uint32_t frag_base,
 	if (buf == NULL)
 		return -ENOMEM;
 	cg_off = nextufs__cg_block_offset(img, cg);
-	rc = nextufs__read_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__read_exact(img, buf, img->sb.cg_size, cg_off);
 	if (rc < 0) {
 		free(buf);
 		return rc;
@@ -472,7 +472,7 @@ nextufs__free_fragment_run(const struct nextufs_image *img, uint32_t frag_base,
 	}
 	now = (uint32_t)time(NULL);
 	nextufs__write_be32(buf + CG_TIME_OFF, now);
-	rc = nextufs__write_exact(img->fd, buf, img->sb.cg_size, cg_off);
+	rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
 	free(buf);
 	if (rc < 0)
 		return rc;
@@ -495,7 +495,7 @@ nextufs__reallocate_fragment_run(const struct nextufs_image *img, uint32_t old_f
 	tmp = calloc(1, new_bytes);
 	if (tmp == NULL)
 		return -ENOMEM;
-	rc = nextufs__read_exact(img->fd, tmp, old_bytes,
+	rc = nextufs__read_exact(img, tmp, old_bytes,
 	    img->slice_base + ((off_t)old_frag * img->sb.frag_size));
 	if (rc < 0) {
 		free(tmp);
@@ -506,7 +506,7 @@ nextufs__reallocate_fragment_run(const struct nextufs_image *img, uint32_t old_f
 		free(tmp);
 		return rc;
 	}
-	rc = nextufs__write_exact(img->fd, tmp, new_bytes,
+	rc = nextufs__write_exact(img, tmp, new_bytes,
 	    img->slice_base + ((off_t)new_frag * img->sb.frag_size));
 	free(tmp);
 	if (rc < 0)
@@ -529,7 +529,7 @@ nextufs__read_indirect_entry(const struct nextufs_image *img, uint32_t block_fra
 	max_entries = img->sb.block_size / sizeof(uint32_t);
 	if (entry_index >= max_entries)
 		return -EINVAL;
-	rc = nextufs__read_exact(img->fd, raw, sizeof(raw),
+	rc = nextufs__read_exact(img, raw, sizeof(raw),
 	    img->slice_base + ((off_t)block_frag * img->sb.frag_size) +
 	    (off_t)(entry_index * sizeof(uint32_t)));
 	if (rc < 0)
@@ -549,7 +549,7 @@ nextufs__write_indirect_entry(const struct nextufs_image *img, uint32_t block_fr
 	if (entry_index >= max_entries)
 		return -EINVAL;
 	nextufs__write_be32(raw, entry_value);
-	return nextufs__write_exact(img->fd, raw, sizeof(raw),
+	return nextufs__write_exact(img, raw, sizeof(raw),
 	    img->slice_base + ((off_t)block_frag * img->sb.frag_size) +
 	    (off_t)(entry_index * sizeof(uint32_t)));
 }
@@ -570,7 +570,7 @@ nextufs__allocate_zeroed_full_block(const struct nextufs_image *img,
 		nextufs__free_fragment_run(img, frag, img->sb.frags_per_block);
 		return -ENOMEM;
 	}
-	rc = nextufs__write_exact(img->fd, zero_block, img->sb.block_size,
+	rc = nextufs__write_exact(img, zero_block, img->sb.block_size,
 	    img->slice_base + ((off_t)frag * img->sb.frag_size));
 	free(zero_block);
 	if (rc < 0) {
@@ -804,7 +804,7 @@ nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 		}
 		memcpy(block, data + ((size_t)logical_block * img->sb.block_size),
 		    chunk_bytes);
-		rc = nextufs__write_exact(img->fd, block, alloc_bytes,
+		rc = nextufs__write_exact(img, block, alloc_bytes,
 		    img->slice_base + ((off_t)alloc_frag * img->sb.frag_size));
 		free(block);
 		if (rc < 0)

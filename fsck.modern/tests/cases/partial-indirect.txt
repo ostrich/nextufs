@@ -1,0 +1,9 @@
+Seed assumptions:
+- clean seed contains `/big` with indirect blocks allocated
+
+Corruption:
+- shrink `/big` size into the first indirect block while leaving later indirect
+  entries intact
+
+Primary legacy expectation:
+- pass 1 reports a partially truncated inode via indirect-block cleanup logic

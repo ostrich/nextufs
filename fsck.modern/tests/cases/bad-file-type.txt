@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/alpha`
+
+Corruption:
+- replace `/alpha` mode with an unknown allocated file type
+
+Primary legacy expectation:
+- pass 1 reports unknown file type

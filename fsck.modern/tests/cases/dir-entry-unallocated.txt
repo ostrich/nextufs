@@ -1,0 +1,2 @@
+Fully clears `/dir/file`'s inode allocation state while leaving the directory
+entry in place. Targets pass 2 `UNALLOCATED` entry handling.

@@ -1,0 +1,2 @@
+Retargets the `/alpha` root entry to `/dir`, leaving an extra hard link to a
+directory. Targets pass 2 extraneous directory-link handling.

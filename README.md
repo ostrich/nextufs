@@ -12,9 +12,12 @@ Components:
 
 Status:
 
-- image probing and FUSE mount are working
+- source probing and FUSE mount are working for raw disk images and VirtualBox
+  VDI containers
+- source probing supports raw disk images plus standalone/chained VDI
 - offline mutation operations are working and validated against `fsck.nextufs`
-- writable FUSE now covers the current mutation primitives
+- writable mutation and FUSE paths now cover raw disk images plus writable VDI
+  containers
 - writable FUSE defaults to permission-checked operations using the calling
   process credentials
 - implemented mutation operations include `rename`, long symlinks,

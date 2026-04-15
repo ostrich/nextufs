@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/dir`
+
+Corruption:
+- set `/dir` size smaller than `MINDIRSIZE`
+
+Primary legacy expectation:
+- descent reports directory too short

@@ -44,7 +44,7 @@ nextufs__write_be64(uint8_t *p, uint64_t v)
 }
 
 int
-nextufs__read_exact(int fd, void *buf, size_t size, off_t offset)
+nextufs__read_exact_fd(int fd, void *buf, size_t size, off_t offset)
 {
 	uint8_t *out = buf;
 	size_t done = 0;
@@ -63,7 +63,7 @@ nextufs__read_exact(int fd, void *buf, size_t size, off_t offset)
 }
 
 int
-nextufs__write_exact(int fd, const void *buf, size_t size, off_t offset)
+nextufs__write_exact_fd(int fd, const void *buf, size_t size, off_t offset)
 {
 	const uint8_t *in = buf;
 	size_t done = 0;
@@ -79,6 +79,51 @@ nextufs__write_exact(int fd, const void *buf, size_t size, off_t offset)
 		done += (size_t)n;
 	}
 	return 0;
+}
+
+int
+nextufs__read_exact(const struct nextufs_image *img, void *buf, size_t size,
+    off_t offset)
+{
+	const struct nextufs_image_backend_ops *ops;
+
+	if (img == NULL || img->backend_ops == NULL)
+		return -EINVAL;
+	ops = img->backend_ops;
+	if (ops->read == NULL)
+		return -EINVAL;
+	return ops->read(img->backend_ctx, buf, size, offset);
+}
+
+int
+nextufs__write_exact(const struct nextufs_image *img, const void *buf,
+    size_t size, off_t offset)
+{
+	const struct nextufs_image_backend_ops *ops;
+
+	if (img == NULL || img->backend_ops == NULL)
+		return -EINVAL;
+	if (!img->writable)
+		return -EROFS;
+	ops = img->backend_ops;
+	if (ops->write == NULL)
+		return -EROFS;
+	return ops->write(img->backend_ctx, buf, size, offset);
+}
+
+int
+nextufs__image_fsync(const struct nextufs_image *img)
+{
+	const struct nextufs_image_backend_ops *ops;
+
+	if (img == NULL || img->backend_ops == NULL)
+		return -EINVAL;
+	if (!img->writable)
+		return 0;
+	ops = img->backend_ops;
+	if (ops->fsync == NULL)
+		return 0;
+	return ops->fsync(img->backend_ctx);
 }
 
 uint64_t
@@ -177,7 +222,7 @@ nextufs__write_inode_raw(const struct nextufs_image *img, unsigned inode_no,
 	off = nextufs__inode_offset(img, inode_no);
 	if (off < 0)
 		return -EINVAL;
-	return nextufs__write_exact(img->fd, raw, sizeof(raw), off);
+	return nextufs__write_exact(img, raw, sizeof(raw), off);
 }
 
 int
@@ -193,7 +238,7 @@ nextufs__update_summary_counts(const struct nextufs_image *img, unsigned cg,
 	uint32_t now;
 
 	sb_off = img->slice_base + 0x2000;
-	rc = nextufs__read_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
+	rc = nextufs__read_exact(img, sbuf, sizeof(sbuf), sb_off);
 	if (rc < 0)
 		return rc;
 	v = nextufs__read_be32(sbuf + SB_NDIR_OFF);
@@ -206,14 +251,14 @@ nextufs__update_summary_counts(const struct nextufs_image *img, unsigned cg,
 	nextufs__write_be32(sbuf + SB_NFFREE_OFF, (uint32_t)(v + d_nffree));
 	now = (uint32_t)time(NULL);
 	nextufs__write_be32(sbuf + SB_TIME_OFF, now);
-	rc = nextufs__write_exact(img->fd, sbuf, sizeof(sbuf), sb_off);
+	rc = nextufs__write_exact(img, sbuf, sizeof(sbuf), sb_off);
 	if (rc < 0)
 		return rc;
 
 	cs_off = img->slice_base +
 	    ((off_t)img->sb.cyl_summary_addr * img->sb.frag_size) +
 	    ((off_t)cg * (off_t)sizeof(csum_buf));
-	rc = nextufs__read_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
+	rc = nextufs__read_exact(img, csum_buf, sizeof(csum_buf), cs_off);
 	if (rc < 0)
 		return rc;
 	v = nextufs__read_be32(csum_buf + 0);
@@ -224,7 +269,7 @@ nextufs__update_summary_counts(const struct nextufs_image *img, unsigned cg,
 	nextufs__write_be32(csum_buf + 8, (uint32_t)(v + d_nifree));
 	v = nextufs__read_be32(csum_buf + 12);
 	nextufs__write_be32(csum_buf + 12, (uint32_t)(v + d_nffree));
-	return nextufs__write_exact(img->fd, csum_buf, sizeof(csum_buf), cs_off);
+	return nextufs__write_exact(img, csum_buf, sizeof(csum_buf), cs_off);
 }
 
 int

@@ -5,6 +5,8 @@ CFLAGS = $(ARCH_CFLAGS) $(WARN_CFLAGS)
 CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -I../fsck/include
 SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
+TESTS_DIR = $(CURDIR)/tests
+REPAIR_TOOL = $(TESTS_DIR)/tools/corrupt_raw_case
 
 FSCK_BIN = fsck.nextufs.modern
 FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
@@ -13,7 +15,7 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
 	ufs_subr_user.c
 FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
 
-.PHONY: all clean scratch-dir
+.PHONY: all clean scratch-dir repair-tools repair-lab repair-smoke repair-parity-smoke repair-parity-all
 
 all: scratch-dir $(FSCK_BIN)
 
@@ -30,3 +32,60 @@ $(FSCK_BIN): $(FSCK_OBJS)
 clean:
 	rm -f $(FSCK_BIN)
 	rm -rf .build-next
+
+repair-tools: scratch-dir
+	$(MAKE) -C ../nextufs -f Makefile.linux nextufs_mkfile
+	$(CC) $(CFLAGS) -I../nextufs -o $(REPAIR_TOOL) \
+		$(TESTS_DIR)/tools/corrupt_raw_case.c \
+		../nextufs/nextufs_dir_mutate.o ../nextufs/nextufs_mutate.o \
+		../nextufs/libnextufs.a
+
+repair-lab: repair-tools
+	bash $(TESTS_DIR)/scripts/build_corpus.sh
+
+repair-smoke: repair-lab
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-block-count >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-dot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-dotdot-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n bad-file-type >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n cg-bitmap-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n cg-summary-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n dir-entry-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n dup-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n extraneous-dir-link >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n missing-dot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n missing-dotdot >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n misaligned-dir-size >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n out-of-range-block >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n partial-indirect >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n partially-allocated-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n root-not-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n root-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n short-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-cstotal-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-free-counts >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-minfree >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n super-optim >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n unreferenced-alpha >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n unreferenced-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/run_case.sh legacy -n zero-length-dir >/dev/null
+
+repair-parity-smoke: repair-lab $(FSCK_BIN)
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-bitmap-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-summary-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n dir-entry-fclear >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n dir-entry-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n extra-dot >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n extra-dotdot >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n extraneous-dir-link >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n invalid-dir-inode >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n partial-indirect >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n root-not-dir >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n root-unallocated >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-cstotal-bad >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-free-counts >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-minfree >/dev/null
+	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-optim >/dev/null
+
+repair-parity-all: repair-lab $(FSCK_BIN)
+	bash $(TESTS_DIR)/scripts/compare_all_cases.sh -n

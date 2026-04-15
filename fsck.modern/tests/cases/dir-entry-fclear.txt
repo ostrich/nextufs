@@ -1,0 +1,2 @@
+Clears `/dir/file`'s inode mode while leaving its allocated data in place.
+Targets pass 2 handling for directory entries that name an `FCLEAR` inode.

@@ -1,0 +1,2 @@
+Clears both `/alpha` and `lost+found` from the root directory to force the
+legacy reconnect path to create `lost+found` before reconnecting an orphan.

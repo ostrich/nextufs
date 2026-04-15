@@ -1,0 +1,2 @@
+Perturbs the aggregate `fs_cstotal` free-block counts in the superblock.
+Targets the final pass 5 `FREE BLK COUNT(S) WRONG IN SUPERBLK` repair path.

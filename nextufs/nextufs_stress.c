@@ -2993,13 +2993,13 @@ main(int argc, char **argv)
 			continue;
 		}
 		fprintf(stderr,
-		    "usage: %s [--seed n] [--ops n] [--batch n] [--backend offline|fuse] [--policy editor|permissions] [--fsck] [--save-fail-dir dir] [--root /path] [--quiet] <image>\n",
+		    "usage: %s [--seed n] [--ops n] [--batch n] [--backend offline|fuse] [--policy editor|permissions] [--fsck] [--save-fail-dir dir] [--root /path] [--quiet] <source>\n",
 		    argv[0]);
 		return 2;
 	}
 	if (image_path == NULL) {
 		fprintf(stderr,
-		    "usage: %s [--seed n] [--ops n] [--batch n] [--backend offline|fuse] [--policy editor|permissions] [--fsck] [--save-fail-dir dir] [--root /path] [--quiet] <image>\n",
+		    "usage: %s [--seed n] [--ops n] [--batch n] [--backend offline|fuse] [--policy editor|permissions] [--fsck] [--save-fail-dir dir] [--root /path] [--quiet] <source>\n",
 		    argv[0]);
 		return 2;
 	}

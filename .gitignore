@@ -15,6 +15,9 @@
 /fsck/.build-next/
 /fsck.modern/.build-next/
 /fsck.modern/.scratch/
+/fsck.modern/tests/cache/
+/fsck.modern/tests/work/
+/fsck.modern/tests/tools/corrupt_raw_case
 
 /nextufs/openstep42-base.raw
 /nextufs/openstep42-base.vdi

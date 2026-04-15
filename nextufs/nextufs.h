@@ -85,6 +85,10 @@ struct nextufs_inode {
 
 struct nextufs_image {
 	int fd;
+	const void *backend_ops;
+	void *backend_ctx;
+	int writable;
+	int source_is_container;
 	off_t image_size;
 	off_t slice_base;
 	off_t slice_size;
@@ -113,6 +117,7 @@ struct nextufs_probe_info {
 	uint16_t label_front;
 	char rootpartition;
 	int used_disk_label;
+	int source_is_container;
 };
 
 typedef int (*nextufs_dir_iter_cb)(uint32_t ino, const char *name,
@@ -134,7 +139,9 @@ struct nextufs_write_ctx {
 };
 
 int nextufs_image_open(struct nextufs_image *img, const char *path);
+int nextufs_image_open_rw(struct nextufs_image *img, const char *path);
 void nextufs_image_close(struct nextufs_image *img);
+int nextufs_source_extract_slice(const char *source_path, int out_fd);
 void nextufs_probe_info_get(const struct nextufs_image *img,
 	struct nextufs_probe_info *info);
 int nextufs_node_get_root(const struct nextufs_image *img,

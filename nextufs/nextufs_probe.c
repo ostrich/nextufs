@@ -124,15 +124,15 @@ main(int argc, char **argv)
 	int rc;
 
 	if (argc != 2 && argc != 3) {
-		fprintf(stderr, "usage: %s <raw-image> [path]\n", argv[0]);
+		fprintf(stderr, "usage: %s <source> [path]\n", argv[0]);
 		return 1;
 	}
 	rc = nextufs_image_open(&img, argv[1]);
 	if (rc < 0) {
-		fprintf(stderr, "failed to open image %s\n", argv[1]);
+		fprintf(stderr, "failed to open source %s\n", argv[1]);
 		return 1;
 	}
-	printf("image: %s\n", argv[1]);
+	printf("source: %s\n", argv[1]);
 	nextufs_probe_info_get(&img, &probe);
 	if (probe.used_disk_label) {
 		printf("disk label:            version=0x%08x off=0x%jx secsize=%u front=%u root=%c\n",

@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/dir/file`
+
+Corruption:
+- replace the inode number in `/dir/file` with a value beyond `imax`
+
+Primary legacy expectation:
+- pass 2 reports an inode out of range

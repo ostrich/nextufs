@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/alpha`
+
+Corruption:
+- set `/alpha` first direct block to a fragment number beyond `fmax`
+
+Primary legacy expectation:
+- pass 1 reports a bad block

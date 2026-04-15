@@ -1,0 +1,11 @@
+Seed assumptions:
+- clean seed contains `/alpha` as a small regular file
+
+Corruption:
+- increment `di_blocks` for `/alpha`
+
+Primary legacy expectation:
+- pass 1 reports incorrect block count for the inode
+
+Working-copy policy:
+- never run repair on the pristine cached fixture

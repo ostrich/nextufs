@@ -166,7 +166,7 @@ nextufs__insert_dirent(const struct nextufs_image *img,
 				block_disk_off = img->slice_base +
 				    ((off_t)data_frag * img->sb.frag_size);
 			}
-			if (nextufs__write_exact(img->fd, block, chunk_size,
+			if (nextufs__write_exact(img, block, chunk_size,
 			    block_disk_off) < 0) {
 				free(block);
 				return -EIO;
@@ -192,7 +192,7 @@ nextufs__insert_dirent(const struct nextufs_image *img,
 		if (nextufs__write_dirent_raw(new_dirblk, new_inode, DIRBLKSIZ,
 		    name) < 0)
 			return -EINVAL;
-		if (nextufs__write_exact(img->fd, new_dirblk, sizeof(new_dirblk),
+		if (nextufs__write_exact(img, new_dirblk, sizeof(new_dirblk),
 		    new_block_off) < 0)
 			return -EIO;
 		return 0;
@@ -270,7 +270,7 @@ nextufs__remove_dirent(const struct nextufs_image *img,
 					} else {
 						nextufs__write_be32(block + dirblk_base + off, 0);
 					}
-					if (nextufs__write_exact(img->fd, block, chunk_size,
+					if (nextufs__write_exact(img, block, chunk_size,
 					    block_disk_off) < 0) {
 						free(block);
 						return -EIO;
@@ -304,7 +304,7 @@ nextufs__write_new_directory_block(const struct nextufs_image *img,
 	    parent_ino, (uint16_t)(DIRBLKSIZ - nextufs__dirent_size(1)),
 	    "..") < 0)
 		return -EINVAL;
-	return nextufs__write_exact(img->fd, dirblk, sizeof(dirblk),
+	return nextufs__write_exact(img, dirblk, sizeof(dirblk),
 	    img->slice_base + ((off_t)frag_addr * img->sb.frag_size));
 }
 
@@ -422,7 +422,7 @@ nextufs__update_directory_parent_inode(const struct nextufs_image *img,
 		return -EINVAL;
 	nextufs__write_be32(dirblk + second_off, parent_inode);
 	data_frag = dirnode->inode.db[0];
-	rc = nextufs__write_exact(img->fd, dirblk, sizeof(dirblk),
+	rc = nextufs__write_exact(img, dirblk, sizeof(dirblk),
 	    img->slice_base + ((off_t)data_frag * img->sb.frag_size));
 	if (rc < 0)
 		return rc;

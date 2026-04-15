@@ -1,0 +1,11 @@
+Seed assumptions:
+- clean seed contains `/alpha`
+
+Corruption:
+- clear the root-directory entry for `alpha` without clearing the inode
+
+Primary legacy expectation:
+- later passes report an unreferenced file and link-count fallout
+
+Working-copy policy:
+- never run repair on the pristine cached fixture

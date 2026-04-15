@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/dir/file`
+
+Corruption:
+- rename the `file` directory entry in `/dir` to `.`
+
+Primary legacy expectation:
+- pass 2 reports an extra `.` entry

@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed root inode is a directory
+
+Corruption:
+- change root inode mode to a regular-file type
+
+Primary legacy expectation:
+- pass 2 reports root inode not directory

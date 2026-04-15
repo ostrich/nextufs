@@ -1,6 +1,7 @@
 #include "nextufs_internal.h"
 
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -62,6 +63,27 @@
 #define PART_MOUNTPT_OFF 0x12U
 #define PART_AUTOMNT_OFF 0x22U
 #define PART_TYPE_OFF 0x23U
+#define VDI_SIGNATURE 0xbeda107fU
+#define VDI_TYPE_DYNAMIC 1U
+#define VDI_TYPE_DIFF 4U
+#define VDI_MAP_UNALLOCATED 0xffffffffU
+#define VDI_MAP_ZERO 0xfffffffeU
+#define VDI_DESC_SIZE 64U
+#define VDI_SIG_OFF 0x40U
+#define VDI_VERSION_OFF 0x44U
+#define VDI_HEADER_SIZE_OFF 0x48U
+#define VDI_TYPE_OFF 0x4cU
+#define VDI_BLOCKS_OFFSET_OFF 0x154U
+#define VDI_DATA_OFFSET_OFF 0x158U
+#define VDI_SECTOR_SIZE_OFF 0x168U
+#define VDI_DISK_SIZE_OFF 0x170U
+#define VDI_BLOCK_SIZE_OFF 0x178U
+#define VDI_BLOCK_EXTRA_OFF 0x17cU
+#define VDI_BLOCK_COUNT_OFF 0x180U
+#define VDI_BLOCKS_ALLOC_OFF 0x184U
+#define VDI_UUID_IMAGE_OFF 0x188U
+#define VDI_UUID_PARENT_OFF 0x1a8U
+
 struct next_partition {
 	int present;
 	uint32_t base_blocks;
@@ -84,8 +106,32 @@ struct next_disk_label {
 	int checksum_present;
 };
 
+struct nextufs_raw_backend {
+	int fd;
+};
+
+struct nextufs_vdi_backend {
+	int fd;
+	uint32_t image_type;
+	uint32_t map_offset;
+	uint32_t data_offset;
+	uint32_t sector_size;
+	uint32_t block_size;
+	uint32_t block_extra;
+	uint32_t block_count;
+	uint32_t blocks_allocated;
+	uint64_t disk_size;
+	uint32_t *block_map;
+	uint8_t image_uuid[16];
+	uint8_t parent_uuid[16];
+	int has_parent;
+	struct nextufs_image parent;
+};
+
 static uint32_t read_be24(const uint8_t *p);
 static uint64_t read_be64(const uint8_t *p);
+static uint32_t read_le32(const uint8_t *p);
+static uint64_t read_le64(const uint8_t *p);
 static void copy_cstr_field(char *dst, size_t dst_size, const uint8_t *src, size_t src_size);
 static uint16_t checksum_be16(const uint8_t *buf, size_t size);
 static void decode_superblock(struct nextufs_superblock *sb, const uint8_t *buf);
@@ -96,6 +142,61 @@ static int pick_label_slice(const struct next_disk_label *dl, off_t *slice_base_
 static int resolve_indirect_block_frag(const struct nextufs_image *img, uint32_t block_frag, unsigned level, uint64_t logical_index, uint32_t *data_frag_out);
 static int resolve_file_block_frag(const struct nextufs_image *img, const struct nextufs_inode *ino, uint64_t logical_block_index, uint32_t *data_frag_out);
 static size_t decode_inline_symlink(const struct nextufs_inode *ino, char *out, size_t out_size);
+static int nextufs_raw_backend_read(void *ctx, void *buf, size_t size,
+	off_t offset);
+static int nextufs_raw_backend_write(void *ctx, const void *buf, size_t size,
+	off_t offset);
+static int nextufs_raw_backend_fsync(void *ctx);
+static void nextufs_raw_backend_close(void *ctx);
+static int nextufs_vdi_backend_read(void *ctx, void *buf, size_t size,
+	off_t offset);
+static int nextufs_vdi_backend_write(void *ctx, const void *buf, size_t size,
+	off_t offset);
+static int nextufs_vdi_backend_fsync(void *ctx);
+static void nextufs_vdi_backend_close(void *ctx);
+static int nextufs_path_dirname(char *out, size_t out_size, const char *path);
+static int nextufs_vdi_find_parent(char *out, size_t out_size,
+	const char *path, const uint8_t parent_uuid[16]);
+static int nextufs_init_backend(struct nextufs_image *img, const char *path,
+	int writable, off_t *source_size_out);
+static int nextufs_open_with_mode(struct nextufs_image *img, const char *path,
+	int writable);
+static int nextufs_write_out_fd(int fd, const void *buf, size_t size);
+
+static const struct nextufs_image_backend_ops nextufs_raw_backend_ops = {
+	.read = nextufs_raw_backend_read,
+	.write = nextufs_raw_backend_write,
+	.fsync = nextufs_raw_backend_fsync,
+	.close = nextufs_raw_backend_close,
+};
+
+static const struct nextufs_image_backend_ops nextufs_vdi_backend_ops = {
+	.read = nextufs_vdi_backend_read,
+	.write = nextufs_vdi_backend_write,
+	.fsync = nextufs_vdi_backend_fsync,
+	.close = nextufs_vdi_backend_close,
+};
+
+static int
+nextufs_write_out_fd(int fd, const void *buf, size_t size)
+{
+	const uint8_t *in = buf;
+	size_t done = 0;
+
+	while (done < size) {
+		ssize_t n = write(fd, in + done, size - done);
+
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			return -errno;
+		}
+		if (n == 0)
+			return -EIO;
+		done += (size_t)n;
+	}
+	return 0;
+}
 
 static uint32_t
 read_be24(const uint8_t *p)
@@ -110,6 +211,22 @@ read_be64(const uint8_t *p)
 {
 	return ((uint64_t)nextufs__read_be32(p) << 32) |
 	    nextufs__read_be32(p + 4);
+}
+
+static uint32_t
+read_le32(const uint8_t *p)
+{
+	return (uint32_t)p[0] |
+	    ((uint32_t)p[1] << 8) |
+	    ((uint32_t)p[2] << 16) |
+	    ((uint32_t)p[3] << 24);
+}
+
+static uint64_t
+read_le64(const uint8_t *p)
+{
+	return (uint64_t)read_le32(p) |
+	    ((uint64_t)read_le32(p + 4) << 32);
 }
 
 static void
@@ -283,6 +400,477 @@ decode_next_disk_label(struct next_disk_label *dl, const uint8_t *buf, off_t off
 }
 
 static int
+nextufs_raw_backend_read(void *ctx, void *buf, size_t size, off_t offset)
+{
+	struct nextufs_raw_backend *raw = ctx;
+
+	return nextufs__read_exact_fd(raw->fd, buf, size, offset);
+}
+
+static int
+nextufs_raw_backend_write(void *ctx, const void *buf, size_t size, off_t offset)
+{
+	struct nextufs_raw_backend *raw = ctx;
+
+	return nextufs__write_exact_fd(raw->fd, buf, size, offset);
+}
+
+static int
+nextufs_raw_backend_fsync(void *ctx)
+{
+	struct nextufs_raw_backend *raw = ctx;
+
+	return fsync(raw->fd) < 0 ? -errno : 0;
+}
+
+static void
+nextufs_raw_backend_close(void *ctx)
+{
+	struct nextufs_raw_backend *raw = ctx;
+
+	if (raw == NULL)
+		return;
+	if (raw->fd >= 0)
+		close(raw->fd);
+	free(raw);
+}
+
+static int
+nextufs_vdi_backend_read(void *ctx, void *buf, size_t size, off_t offset)
+{
+	struct nextufs_vdi_backend *vdi = ctx;
+	uint8_t *out = buf;
+	size_t done = 0;
+
+	if (offset < 0 || (uint64_t)offset + size > vdi->disk_size)
+		return -EIO;
+	while (done < size) {
+		uint64_t guest_off = (uint64_t)offset + done;
+		uint32_t block_index;
+		uint32_t map_entry;
+		size_t block_off;
+		size_t chunk;
+
+		block_index = (uint32_t)(guest_off / vdi->block_size);
+		if (block_index >= vdi->block_count)
+			return -EIO;
+		block_off = (size_t)(guest_off % vdi->block_size);
+		chunk = vdi->block_size - block_off;
+		if (chunk > size - done)
+			chunk = size - done;
+		map_entry = vdi->block_map[block_index];
+		if (map_entry == VDI_MAP_UNALLOCATED) {
+			if (vdi->has_parent) {
+				size_t parent_chunk = chunk;
+
+				if ((uint64_t)guest_off >= (uint64_t)vdi->parent.image_size) {
+					memset(out + done, 0, chunk);
+				} else {
+					uint64_t parent_remaining =
+					    (uint64_t)vdi->parent.image_size -
+					    (uint64_t)guest_off;
+
+					if (parent_chunk > parent_remaining)
+						parent_chunk = (size_t)parent_remaining;
+					if (nextufs__read_exact(&vdi->parent, out + done,
+					    parent_chunk, (off_t)guest_off) < 0)
+						return -EIO;
+					if (parent_chunk < chunk) {
+						memset(out + done + parent_chunk, 0,
+						    chunk - parent_chunk);
+					}
+				}
+			} else {
+				memset(out + done, 0, chunk);
+			}
+		} else if (map_entry == VDI_MAP_ZERO) {
+			memset(out + done, 0, chunk);
+		} else {
+			off_t file_off;
+			uint64_t stride;
+
+			stride = (uint64_t)vdi->block_size + vdi->block_extra;
+			file_off = (off_t)vdi->data_offset +
+			    (off_t)((uint64_t)map_entry * stride) +
+			    (off_t)vdi->block_extra + (off_t)block_off;
+			if (nextufs__read_exact_fd(vdi->fd, out + done, chunk,
+			    file_off) < 0)
+				return -EIO;
+		}
+		done += chunk;
+	}
+	return 0;
+}
+
+static int
+nextufs_vdi_write_le32(int fd, off_t off, uint32_t value)
+{
+	uint8_t raw[4];
+
+	raw[0] = (uint8_t)value;
+	raw[1] = (uint8_t)(value >> 8);
+	raw[2] = (uint8_t)(value >> 16);
+	raw[3] = (uint8_t)(value >> 24);
+	return nextufs__write_exact_fd(fd, raw, sizeof(raw), off);
+}
+
+static int
+nextufs_vdi_materialize_block(struct nextufs_vdi_backend *vdi, uint32_t block_index)
+{
+	uint32_t map_entry;
+	uint32_t new_entry;
+	uint64_t guest_off;
+	uint64_t stride;
+	off_t block_file_off;
+	uint8_t *block_buf;
+	int rc;
+
+	map_entry = vdi->block_map[block_index];
+	if (map_entry != VDI_MAP_UNALLOCATED && map_entry != VDI_MAP_ZERO)
+		return 0;
+	if (vdi->blocks_allocated >= vdi->block_count)
+		return -ENOSPC;
+	block_buf = malloc(vdi->block_size == 0 ? 1 : vdi->block_size);
+	if (block_buf == NULL)
+		return -ENOMEM;
+	guest_off = (uint64_t)block_index * vdi->block_size;
+	if (map_entry == VDI_MAP_UNALLOCATED && vdi->has_parent) {
+		rc = nextufs__read_exact(&vdi->parent, block_buf, vdi->block_size,
+		    (off_t)guest_off);
+		if (rc < 0) {
+			free(block_buf);
+			return rc;
+		}
+	} else {
+		memset(block_buf, 0, vdi->block_size);
+	}
+	new_entry = vdi->blocks_allocated;
+	stride = (uint64_t)vdi->block_size + vdi->block_extra;
+	block_file_off = (off_t)vdi->data_offset + (off_t)((uint64_t)new_entry * stride);
+	if (vdi->block_extra != 0) {
+		uint8_t *extra;
+
+		extra = calloc(1, vdi->block_extra);
+		if (extra == NULL) {
+			free(block_buf);
+			return -ENOMEM;
+		}
+		rc = nextufs__write_exact_fd(vdi->fd, extra, vdi->block_extra,
+		    block_file_off);
+		free(extra);
+		if (rc < 0) {
+			free(block_buf);
+			return rc;
+		}
+	}
+	rc = nextufs__write_exact_fd(vdi->fd, block_buf, vdi->block_size,
+	    block_file_off + (off_t)vdi->block_extra);
+	free(block_buf);
+	if (rc < 0)
+		return rc;
+	rc = nextufs_vdi_write_le32(vdi->fd,
+	    (off_t)vdi->map_offset + (off_t)block_index * 4, new_entry);
+	if (rc < 0)
+		return rc;
+	vdi->block_map[block_index] = new_entry;
+	vdi->blocks_allocated++;
+	rc = nextufs_vdi_write_le32(vdi->fd, VDI_BLOCKS_ALLOC_OFF,
+	    vdi->blocks_allocated);
+	if (rc < 0)
+		return rc;
+	return 0;
+}
+
+static int
+nextufs_vdi_backend_write(void *ctx, const void *buf, size_t size, off_t offset)
+{
+	struct nextufs_vdi_backend *vdi = ctx;
+	const uint8_t *in = buf;
+	size_t done = 0;
+
+	if (offset < 0 || (uint64_t)offset + size > vdi->disk_size)
+		return -EIO;
+	while (done < size) {
+		uint64_t guest_off = (uint64_t)offset + done;
+		uint32_t block_index;
+		uint32_t map_entry;
+		size_t block_off;
+		size_t chunk;
+		uint64_t stride;
+		off_t file_off;
+		int rc;
+
+		block_index = (uint32_t)(guest_off / vdi->block_size);
+		if (block_index >= vdi->block_count)
+			return -EIO;
+		rc = nextufs_vdi_materialize_block(vdi, block_index);
+		if (rc < 0)
+			return rc;
+		map_entry = vdi->block_map[block_index];
+		if (map_entry == VDI_MAP_UNALLOCATED || map_entry == VDI_MAP_ZERO)
+			return -EIO;
+		block_off = (size_t)(guest_off % vdi->block_size);
+		chunk = vdi->block_size - block_off;
+		if (chunk > size - done)
+			chunk = size - done;
+		stride = (uint64_t)vdi->block_size + vdi->block_extra;
+		file_off = (off_t)vdi->data_offset +
+		    (off_t)((uint64_t)map_entry * stride) +
+		    (off_t)vdi->block_extra + (off_t)block_off;
+		rc = nextufs__write_exact_fd(vdi->fd, in + done, chunk, file_off);
+		if (rc < 0)
+			return rc;
+		done += chunk;
+	}
+	return 0;
+}
+
+static int
+nextufs_vdi_backend_fsync(void *ctx)
+{
+	struct nextufs_vdi_backend *vdi = ctx;
+
+	return fsync(vdi->fd) < 0 ? -errno : 0;
+}
+
+static void
+nextufs_vdi_backend_close(void *ctx)
+{
+	struct nextufs_vdi_backend *vdi = ctx;
+
+	if (vdi == NULL)
+		return;
+	if (vdi->has_parent)
+		nextufs_image_close(&vdi->parent);
+	if (vdi->fd >= 0)
+		close(vdi->fd);
+	free(vdi->block_map);
+	free(vdi);
+}
+
+static int
+nextufs_path_dirname(char *out, size_t out_size, const char *path)
+{
+	const char *slash;
+	size_t len;
+
+	slash = strrchr(path, '/');
+	if (slash == NULL) {
+		if (out_size < 2)
+			return -ENAMETOOLONG;
+		strcpy(out, ".");
+		return 0;
+	}
+	len = slash == path ? 1 : (size_t)(slash - path);
+	if (len + 1 > out_size)
+		return -ENAMETOOLONG;
+	memcpy(out, path, len);
+	out[len] = '\0';
+	return 0;
+}
+
+static int
+nextufs_vdi_uuid_matches(const char *path, const uint8_t target_uuid[16])
+{
+	uint8_t hdr[VDI_UUID_PARENT_OFF + 16];
+	int fd;
+	int rc = 0;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return 0;
+	if (nextufs__read_exact_fd(fd, hdr, sizeof(hdr), 0) < 0)
+		goto out;
+	if (read_le32(hdr + VDI_SIG_OFF) != VDI_SIGNATURE)
+		goto out;
+	rc = memcmp(hdr + VDI_UUID_IMAGE_OFF, target_uuid, 16) == 0;
+out:
+	close(fd);
+	return rc;
+}
+
+static int
+nextufs_vdi_search_dir(char *out, size_t out_size, const char *dir,
+    const char *self_path, const uint8_t parent_uuid[16])
+{
+	DIR *dp;
+	struct dirent *de;
+
+	dp = opendir(dir);
+	if (dp == NULL)
+		return -errno;
+	while ((de = readdir(dp)) != NULL) {
+		char candidate[NEXTUFS_MAX_PATH_LEN];
+		size_t dir_len;
+		size_t name_len;
+
+		if (de->d_name[0] == '.')
+			continue;
+		name_len = strlen(de->d_name);
+		if (name_len < 4 || strcmp(de->d_name + name_len - 4, ".vdi") != 0)
+			continue;
+		dir_len = strlen(dir);
+		if (dir_len + 1 + name_len + 1 > sizeof(candidate))
+			continue;
+		memcpy(candidate, dir, dir_len);
+		candidate[dir_len] = '/';
+		memcpy(candidate + dir_len + 1, de->d_name, name_len + 1);
+		if (strcmp(candidate, self_path) == 0)
+			continue;
+		if (!nextufs_vdi_uuid_matches(candidate, parent_uuid))
+			continue;
+		if (strlen(candidate) + 1 > out_size) {
+			closedir(dp);
+			return -ENAMETOOLONG;
+		}
+		memcpy(out, candidate, strlen(candidate) + 1);
+		closedir(dp);
+		return 0;
+	}
+	closedir(dp);
+	return -ENOENT;
+}
+
+static int
+nextufs_vdi_find_parent(char *out, size_t out_size, const char *path,
+    const uint8_t parent_uuid[16])
+{
+	char dir[NEXTUFS_MAX_PATH_LEN];
+	char parent_dir[NEXTUFS_MAX_PATH_LEN];
+	int rc;
+
+	rc = nextufs_path_dirname(dir, sizeof(dir), path);
+	if (rc < 0)
+		return rc;
+	rc = nextufs_vdi_search_dir(out, out_size, dir, path, parent_uuid);
+	if (rc == 0)
+		return 0;
+	rc = nextufs_path_dirname(parent_dir, sizeof(parent_dir), dir);
+	if (rc < 0)
+		return rc;
+	if (strcmp(parent_dir, dir) == 0)
+		return -ENOENT;
+	return nextufs_vdi_search_dir(out, out_size, parent_dir, path, parent_uuid);
+}
+
+static int
+nextufs_init_backend(struct nextufs_image *img, const char *path, int writable,
+    off_t *source_size_out)
+{
+	struct stat st;
+	uint8_t hdr[512];
+	int fd;
+	int rc;
+
+	fd = open(path, writable ? O_RDWR : O_RDONLY);
+	if (fd < 0)
+		return -errno;
+	if (fstat(fd, &st) < 0) {
+		close(fd);
+		return -errno;
+	}
+	if (nextufs__read_exact_fd(fd, hdr, sizeof(hdr), 0) < 0) {
+		close(fd);
+		return -EIO;
+	}
+	if (sizeof(hdr) >= VDI_UUID_PARENT_OFF + 16 &&
+	    read_le32(hdr + VDI_SIG_OFF) == VDI_SIGNATURE) {
+		struct nextufs_vdi_backend *vdi;
+		uint32_t header_size;
+		size_t map_bytes;
+
+		header_size = read_le32(hdr + VDI_HEADER_SIZE_OFF);
+		if ((uint64_t)VDI_SIG_OFF + header_size < VDI_UUID_PARENT_OFF + 16 ||
+		    read_le32(hdr + VDI_VERSION_OFF) != 0x00010001U) {
+			close(fd);
+			return -EINVAL;
+		}
+		vdi = calloc(1, sizeof(*vdi));
+		if (vdi == NULL) {
+			close(fd);
+			return -ENOMEM;
+		}
+		vdi->fd = fd;
+		vdi->image_type = read_le32(hdr + VDI_TYPE_OFF);
+		vdi->map_offset = read_le32(hdr + VDI_BLOCKS_OFFSET_OFF);
+		vdi->data_offset = read_le32(hdr + VDI_DATA_OFFSET_OFF);
+		vdi->sector_size = read_le32(hdr + VDI_SECTOR_SIZE_OFF);
+		vdi->disk_size = read_le64(hdr + VDI_DISK_SIZE_OFF);
+		vdi->block_size = read_le32(hdr + VDI_BLOCK_SIZE_OFF);
+		vdi->block_extra = read_le32(hdr + VDI_BLOCK_EXTRA_OFF);
+		vdi->block_count = read_le32(hdr + VDI_BLOCK_COUNT_OFF);
+		vdi->blocks_allocated = read_le32(hdr + VDI_BLOCKS_ALLOC_OFF);
+		memcpy(vdi->image_uuid, hdr + VDI_UUID_IMAGE_OFF, 16);
+		memcpy(vdi->parent_uuid, hdr + VDI_UUID_PARENT_OFF, 16);
+		if ((vdi->image_type != VDI_TYPE_DYNAMIC &&
+		    vdi->image_type != VDI_TYPE_DIFF) ||
+		    vdi->sector_size == 0 || vdi->block_size == 0 ||
+		    vdi->block_count == 0 || vdi->map_offset < header_size ||
+		    vdi->data_offset < vdi->map_offset) {
+			nextufs_vdi_backend_close(vdi);
+			return -EINVAL;
+		}
+		map_bytes = (size_t)vdi->block_count * sizeof(uint32_t);
+		vdi->block_map = malloc(map_bytes);
+		if (vdi->block_map == NULL) {
+			nextufs_vdi_backend_close(vdi);
+			return -ENOMEM;
+		}
+		if (nextufs__read_exact_fd(fd, vdi->block_map, map_bytes,
+		    (off_t)vdi->map_offset) < 0) {
+			nextufs_vdi_backend_close(vdi);
+			return -EIO;
+		}
+		if (vdi->image_type == VDI_TYPE_DIFF) {
+			char parent_path[NEXTUFS_MAX_PATH_LEN];
+
+			rc = nextufs_vdi_find_parent(parent_path, sizeof(parent_path),
+			    path, vdi->parent_uuid);
+			if (rc < 0) {
+				nextufs_vdi_backend_close(vdi);
+				return rc;
+			}
+			memset(&vdi->parent, 0, sizeof(vdi->parent));
+			vdi->parent.fd = -1;
+			rc = nextufs_init_backend(&vdi->parent, parent_path, 0, NULL);
+			if (rc < 0) {
+				nextufs_vdi_backend_close(vdi);
+				return rc;
+			}
+			vdi->has_parent = 1;
+		}
+		img->backend_ops = &nextufs_vdi_backend_ops;
+		img->backend_ctx = vdi;
+		img->writable = writable;
+		img->source_is_container = 1;
+		img->fd = fd;
+		img->image_size = (off_t)vdi->disk_size;
+		if (source_size_out != NULL)
+			*source_size_out = st.st_size;
+		return 0;
+	}
+	{
+		struct nextufs_raw_backend *raw;
+
+		raw = calloc(1, sizeof(*raw));
+		if (raw == NULL) {
+			close(fd);
+			return -ENOMEM;
+		}
+		raw->fd = fd;
+		img->backend_ops = &nextufs_raw_backend_ops;
+		img->backend_ctx = raw;
+		img->writable = writable;
+		img->source_is_container = 0;
+		img->fd = fd;
+		img->image_size = st.st_size;
+		if (source_size_out != NULL)
+			*source_size_out = st.st_size;
+		return 0;
+	}
+}
+
+static int
 pick_label_slice(const struct next_disk_label *dl, off_t *slice_base_out,
     off_t *slice_size_out)
 {
@@ -328,7 +916,7 @@ nextufs_inode_read(const struct nextufs_image *img, unsigned inode_no,
 	off = nextufs__inode_offset(img, inode_no);
 	if (off < 0)
 		return -EINVAL;
-	rc = nextufs__read_exact(img->fd, ibuf, sizeof(ibuf), off);
+	rc = nextufs__read_exact(img, ibuf, sizeof(ibuf), off);
 	if (rc < 0)
 		return rc;
 	decode_inode(ino, ibuf);
@@ -431,7 +1019,7 @@ nextufs_inode_read_data(const struct nextufs_image *img,
 		if (data_frag == 0) {
 			memset(buf + done, 0, chunk_size);
 		} else {
-			rc = nextufs__read_exact(img->fd, buf + done, chunk_size,
+			rc = nextufs__read_exact(img, buf + done, chunk_size,
 			    img->slice_base + ((off_t)data_frag * img->sb.frag_size) +
 			    (off_t)block_offset);
 			if (rc < 0)
@@ -499,34 +1087,41 @@ nextufs_inode_readlink(const struct nextufs_image *img,
 int
 nextufs_image_open(struct nextufs_image *img, const char *path)
 {
-	struct stat st;
+	return nextufs_open_with_mode(img, path, 0);
+}
+
+int
+nextufs_image_open_rw(struct nextufs_image *img, const char *path)
+{
+	return nextufs_open_with_mode(img, path, 1);
+}
+
+static int
+nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable)
+{
 	uint8_t *scanbuf;
 	size_t scan_size;
 	size_t label_scan_size;
 	size_t off;
-	int fd;
+	off_t source_size = 0;
+	int rc;
 
 	memset(img, 0, sizeof(*img));
 	img->fd = -1;
-	fd = open(path, O_RDONLY);
-	if (fd < 0)
-		return -errno;
-	if (fstat(fd, &st) < 0) {
-		close(fd);
-		return -errno;
-	}
-	img->image_size = st.st_size;
+	rc = nextufs_init_backend(img, path, writable, &source_size);
+	if (rc < 0)
+		return rc;
 	scan_size = DEFAULT_SCAN_LIMIT;
-	if ((off_t)scan_size > st.st_size)
-		scan_size = (size_t)st.st_size;
+	if ((uint64_t)scan_size > (uint64_t)img->image_size)
+		scan_size = (size_t)img->image_size;
 	scanbuf = malloc(scan_size);
 	if (scanbuf == NULL) {
-		close(fd);
+		nextufs_image_close(img);
 		return -ENOMEM;
 	}
-	if (nextufs__read_exact(fd, scanbuf, scan_size, 0) < 0) {
+	if (nextufs__read_exact(img, scanbuf, scan_size, 0) < 0) {
 		free(scanbuf);
-		close(fd);
+		nextufs_image_close(img);
 		return -EIO;
 	}
 	label_scan_size = scan_size < LABEL_SCAN_LIMIT ? scan_size : LABEL_SCAN_LIMIT;
@@ -545,23 +1140,22 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 			continue;
 		if (pick_label_slice(&dl, &slice_base, &slice_size) < 0)
 			continue;
-		if (slice_base < 0 || slice_base >= st.st_size)
+		if (slice_base < 0 || slice_base >= img->image_size)
 			continue;
-		if (slice_size <= 0 || slice_base + slice_size > st.st_size)
+		if (slice_size <= 0 || slice_base + slice_size > img->image_size)
 			continue;
 		magic_off = (size_t)(slice_base + UFS_SBLOCK_OFFSET + UFS_SUPER_MAGIC_OFFSET);
 		if (magic_off + 4 > scan_size)
 			continue;
 		if (nextufs__read_be32(scanbuf + magic_off) != UFS_FS_MAGIC)
 			continue;
-		if (nextufs__read_exact(fd, sbuf, sizeof(sbuf),
+		if (nextufs__read_exact(img, sbuf, sizeof(sbuf),
 		    slice_base + UFS_SBLOCK_OFFSET) < 0)
 			continue;
 		decode_superblock(&img->sb, sbuf);
 		if (img->sb.fs_magic != UFS_FS_MAGIC || img->sb.block_size == 0 ||
 		    img->sb.frag_size == 0)
 			continue;
-		img->fd = fd;
 		img->slice_base = slice_base;
 		img->slice_size = slice_size;
 		img->label_off = dl.label_off;
@@ -584,27 +1178,75 @@ nextufs_image_open(struct nextufs_image *img, const char *path)
 		    (off_t)UFS_SBLOCK_OFFSET;
 		if (img->slice_base < 0)
 			continue;
-		if (nextufs__read_exact(fd, sbuf, sizeof(sbuf),
+		if (nextufs__read_exact(img, sbuf, sizeof(sbuf),
 		    img->slice_base + UFS_SBLOCK_OFFSET) < 0)
 			continue;
 		decode_superblock(&img->sb, sbuf);
 		if (img->sb.fs_magic != UFS_FS_MAGIC || img->sb.block_size == 0 ||
 		    img->sb.frag_size == 0)
 			continue;
-		img->fd = fd;
-		img->slice_size = st.st_size - img->slice_base;
+		img->slice_size = img->image_size - img->slice_base;
 		free(scanbuf);
 		return 0;
 	}
 	free(scanbuf);
-	close(fd);
+	nextufs_image_close(img);
 	return -EINVAL;
 }
 
 void
 nextufs_image_close(struct nextufs_image *img)
 {
-	if (img->fd >= 0)
-		close(img->fd);
+	const struct nextufs_image_backend_ops *ops;
+
+	ops = img->backend_ops;
+	if (ops != NULL && ops->close != NULL)
+		ops->close(img->backend_ctx);
 	img->fd = -1;
+	img->backend_ops = NULL;
+	img->backend_ctx = NULL;
+	img->writable = 0;
+	img->source_is_container = 0;
+}
+
+int
+nextufs_source_extract_slice(const char *source_path, int out_fd)
+{
+	struct nextufs_image img;
+	uint8_t *buf;
+	uint64_t copied;
+	size_t chunk_size;
+	int rc;
+
+	rc = nextufs_image_open(&img, source_path);
+	if (rc < 0)
+		return rc;
+	chunk_size = 1024U * 1024U;
+	if ((uint64_t)chunk_size > (uint64_t)img.slice_size &&
+	    img.slice_size > 0)
+		chunk_size = (size_t)img.slice_size;
+	if (chunk_size == 0)
+		chunk_size = 4096;
+	buf = malloc(chunk_size);
+	if (buf == NULL) {
+		nextufs_image_close(&img);
+		return -ENOMEM;
+	}
+	rc = 0;
+	for (copied = 0; copied < (uint64_t)img.slice_size; copied += chunk_size) {
+		size_t chunk = chunk_size;
+
+		if ((uint64_t)chunk > (uint64_t)img.slice_size - copied)
+			chunk = (size_t)((uint64_t)img.slice_size - copied);
+		rc = nextufs__read_exact(&img, buf, chunk,
+		    img.slice_base + (off_t)copied);
+		if (rc < 0)
+			break;
+		rc = nextufs_write_out_fd(out_fd, buf, chunk);
+		if (rc < 0)
+			break;
+	}
+	free(buf);
+	nextufs_image_close(&img);
+	return rc;
 }

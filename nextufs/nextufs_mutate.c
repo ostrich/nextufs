@@ -13,20 +13,7 @@
 static int
 nextufs__open_image_rw(const char *image_path, struct nextufs_image *img)
 {
-	int fd;
-	int rc;
-
-	rc = nextufs_image_open(img, image_path);
-	if (rc < 0)
-		return rc;
-	close(img->fd);
-	fd = open(image_path, O_RDWR);
-	if (fd < 0) {
-		nextufs_image_close(img);
-		return -errno;
-	}
-	img->fd = fd;
-	return 0;
+	return nextufs_image_open_rw(img, image_path);
 }
 
 static int
@@ -412,7 +399,7 @@ nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 		(void)nextufs__discard_new_inode(&img, new_inode_no, &ino);
 		goto out;
 	}
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -528,7 +515,7 @@ nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__remove_linked_inode(&img, &target);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -626,7 +613,7 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__write_inode_raw(&img, parent.inode_no, &parent.inode);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -683,7 +670,7 @@ nextufs__rewrite_file_contents(const struct nextufs_write_ctx *ctx,
 	    preferred_cg, buf, final_size);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	free(buf);
 	nextufs_image_close(&img);
@@ -763,7 +750,7 @@ nextufs_path_rmdir(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__remove_dir_inode(&img, &parent, &target);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -827,7 +814,7 @@ nextufs_path_link(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__insert_dirent(&img, &parent, name, source.inode_no);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -915,7 +902,7 @@ nextufs_path_symlink(const struct nextufs_write_ctx *ctx,
 		(void)nextufs__discard_new_inode(&img, new_inode_no, &ino);
 		goto out;
 	}
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -972,7 +959,7 @@ nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
 	    preferred_cg, buf, new_size);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	free(buf);
 	nextufs_image_close(&img);
@@ -1033,7 +1020,7 @@ nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
 	    preferred_cg, buf, final_size);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	free(buf);
 	nextufs_image_close(&img);
@@ -1119,7 +1106,7 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 		(void)nextufs__discard_new_inode(&img, new_inode_no, &ino);
 		goto out;
 	}
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -1273,7 +1260,7 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__write_inode_raw(&img, source.inode_no, &source.inode);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -1306,7 +1293,7 @@ nextufs_path_chmod(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__write_inode_raw(&img, node.inode_no, &node.inode);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -1350,7 +1337,7 @@ nextufs_path_chown(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__write_inode_raw(&img, node.inode_no, &node.inode);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;
@@ -1387,7 +1374,7 @@ nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__write_inode_raw(&img, node.inode_no, &node.inode);
 	if (rc < 0)
 		goto out;
-	rc = fsync(img.fd);
+	rc = nextufs__image_fsync(&img);
 out:
 	nextufs_image_close(&img);
 	return rc < 0 ? rc : 0;

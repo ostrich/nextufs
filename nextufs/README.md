@@ -5,7 +5,9 @@ mutation frontends.
 
 Current scope:
 
-- open a raw image with `pread`
+- open raw disk images directly
+- open standalone VirtualBox VDI images
+- open VirtualBox VDI differencing chains by resolving parent UUIDs
 - report image size
 - inspect the first sector as an MBR
 - scan for and decode a NeXT `dlV3` disk label
@@ -33,13 +35,19 @@ make -f Makefile.linux
 This builds:
 
 - `libnextufs.a`: shared NeXT UFS library
-- `nextufs_probe`: raw-image inspector/probe
+- `nextufs_probe`: filesystem-source inspector/probe
 - `nextufs_fuse`: FUSE mount frontend backed by the shared library
 - `nextufs_test`: library regression test binary
 - `nextufs_mkfile`: offline scratch-image mutation tool for regression tests
 - `nextufs_stress`: deterministic mixed-operation stress harness
 - `nextufs.h`: public library API
 - `nextufs_internal.h`: internal shared subsystem interfaces
+
+Current image-format support:
+
+- library/probe path: raw, standalone VDI, VDI differencing chains
+- writable mutation path: raw, writable VDI, writable VDI differencing chains
+- writable FUSE path: raw, writable VDI, writable VDI differencing chains
 
 Library layout:
 
@@ -77,8 +85,8 @@ make -f Makefile.linux test
 
 This runs:
 
-- `nextufs_test`: library/API checks against the bundled OpenStep 4.2 raw image
-- `test_fuse.sh`: read-only FUSE smoke test against the same image
+- `nextufs_test`: library/API checks against the bundled OpenStep 4.2 raw disk image
+- `test_fuse.sh`: FUSE smoke test against the same source
 
 Small-file mutation regression:
 
@@ -278,6 +286,7 @@ Probe the OpenStep sample image:
 
 ```sh
 ./nextufs_probe openstep42-base.raw
+./nextufs_probe "/path/to/OPENSTEP 4.2.vdi"
 ```
 
 The probe prefers an explicitly decoded NeXT `dlV3` label when present and
@@ -294,6 +303,11 @@ Resolve a path from `/`:
 ./nextufs_probe openstep42-base.raw /etc/passwd
 ./nextufs_probe openstep42-base.raw mach_kernel
 ```
+
+Writable operations now go through the shared image backend, so
+`nextufs_fuse` and `nextufs_mkfile` can mutate raw sources and writable
+VirtualBox VDI containers, including differencing chains where writes land in
+the topmost child image.
 
 Mount the image through FUSE:
 

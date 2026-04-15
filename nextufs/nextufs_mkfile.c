@@ -247,22 +247,22 @@ main(int argc, char **argv)
 	}
 	if (argc - argi != 3) {
 		fprintf(stderr,
-		    "usage: %s [--policy editor|permissions] [--uid n] [--gid n] <raw-image> <path> <contents>\n"
-		    "       %s [global-opts] --unlink <raw-image> <path>\n"
-		    "       %s [global-opts] --mkdir <raw-image> <path>\n"
-		    "       %s [global-opts] --overwrite <raw-image> <path> <contents>\n"
-		    "       %s [global-opts] --append <raw-image> <path> <contents>\n"
-		    "       %s [global-opts] --rmdir <raw-image> <path>\n"
-		    "       %s [global-opts] --link <raw-image> <source-path> <target-path>\n"
-		    "       %s [global-opts] --rename <raw-image> <source-path> <target-path>\n"
-		    "       %s [global-opts] --symlink <raw-image> <target> <link-path>\n"
-		    "       %s [global-opts] --truncate <raw-image> <path> <size>\n"
-		    "       %s [global-opts] --pwrite <raw-image> <path> <offset> <contents>\n"
-		    "       %s [global-opts] --mknod <raw-image> <path> <octal-mode> <rdev>\n"
-		    "       %s [global-opts] --chmod <raw-image> <path> <octal-mode>\n"
-		    "       %s [global-opts] --chown <raw-image> <path> <uid|keep> <gid|keep>\n"
-		    "       %s [global-opts] --utimes <raw-image> <path> <atime> <mtime>\n"
-		    "       %s [global-opts] --from-file <raw-image> <path> <host-file>\n",
+		    "usage: %s [--policy editor|permissions] [--uid n] [--gid n] <source> <path> <contents>\n"
+		    "       %s [global-opts] --unlink <source> <path>\n"
+		    "       %s [global-opts] --mkdir <source> <path>\n"
+		    "       %s [global-opts] --overwrite <source> <path> <contents>\n"
+		    "       %s [global-opts] --append <source> <path> <contents>\n"
+		    "       %s [global-opts] --rmdir <source> <path>\n"
+		    "       %s [global-opts] --link <source> <source-path> <target-path>\n"
+		    "       %s [global-opts] --rename <source> <source-path> <target-path>\n"
+		    "       %s [global-opts] --symlink <source> <target> <link-path>\n"
+		    "       %s [global-opts] --truncate <source> <path> <size>\n"
+		    "       %s [global-opts] --pwrite <source> <path> <offset> <contents>\n"
+		    "       %s [global-opts] --mknod <source> <path> <octal-mode> <rdev>\n"
+		    "       %s [global-opts] --chmod <source> <path> <octal-mode>\n"
+		    "       %s [global-opts] --chown <source> <path> <uid|keep> <gid|keep>\n"
+		    "       %s [global-opts] --utimes <source> <path> <atime> <mtime>\n"
+		    "       %s [global-opts] --from-file <source> <path> <host-file>\n",
 		    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
 		    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
 		    argv[0], argv[0], argv[0], argv[0]);

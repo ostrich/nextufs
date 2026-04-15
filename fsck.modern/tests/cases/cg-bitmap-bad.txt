@@ -1,0 +1,2 @@
+Marks a used fragment from `/alpha` free in the on-disk cylinder-group bitmap.
+Targets pass 5 `BLK(S) MISSING IN BIT MAPS`.

@@ -1,0 +1,8 @@
+Seed assumptions:
+- clean seed contains `/dir`
+
+Corruption:
+- replace the inode number in `..` for `/dir` with the directory's own inode
+
+Primary legacy expectation:
+- pass 2 reports bad inode number for `..`
