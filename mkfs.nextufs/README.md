@@ -14,13 +14,27 @@ make -f Makefile.linux
 ./mkfs.nextufs /tmp/nextufs.img 65536
 ```
 
+Or use the full size of an existing target:
+
+```sh
+./mkfs.nextufs /path/to/existing.img
+```
+
 With only `target` and `size`, `mkfs.nextufs` uses built-in defaults for the
 filesystem geometry and allocation policy.
+
+With only `target`, `mkfs.nextufs` uses the full size of an existing target and
+the same built-in defaults.
+
+`mkfs.nextufs` caps implicit target sizing at 4 GiB and rejects explicit sizes
+above 4 GiB for NEXTSTEP/OPENSTEP compatibility.
 
 `size` is expressed in 1 KiB sectors, so `65536` creates a 64 MiB image.
 
 The size does not need to be a special multiple, but it does need to be large
 enough for a valid UFS layout.
+
+If you specify geometry or policy arguments, include `size` explicitly.
 
 ## Full Example
 

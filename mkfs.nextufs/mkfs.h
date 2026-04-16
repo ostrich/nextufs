@@ -3,11 +3,17 @@
 #ifndef MKFS_NEXTUFS_H
 #define MKFS_NEXTUFS_H
 
+#ifndef _FILE_OFFSET_BITS
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #ifndef STANDALONE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
 #ifdef notdef
@@ -43,6 +49,8 @@
 #define MAXBLKPG(fs)	((fs)->fs_fsize / sizeof(daddr_t))
 #define	NBPI		2048
 #define	DEFHZ		60
+#define MKFS_COMPAT_MAX_BYTES	4294967296ULL
+#define MKFS_COMPAT_MAX_SECTORS	(MKFS_COMPAT_MAX_BYTES / 1024ULL)
 
 #define UMASK		0755
 #define MAXINOPB	(MAXBSIZE / sizeof(struct dinode))

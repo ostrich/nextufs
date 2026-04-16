@@ -19,8 +19,11 @@ void
 rdfs(daddr_t bno, int size, char *bf)
 {
 	int n;
+	off_t offset;
 
-	if (lseek(fsi, bno * DEV_BSIZE, 0) < 0) {
+	offset = (off_t)bno * (off_t)DEV_BSIZE;
+
+	if (lseek(fsi, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
 		perror("rdfs");
 		exit(1);
@@ -37,10 +40,12 @@ void
 wtfs(daddr_t bno, int size, char *bf)
 {
 	int n;
+	off_t offset;
 
 	if (Nflag)
 		return;
-	if (lseek(fso, bno * DEV_BSIZE, 0) < 0) {
+	offset = (off_t)bno * (off_t)DEV_BSIZE;
+	if (lseek(fso, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
 		perror("wtfs");
 		exit(1);

@@ -2,14 +2,49 @@
 
 #include "mkfs.h"
 
+static long
+mkfs_target_size_sectors(const char *path)
+{
+	off_t bytes;
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		fprintf(stderr, "%s: cannot open\n", path);
+		exit(1);
+	}
+	bytes = lseek(fd, 0, SEEK_END);
+	close(fd);
+	if (bytes < 0) {
+		fprintf(stderr, "%s: cannot determine target size\n", path);
+		exit(1);
+	}
+	if (bytes == 0) {
+		fprintf(stderr, "%s: target size is zero\n", path);
+		exit(1);
+	}
+	if ((bytes % 1024) != 0) {
+		fprintf(stderr, "%s: target size must be a multiple of 1024 bytes\n",
+		    path);
+		exit(1);
+	}
+	if ((uintmax_t)bytes / 1024 > LONG_MAX) {
+		fprintf(stderr, "%s: target size is too large\n", path);
+		exit(1);
+	}
+	return (long)((uintmax_t)bytes / 1024);
+}
+
 void
 print_usage(FILE *out)
 {
 	fprintf(out,
-	    "usage: mkfs.nextufs [-N] <target> <size> [nsect ntrak bsize fsize cpg minfree rps nbpi opt]\n");
+	    "usage: mkfs.nextufs [-N] <target> [size [nsect ntrak bsize fsize cpg minfree rps nbpi opt]]\n");
 	fprintf(out, "\n");
 	fprintf(out, "Required arguments:\n");
 	fprintf(out, "  target    output image or device path\n");
+	fprintf(out, "\n");
+	fprintf(out, "Optional size argument:\n");
 	fprintf(out, "  size      filesystem size in 1 KiB sectors\n");
 	fprintf(out, "\n");
 	fprintf(out, "Optional geometry and policy arguments:\n");
@@ -26,8 +61,14 @@ print_usage(FILE *out)
 	fprintf(out, "\n");
 	fprintf(out, "Notes:\n");
 	fprintf(out, "  - With only <target> and <size>, mkfs.nextufs uses the defaults above.\n");
+	fprintf(out, "  - With only <target>, mkfs.nextufs uses the full size of an existing\n");
+	fprintf(out, "    target and the defaults above.\n");
+	fprintf(out, "  - Sizes larger than 4 GiB are capped or rejected for\n");
+	fprintf(out, "    NEXTSTEP/OPENSTEP compatibility.\n");
 	fprintf(out, "  - size is a positive count of 1 KiB sectors and must be large enough\n");
 	fprintf(out, "    for a valid filesystem layout.\n");
+	fprintf(out, "  - If you specify geometry or policy arguments, include <size>\n");
+	fprintf(out, "    explicitly.\n");
 	fprintf(out, "  - Additional geometry combinations may still be rejected if they are\n");
 	fprintf(out, "    inconsistent with UFS layout constraints.\n");
 	fprintf(out, "\n");
@@ -41,6 +82,7 @@ main(int argc, char *argv[])
 {
 	long cylno, rpos, blk, i, j, inos, nbpi, fssize, warn = 0;
 	char lastbuf[DEV_BSIZE];
+	int explicit_size = 0;
 
 #ifndef STANDALONE
 	argc--, argv++;
@@ -61,16 +103,39 @@ main(int argc, char *argv[])
 		argc--, argv++;
 	}
 	time(&utime);
-	if (argc < 2) {
+	if (argc < 1) {
 		print_usage(stderr);
 		exit(1);
 	}
 	fsys = argv[0];
-	fssize = atoi(argv[1]);
-	if (!Nflag) {
+	if (argc > 1) {
+		fssize = atoi(argv[1]);
+		explicit_size = 1;
+	} else {
+		fssize = mkfs_target_size_sectors(fsys);
+		if ((unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+			fprintf(stderr,
+			    "%s: target is larger than 4 GiB; using 4 GiB for NEXTSTEP/OPENSTEP compatibility\n",
+			    fsys);
+			fssize = (long)MKFS_COMPAT_MAX_SECTORS;
+		}
+	}
+	if (explicit_size && (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+		fprintf(stderr,
+		    "requested size %ld exceeds the 4 GiB NEXTSTEP/OPENSTEP compatibility limit\n",
+		    fssize);
+		exit(1);
+	}
+	if (!Nflag && argc > 1) {
 		fso = creat(fsys, 0666);
 		if (fso < 0) {
 			fprintf(stderr, "%s: cannot create\n", fsys);
+			exit(1);
+		}
+	} else if (!Nflag) {
+		fso = open(fsys, O_RDWR);
+		if (fso < 0) {
+			fprintf(stderr, "%s: cannot open for writing\n", fsys);
 			exit(1);
 		}
 	}
