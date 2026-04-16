@@ -17,7 +17,8 @@ FUSE frontend, and the offline mutation utilities.
 - standalone VDI images
 - VDI differencing chains
 
-Writable operations are supported for raw sources and writable VDI chains.
+Writable operations are supported for raw sources, standalone VDIs, and
+writable VDI chains.
 
 ## Build
 
@@ -34,14 +35,14 @@ Probe a source:
 ./nextufs_probe /path/to/source /etc/passwd
 ```
 
-Mount a source:
+Mount a source read-only:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
 ./nextufs /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
-Mount read-write:
+Mount a source read-write:
 
 ```sh
 ./nextufs /path/to/source /tmp/nextufs-mnt -o rw -f -s

@@ -10,7 +10,7 @@ It includes:
 ## Features
 
 - inspect NEXTSTEP/OPENSTEP UFS filesystems
-- mount them through FUSE
+- mount them through FUSE, read-only by default
 - create and mutate filesystems offline
 - check and repair filesystem metadata
 - work with raw sources and VirtualBox VDI containers
@@ -21,10 +21,10 @@ It includes:
 - standalone VDI images
 - VDI differencing chains
 
-Writable support is available in `nextufs` for raw sources and writable VDI
-chains. `fsck.nextufs` checks and repairs raw sources, standalone VDIs, and
-VDI differencing chains directly through the shared `nextufs` source backend.
-`mkfs.nextufs` creates raw filesystem images.
+Writable support is available in `nextufs` for raw sources, standalone VDIs,
+and writable VDI chains. `fsck.nextufs` checks and repairs raw sources,
+standalone VDIs, and VDI differencing chains directly through the shared
+`nextufs` source backend. `mkfs.nextufs` creates raw filesystem images.
 
 ## Build
 

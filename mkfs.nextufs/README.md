@@ -31,8 +31,7 @@ above 4 GiB for NEXTSTEP/OPENSTEP compatibility.
 
 `size` is expressed in 1 KiB sectors, so `65536` creates a 64 MiB image.
 
-The size does not need to be a special multiple, but it does need to be large
-enough for a valid UFS layout.
+The size must be large enough for a valid UFS layout.
 
 If you specify geometry or policy arguments, include `size` explicitly.
 
