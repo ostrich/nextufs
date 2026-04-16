@@ -98,6 +98,10 @@ Run stress:
 ./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 /path/to/source
 ```
 
+Warning: `nextufs_stress` intentionally performs destructive mutations. Never
+run it against an original image, a preserved baseline, or a snapshot chain you
+care about. Use only disposable copies.
+
 ## Tests
 
 Run the component suite:
