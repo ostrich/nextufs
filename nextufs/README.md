@@ -87,7 +87,7 @@ Read-only user mode with explicit identity:
 Apply an offline mutation:
 
 ```sh
-./nextufs_mkfile --policy permissions --uid 1000 --gid 100 \
+./nextufs_mkfile --policy user --uid 1000 --gid 100 \
   --chmod /path/to/source /private/tmp/example 0600
 ```
 

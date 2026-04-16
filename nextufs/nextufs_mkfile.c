@@ -69,9 +69,9 @@ parse_global_ctx_args(int argc, char **argv, int *argi,
 		if (strcmp(argv[*argi], "--policy") == 0) {
 			if (*argi + 1 >= argc)
 				return -1;
-			if (strcmp(argv[*argi + 1], "editor") == 0)
+			if (strcmp(argv[*argi + 1], "su") == 0)
 				ctx->policy = NEXTUFS_WRITE_EDITOR;
-			else if (strcmp(argv[*argi + 1], "permissions") == 0)
+			else if (strcmp(argv[*argi + 1], "user") == 0)
 				ctx->policy = NEXTUFS_WRITE_PERMISSIONS;
 			else
 				return -1;
@@ -247,7 +247,7 @@ main(int argc, char **argv)
 	}
 	if (argc - argi != 3) {
 		fprintf(stderr,
-		    "usage: %s [--policy editor|permissions] [--uid n] [--gid n] <source> <path> <contents>\n"
+		    "usage: %s [--policy su|user] [--uid n] [--gid n] <source> <path> <contents>\n"
 		    "       %s [global-opts] --unlink <source> <path>\n"
 		    "       %s [global-opts] --mkdir <source> <path>\n"
 		    "       %s [global-opts] --overwrite <source> <path> <contents>\n"

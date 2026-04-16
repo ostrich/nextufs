@@ -343,15 +343,15 @@ test-permissions: all fsck-tool
 	./nextufs_mkfile --chmod $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky 01777
 	./nextufs_mkfile $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim 'victim'
 	./nextufs_mkfile --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim 1000 200
-	if ./nextufs_mkfile --policy permissions --uid 1001 --gid 200 --chmod $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 0600; then exit 1; fi
-	./nextufs_mkfile --policy permissions --uid 1000 --gid 201 --chmod $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 03755
-	./nextufs_mkfile --policy permissions --uid 1000 --gid 333 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file keep 333
-	if ./nextufs_mkfile --policy permissions --uid 1000 --gid 333 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 1002 333; then exit 1; fi
-	if ./nextufs_mkfile --policy permissions --uid 1001 --gid 333 --utimes $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 111111111 222222222; then exit 1; fi
-	if ./nextufs_mkfile --policy permissions --uid 1001 --gid 1001 --unlink $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim; then exit 1; fi
-	if ./nextufs_mkfile --policy permissions --uid 1001 --gid 1001 --rename $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim /private/tmp/nextufs-sticky/victim2; then exit 1; fi
-	if ./nextufs_mkfile --policy permissions --uid 40000 --gid 0 $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow x; then exit 1; fi
-	if ./nextufs_mkfile --policy permissions --uid 0 --gid 0 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 40000 0; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 1001 --gid 200 --chmod $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 0600; then exit 1; fi
+	./nextufs_mkfile --policy user --uid 1000 --gid 201 --chmod $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 03755
+	./nextufs_mkfile --policy user --uid 1000 --gid 333 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file keep 333
+	if ./nextufs_mkfile --policy user --uid 1000 --gid 333 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 1002 333; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 1001 --gid 333 --utimes $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 111111111 222222222; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 1001 --gid 1001 --unlink $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 1001 --gid 1001 --rename $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim /private/tmp/nextufs-sticky/victim2; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 40000 --gid 0 $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow x; then exit 1; fi
+	if ./nextufs_mkfile --policy user --uid 0 --gid 0 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 40000 0; then exit 1; fi
 	./nextufs_probe $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file >$(SCRATCH_DIR)/nextufs_permissions_probe.out
 	grep -F 'mode=0100755' $(SCRATCH_DIR)/nextufs_permissions_probe.out
 	grep -F 'uid=1000 gid=333' $(SCRATCH_DIR)/nextufs_permissions_probe.out
