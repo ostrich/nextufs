@@ -3,27 +3,28 @@ WARN_CFLAGS = -O2 -g -std=gnu99 -fcommon -Wall -Wextra
 ARCH_CFLAGS ?=
 CFLAGS = $(ARCH_CFLAGS) $(WARN_CFLAGS)
 CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 -Iinclude
-SCRATCH_DIR = $(CURDIR)/.scratch
-export TMPDIR = $(SCRATCH_DIR)
-TESTS_DIR = $(CURDIR)/tests
-REPAIR_TOOL = $(TESTS_DIR)/tools/corrupt_raw_case
 
-FSCK_BIN = fsck.nextufs
-FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
+SCRATCH_DIR = $(CURDIR)/.scratch
+TESTS_DIR = $(CURDIR)/tests
+REPAIR_TOOL_BIN = $(TESTS_DIR)/tools/corrupt_raw_case
+export TMPDIR = $(SCRATCH_DIR)
+
+BIN = fsck.nextufs
+SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
 	frag_support.c inode_ops.c inode_scan.c main.c operator.c pass1.c \
 	pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c source.c \
 	state.c
-FSCK_OBJS = $(patsubst %.c,.build-next/%.o,$(FSCK_SRCS))
+OBJS = $(patsubst %.c,.build-next/%.o,$(SRCS))
 
-.PHONY: all clean scratch-dir repair-tools repair-lab repair-smoke repair-repair-all repair-parity-smoke repair-parity-all
+.PHONY: all clean test scratch-dir repair-tools repair-lab repair-smoke repair-repair-all repair-parity-smoke repair-parity-all
 
-all: scratch-dir $(FSCK_BIN)
+all: scratch-dir $(BIN)
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
-$(FSCK_BIN): $(FSCK_OBJS) ../nextufs/libnextufs.a
-	$(CC) $(CFLAGS) -o $@ $(FSCK_OBJS) ../nextufs/libnextufs.a
+$(BIN): $(OBJS) ../nextufs/libnextufs.a
+	$(CC) $(CFLAGS) -o $@ $(OBJS) ../nextufs/libnextufs.a
 
 .build-next/%.o: %.c
 	mkdir -p $(dir $@)
@@ -33,12 +34,14 @@ $(FSCK_BIN): $(FSCK_OBJS) ../nextufs/libnextufs.a
 	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
 
 clean:
-	rm -f $(FSCK_BIN)
+	rm -f $(BIN)
 	rm -rf .build-next
+
+test: repair-smoke
 
 repair-tools: scratch-dir
 	$(MAKE) -C ../nextufs -f Makefile.linux nextufs_mkfile
-	$(CC) $(CFLAGS) -I../nextufs -o $(REPAIR_TOOL) \
+	$(CC) $(CFLAGS) -I../nextufs -o $(REPAIR_TOOL_BIN) \
 		$(TESTS_DIR)/tools/corrupt_raw_case.c \
 		../nextufs/nextufs_dir_mutate.o ../nextufs/nextufs_mutate.o \
 		../nextufs/libnextufs.a
@@ -46,7 +49,7 @@ repair-tools: scratch-dir
 repair-lab: repair-tools
 	bash $(TESTS_DIR)/scripts/build_corpus.sh
 
-repair-smoke: repair-lab $(FSCK_BIN)
+repair-smoke: repair-lab $(BIN)
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-block-count >/dev/null
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-dot-inode >/dev/null
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n bad-dotdot-inode >/dev/null
@@ -73,10 +76,10 @@ repair-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n unreferenced-dir >/dev/null
 	bash $(TESTS_DIR)/scripts/run_case.sh shipped -n zero-length-dir >/dev/null
 
-repair-repair-all: repair-lab $(FSCK_BIN)
+repair-repair-all: repair-lab $(BIN)
 	bash $(TESTS_DIR)/scripts/repair_all_cases.sh
 
-repair-parity-smoke: repair-lab $(FSCK_BIN)
+repair-parity-smoke: repair-lab $(BIN)
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-bitmap-bad >/dev/null
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n cg-summary-bad >/dev/null
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n dir-entry-fclear >/dev/null
@@ -93,5 +96,5 @@ repair-parity-smoke: repair-lab $(FSCK_BIN)
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-minfree >/dev/null
 	bash $(TESTS_DIR)/scripts/compare_case.sh -n super-optim >/dev/null
 
-repair-parity-all: repair-lab $(FSCK_BIN)
+repair-parity-all: repair-lab $(BIN)
 	bash $(TESTS_DIR)/scripts/compare_all_cases.sh -n

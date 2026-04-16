@@ -16,8 +16,7 @@ fsck:
 mkfs:
 	$(MAKE) -C mkfs.nextufs -f Makefile.linux
 
-test:
-	$(MAKE) -C nextufs -f Makefile.linux test
+test: test-nextufs test-fsck test-mkfs
 
 test-nextufs:
 	$(MAKE) -C nextufs -f Makefile.linux test

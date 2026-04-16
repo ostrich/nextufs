@@ -77,13 +77,13 @@ Create a filesystem:
 
 ## Tests
 
-Run the main regression suite:
+Run the main repo-wide test entrypoint:
 
 ```sh
 make test
 ```
 
-Additional top-level test entrypoints:
+Component-specific entrypoints:
 
 ```sh
 make test-nextufs

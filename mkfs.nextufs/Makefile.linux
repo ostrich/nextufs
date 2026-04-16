@@ -1,34 +1,37 @@
 CC ?= cc
 CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
 CPPFLAGS += -DNeXT -DNeXT_MOD -DNeXT_NFS -Iinclude
+
 SCRATCH_DIR = $(CURDIR)/.scratch
-MKFS_BIN = mkfs.nextufs
-MKFS_SRCS = mkfs.c mkfs_fsinit.c mkfs_io.c mkfs_state.c
-MKFS_OBJS = $(MKFS_SRCS:.c=.o)
 export TMPDIR = $(SCRATCH_DIR)
+BIN = mkfs.nextufs
+SRCS = mkfs.c mkfs_fsinit.c mkfs_io.c mkfs_state.c
+OBJS = $(SRCS:.c=.o)
 
-.PHONY: all clean scratch-dir test-reproducible
+.PHONY: all clean test scratch-dir test-reproducible
 
-all: scratch-dir $(MKFS_BIN)
+all: scratch-dir $(BIN)
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
-$(MKFS_BIN): $(MKFS_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(MKFS_OBJS)
+$(BIN): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
 %.o: %.c mkfs.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(MKFS_OBJS) $(MKFS_BIN)
+	rm -f $(OBJS) $(BIN)
+
+test: test-reproducible
 
 test-reproducible: all
 	rm -f $(SCRATCH_DIR)/mkfs-repro-min-a.img $(SCRATCH_DIR)/mkfs-repro-min-b.img \
 		$(SCRATCH_DIR)/mkfs-repro-full-a.img $(SCRATCH_DIR)/mkfs-repro-full-b.img
-	./$(MKFS_BIN) $(SCRATCH_DIR)/mkfs-repro-min-a.img 65536 >/dev/null
-	./$(MKFS_BIN) $(SCRATCH_DIR)/mkfs-repro-min-b.img 65536 >/dev/null
+	./$(BIN) $(SCRATCH_DIR)/mkfs-repro-min-a.img 65536 >/dev/null
+	./$(BIN) $(SCRATCH_DIR)/mkfs-repro-min-b.img 65536 >/dev/null
 	cmp -s $(SCRATCH_DIR)/mkfs-repro-min-a.img $(SCRATCH_DIR)/mkfs-repro-min-b.img
-	./$(MKFS_BIN) $(SCRATCH_DIR)/mkfs-repro-full-a.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
-	./$(MKFS_BIN) $(SCRATCH_DIR)/mkfs-repro-full-b.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
+	./$(BIN) $(SCRATCH_DIR)/mkfs-repro-full-a.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
+	./$(BIN) $(SCRATCH_DIR)/mkfs-repro-full-b.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
 	cmp -s $(SCRATCH_DIR)/mkfs-repro-full-a.img $(SCRATCH_DIR)/mkfs-repro-full-b.img
