@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const struct nextufs_write_ctx g_mkfile_editor_ctx = {
-	.policy = NEXTUFS_WRITE_EDITOR,
+static const struct nextufs_write_ctx g_mkfile_su_ctx = {
+	.policy = NEXTUFS_WRITE_SU,
 	.uid = 0,
 	.gid = 0,
 	.groups = NULL,
@@ -64,15 +64,15 @@ parse_global_ctx_args(int argc, char **argv, int *argi,
 {
 	unsigned long v;
 
-	*ctx = g_mkfile_editor_ctx;
+	*ctx = g_mkfile_su_ctx;
 	while (*argi < argc) {
 		if (strcmp(argv[*argi], "--policy") == 0) {
 			if (*argi + 1 >= argc)
 				return -1;
 			if (strcmp(argv[*argi + 1], "su") == 0)
-				ctx->policy = NEXTUFS_WRITE_EDITOR;
+				ctx->policy = NEXTUFS_WRITE_SU;
 			else if (strcmp(argv[*argi + 1], "user") == 0)
-				ctx->policy = NEXTUFS_WRITE_PERMISSIONS;
+				ctx->policy = NEXTUFS_WRITE_USER;
 			else
 				return -1;
 			*argi += 2;

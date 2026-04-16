@@ -683,7 +683,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 		argv[3] = "-f";
 		argv[4] = "-s";
 		argv[5] = "-o";
-		argv[6] = ctx->write_ctx.policy == NEXTUFS_WRITE_EDITOR ?
+		argv[6] = ctx->write_ctx.policy == NEXTUFS_WRITE_SU ?
 		    "rw,mode=su" : "rw,mode=user";
 		argv[7] = NULL;
 		execv(argv[0], argv);
@@ -2772,7 +2772,7 @@ nextufs_stress_init_ctx(struct nextufs_stress_ctx *ctx)
 	ctx->op_count = 200;
 	ctx->batch_count = NEXTUFS_STRESS_BATCH_DEFAULT;
 	ctx->verbose = 1;
-	ctx->write_ctx.policy = NEXTUFS_WRITE_EDITOR;
+	ctx->write_ctx.policy = NEXTUFS_WRITE_SU;
 	ctx->write_ctx.uid = 0;
 	ctx->write_ctx.gid = 0;
 	ctx->create_uid = 0;
@@ -2977,10 +2977,10 @@ main(int argc, char **argv)
 				fprintf(stderr, "nextufs_stress: missing policy\n");
 				return 2;
 			}
-			if (strcmp(argv[i + 1], "editor") == 0)
-				ctx.write_ctx.policy = NEXTUFS_WRITE_EDITOR;
-			else if (strcmp(argv[i + 1], "permissions") == 0)
-				ctx.write_ctx.policy = NEXTUFS_WRITE_PERMISSIONS;
+			if (strcmp(argv[i + 1], "su") == 0)
+				ctx.write_ctx.policy = NEXTUFS_WRITE_SU;
+			else if (strcmp(argv[i + 1], "user") == 0)
+				ctx.write_ctx.policy = NEXTUFS_WRITE_USER;
 			else {
 				fprintf(stderr, "nextufs_stress: invalid policy\n");
 				return 2;

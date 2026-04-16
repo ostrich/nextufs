@@ -31,7 +31,7 @@ nextufs__id_fits_nextstep(unsigned long id)
 static int
 nextufs__require_ctx_ids_fit(const struct nextufs_write_ctx *ctx)
 {
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
+	if (ctx->policy != NEXTUFS_WRITE_USER)
 		return 0;
 	if (!nextufs__id_fits_nextstep((unsigned long)ctx->uid) ||
 	    !nextufs__id_fits_nextstep((unsigned long)ctx->gid))
@@ -64,10 +64,10 @@ nextufs__ctx_in_group(const struct nextufs_write_ctx *ctx, gid_t gid)
 }
 
 static int
-nextufs__require_permissions(const struct nextufs_write_ctx *ctx,
+nextufs__require_user_access(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *node, int mask)
 {
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
+	if (ctx->policy != NEXTUFS_WRITE_USER)
 		return 0;
 	return nextufs__node_check_access(node, ctx->uid, ctx->gid, ctx->groups,
 	    ctx->group_count, mask, 1);
@@ -77,14 +77,14 @@ static int
 nextufs__require_parent_mutation(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *parent)
 {
-	return nextufs__require_permissions(ctx, parent, W_OK | X_OK);
+	return nextufs__require_user_access(ctx, parent, W_OK | X_OK);
 }
 
 static int
 nextufs__check_sticky_parent(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *parent, const struct nextufs_node *target)
 {
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
+	if (ctx->policy != NEXTUFS_WRITE_USER)
 		return 0;
 	if ((parent->inode.mode & 01000) == 0)
 		return 0;
@@ -99,7 +99,7 @@ static void
 nextufs__set_new_inode_owner(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *parent, struct nextufs_inode *ino)
 {
-	if (ctx->policy == NEXTUFS_WRITE_PERMISSIONS) {
+	if (ctx->policy == NEXTUFS_WRITE_USER) {
 		ino->uid = (uint16_t)ctx->uid;
 		ino->gid = (uint16_t)ctx->gid;
 	} else {
@@ -112,7 +112,7 @@ static int
 nextufs__require_chmod_allowed(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *node)
 {
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
+	if (ctx->policy != NEXTUFS_WRITE_USER)
 		return 0;
 	if (nextufs__ctx_is_root(ctx) || ctx->uid == node->inode.uid)
 		return 0;
@@ -123,7 +123,7 @@ static int
 nextufs__require_chown_allowed(const struct nextufs_write_ctx *ctx,
     const struct nextufs_node *node, uid_t uid, gid_t gid)
 {
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS)
+	if (ctx->policy != NEXTUFS_WRITE_USER)
 		return 0;
 	if (nextufs__ctx_is_root(ctx))
 		return 0;
@@ -140,7 +140,7 @@ nextufs__sanitize_new_inode_mode(const struct nextufs_write_ctx *ctx,
 {
 	uint16_t ifmt;
 
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS || nextufs__ctx_is_root(ctx))
+	if (ctx->policy != NEXTUFS_WRITE_USER || nextufs__ctx_is_root(ctx))
 		return;
 	ifmt = ino->mode & NEXTUFS_IFMT;
 	if (ifmt != NEXTUFS_IFDIR)
@@ -157,7 +157,7 @@ nextufs__sanitize_chmod_mode(const struct nextufs_write_ctx *ctx,
 	uint16_t ifmt;
 
 	new_mode = (node->inode.mode & NEXTUFS_IFMT) | (mode & 07777);
-	if (ctx->policy != NEXTUFS_WRITE_PERMISSIONS || nextufs__ctx_is_root(ctx))
+	if (ctx->policy != NEXTUFS_WRITE_USER || nextufs__ctx_is_root(ctx))
 		return new_mode;
 	ifmt = new_mode & NEXTUFS_IFMT;
 	if (ifmt != NEXTUFS_IFDIR)
@@ -502,7 +502,7 @@ nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__check_sticky_parent(ctx, &parent, &target);
 	if (rc < 0)
 		goto out;
-	rc = nextufs__require_permissions(ctx, &target, W_OK);
+	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__remove_dirent(&img, &parent, name, &removed_inode);
@@ -647,7 +647,7 @@ nextufs__rewrite_file_contents(const struct nextufs_write_ctx *ctx,
 		rc = -EISDIR;
 		goto out;
 	}
-	rc = nextufs__require_permissions(ctx, &target, W_OK);
+	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
 	old_size = (size_t)target.inode.size;
@@ -938,7 +938,7 @@ nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
 		rc = -EINVAL;
 		goto out;
 	}
-	rc = nextufs__require_permissions(ctx, &target, W_OK);
+	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
 	old_size = (size_t)target.inode.size;
@@ -996,7 +996,7 @@ nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
 		rc = -EINVAL;
 		goto out;
 	}
-	rc = nextufs__require_permissions(ctx, &target, W_OK);
+	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
 	old_size = (size_t)target.inode.size;
@@ -1181,7 +1181,7 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 	if (rc < 0)
 		goto out;
 	if (moving_dir && changing_parent) {
-		rc = nextufs__require_permissions(ctx, &source, W_OK);
+		rc = nextufs__require_user_access(ctx, &source, W_OK);
 		if (rc < 0)
 			goto out;
 	}
@@ -1331,7 +1331,7 @@ nextufs_path_chown(const struct nextufs_write_ctx *ctx,
 		goto out;
 	node.inode.uid = (uint16_t)new_uid;
 	node.inode.gid = (uint16_t)new_gid;
-	if (ctx->policy == NEXTUFS_WRITE_PERMISSIONS && !nextufs__ctx_is_root(ctx))
+	if (ctx->policy == NEXTUFS_WRITE_USER && !nextufs__ctx_is_root(ctx))
 		node.inode.mode &= ~(04000 | 02000);
 	node.inode.ctime = (uint32_t)time(NULL);
 	rc = nextufs__write_inode_raw(&img, node.inode_no, &node.inode);
@@ -1363,7 +1363,7 @@ nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
 	rc = nextufs_node_lookup(&img, path, 0, &node);
 	if (rc < 0)
 		goto out;
-	if (ctx->policy == NEXTUFS_WRITE_PERMISSIONS &&
+	if (ctx->policy == NEXTUFS_WRITE_USER &&
 	    !nextufs__ctx_is_root(ctx) && ctx->uid != node.inode.uid) {
 		rc = -EPERM;
 		goto out;

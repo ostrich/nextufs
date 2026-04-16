@@ -126,8 +126,8 @@ typedef int (*nextufs_dir_node_iter_cb)(const struct nextufs_node *node,
 	const char *name, size_t name_len, void *ctx);
 
 enum nextufs_write_policy {
-	NEXTUFS_WRITE_EDITOR = 0,
-	NEXTUFS_WRITE_PERMISSIONS = 1,
+	NEXTUFS_WRITE_SU = 0,
+	NEXTUFS_WRITE_USER = 1,
 };
 
 struct nextufs_write_ctx {

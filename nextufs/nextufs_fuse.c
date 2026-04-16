@@ -58,7 +58,7 @@ nextufs_fill_mutation_ctx(struct nextufs_write_ctx *ctx)
 {
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->policy = g_mount_mode == NEXTUFS_MOUNT_SU ?
-	    NEXTUFS_WRITE_EDITOR : NEXTUFS_WRITE_PERMISSIONS;
+	    NEXTUFS_WRITE_SU : NEXTUFS_WRITE_USER;
 	nextufs_effective_ids(&ctx->uid, &ctx->gid);
 }
 
