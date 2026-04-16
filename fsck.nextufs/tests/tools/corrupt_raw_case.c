@@ -26,8 +26,8 @@
 #define DEV_BSIZE 512
 #endif
 
-static const struct nextufs_write_ctx g_editor_ctx = {
-	.policy = NEXTUFS_WRITE_EDITOR,
+static const struct nextufs_write_ctx g_su_ctx = {
+	.policy = NEXTUFS_WRITE_SU,
 	.uid = 0,
 	.gid = 0,
 	.groups = NULL,
@@ -1112,7 +1112,7 @@ corrupt_lostfound_missing(const char *path)
 	int fd, rc;
 	off_t alpha_entry_off;
 
-	rc = nextufs_path_rmdir(&g_editor_ctx, path, "/lost+found");
+	rc = nextufs_path_rmdir(&g_su_ctx, path, "/lost+found");
 	if (rc < 0) {
 		fprintf(stderr, "corrupt_raw_case: failed removing lost+found: %d\n", rc);
 		return 1;
@@ -1152,12 +1152,12 @@ corrupt_lostfound_not_dir(const char *path)
 	int fd, rc;
 	off_t alpha_entry_off;
 
-	rc = nextufs_path_rmdir(&g_editor_ctx, path, "/lost+found");
+	rc = nextufs_path_rmdir(&g_su_ctx, path, "/lost+found");
 	if (rc < 0) {
 		fprintf(stderr, "corrupt_raw_case: failed removing lost+found: %d\n", rc);
 		return 1;
 	}
-	rc = nextufs_path_create_file(&g_editor_ctx, path, "/lost+found",
+	rc = nextufs_path_create_file(&g_su_ctx, path, "/lost+found",
 	    "not a directory", sizeof("not a directory") - 1);
 	if (rc < 0) {
 		fprintf(stderr, "corrupt_raw_case: failed creating regular lost+found: %d\n", rc);

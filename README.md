@@ -83,6 +83,14 @@ Run the main regression suite:
 make test
 ```
 
+Additional top-level test entrypoints:
+
+```sh
+make test-nextufs
+make test-fsck
+make test-mkfs
+```
+
 The project is also exercised with:
 
 - deterministic mutation stress tests for raw and FUSE-backed sources
