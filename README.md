@@ -10,7 +10,7 @@ It includes:
 ## Features
 
 - inspect NEXTSTEP/OPENSTEP UFS filesystems
-- mount them through FUSE, read-only by default
+- mount them through FUSE
 - create and mutate filesystems offline
 - check and repair filesystem metadata
 - work with raw sources and VirtualBox VDI containers
