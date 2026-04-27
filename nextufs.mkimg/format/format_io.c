@@ -26,13 +26,13 @@ rdfs(daddr_t bno, int size, char *bf)
 	if (lseek(fsi, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
 		perror("rdfs");
-		exit(1);
+		format_abort();
 	}
 	n = read(fsi, bf, size);
 	if(n != size) {
 		fprintf(stderr, "read error: %ld\n", (long)bno);
 		perror("rdfs");
-		exit(1);
+		format_abort();
 	}
 }
 
@@ -48,13 +48,13 @@ wtfs(daddr_t bno, int size, char *bf)
 	if (lseek(fso, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
 		perror("wtfs");
-		exit(1);
+		format_abort();
 	}
 	n = write(fso, bf, size);
 	if(n != size) {
 		fprintf(stderr, "write error: %ld\n", (long)bno);
 		perror("wtfs");
-		exit(1);
+		format_abort();
 	}
 }
 
@@ -242,7 +242,7 @@ write_inode_block(daddr_t bno, int count, const struct dinode *dp)
 	if (buf == NULL) {
 		fprintf(stderr, "write_inode_block: malloc failed for %lu bytes\n",
 		    (unsigned long)size);
-		exit(1);
+		format_abort();
 	}
 	bzero(buf, size);
 	memcpy(buf, dp, size);

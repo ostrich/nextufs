@@ -228,7 +228,7 @@ iput(struct inode *ip)
 	read_cg_block(fsbtodb(&sblock, cgtod(&sblock, 0)), &acg);
 	if (acg.cg_magic != CG_MAGIC) {
 		fprintf(stderr, "cg 0: bad magic number\n");
-		exit(1);
+		format_abort();
 	}
 	acg.cg_cs.cs_nifree--;
 	setbit(acg.cg_iused, ip->i_number);
@@ -239,7 +239,7 @@ iput(struct inode *ip)
 	    (ino_t)((unsigned long)sblock.fs_ipg * (unsigned long)sblock.fs_ncg)) {
 		fprintf(stderr, "fsinit: inode value out of range (%lu).\n",
 		    (unsigned long)ip->i_number);
-		exit(1);
+		format_abort();
 	}
 	d = fsbtodb(&sblock, itod(&sblock, ip->i_number));
 	read_inode_block(d, buf);

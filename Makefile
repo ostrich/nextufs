@@ -19,6 +19,8 @@ mkimg:
 resize:
 	$(MAKE) -C nextufs.resize -f Makefile.linux
 
+fsck resize: nextufs
+
 test: test-nextufs test-fsck test-mkimg test-resize
 
 test-nextufs:
@@ -32,6 +34,10 @@ test-mkimg:
 
 test-resize:
 	$(MAKE) -C nextufs.resize -f Makefile.linux test
+
+test-fsck: test-nextufs
+test-mkimg: test-fsck
+test-resize: test-mkimg
 
 clean:
 	$(MAKE) -C nextufs -f Makefile.linux clean

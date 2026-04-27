@@ -1,228 +1,151 @@
-/* Raw UFS construction logic used by nextufs.mkimg. */
+/* Raw UFS formatter API used by nextufs.mkimg. */
 
 #include "format.h"
 
-static long
-format_target_size_sectors(const char *path)
-{
-	off_t bytes;
-	int fd;
+struct nextufs_format *format_current;
 
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "%s: cannot open\n", path);
-		exit(1);
-	}
-	bytes = lseek(fd, 0, SEEK_END);
-	close(fd);
-	if (bytes < 0) {
-		fprintf(stderr, "%s: cannot determine target size\n", path);
-		exit(1);
-	}
-	if (bytes == 0) {
-		fprintf(stderr, "%s: target size is zero\n", path);
-		exit(1);
-	}
-	if ((bytes % 1024) != 0) {
-		fprintf(stderr, "%s: target size must be a multiple of 1024 bytes\n",
-		    path);
-		exit(1);
-	}
-	if ((uintmax_t)bytes / 1024 > LONG_MAX) {
-		fprintf(stderr, "%s: target size is too large\n", path);
-		exit(1);
-	}
-	return (long)((uintmax_t)bytes / 1024);
+void
+nextufs_format_defaults(struct nextufs_format_options *opts)
+{
+	memset(opts, 0, sizeof(*opts));
+	opts->nsect = DFLNSECT;
+	opts->ntrak = DFLNTRAK;
+	opts->bsize = DESBLKSIZE;
+	opts->fsize = DESFRAGSIZE;
+	opts->minfree = MINFREE;
+	opts->rps = DEFHZ;
+	opts->nbpi = NBPI;
+	opts->opt = 't';
 }
 
 void
-print_usage(FILE *out)
+format_abort(void)
 {
-	fprintf(out,
-	    "usage: nextufs.mkimg --raw [-N] <target> [size [nsect ntrak bsize fsize cpg minfree rps nbpi opt]]\n");
-	fprintf(out, "\n");
-	fprintf(out, "Required arguments:\n");
-	fprintf(out, "  target    output image or device path\n");
-	fprintf(out, "\n");
-	fprintf(out, "Optional size argument:\n");
-	fprintf(out, "  size      filesystem size in 1 KiB sectors\n");
-	fprintf(out, "\n");
-	fprintf(out, "Optional geometry and policy arguments:\n");
-	fprintf(out, "  nsect     sectors per track           default: %d\n", DFLNSECT);
-	fprintf(out, "  ntrak     tracks per cylinder         default: %d\n", DFLNTRAK);
-	fprintf(out, "  bsize     block size                  default: %d\n", DESBLKSIZE);
-	fprintf(out, "  fsize     fragment size               default: %d\n", DESFRAGSIZE);
-	fprintf(out, "  cpg       cylinders per group         default: derived, usually %d\n",
-	    DESCPG);
-	fprintf(out, "  minfree   reserved free space percent default: %d\n", MINFREE);
-	fprintf(out, "  rps       revolutions per second      default: %d\n", DEFHZ);
-	fprintf(out, "  nbpi      bytes per inode             default: %d\n", NBPI);
-	fprintf(out, "  opt       allocation policy           default: t (time)\n");
-	fprintf(out, "\n");
-	fprintf(out, "Notes:\n");
-	fprintf(out, "  - With only <target> and <size>, nextufs.mkimg --raw uses the defaults above.\n");
-	fprintf(out, "  - With only <target>, nextufs.mkimg --raw uses the full size of an existing\n");
-	fprintf(out, "    target and the defaults above.\n");
-	fprintf(out, "  - By default, sizes are limited to %llu bytes for\n",
-	    (unsigned long long)FORMAT_COMPAT_MAX_BYTES);
-	fprintf(out, "    NEXTSTEP/OPENSTEP disk-tool compatibility.\n");
-	fprintf(out, "  - size is a positive count of 1 KiB sectors and must be large enough\n");
-	fprintf(out, "    for a valid filesystem layout.\n");
-	fprintf(out, "  - If you specify geometry or policy arguments, include <size>\n");
-	fprintf(out, "    explicitly.\n");
-	fprintf(out, "  - Additional geometry combinations may still be rejected if they are\n");
-	fprintf(out, "    inconsistent with UFS layout constraints.\n");
-	fprintf(out, "\n");
-	fprintf(out, "Flags:\n");
-	fprintf(out, "  -N        print geometry and layout details without creating a filesystem\n");
-	fprintf(out, "  --force-size\n");
-	fprintf(out, "            allow sizes above the NEXTSTEP/OPENSTEP compatibility limit\n");
-	fprintf(out, "  -h        show this help\n");
+	if (format_current != NULL && format_current->abort_active)
+		longjmp(format_current->abort_env, 1);
+}
+
+static void
+format_close(struct nextufs_format *ctx)
+{
+	if (ctx->input_fd >= 0)
+		close(ctx->input_fd);
+	if (ctx->output_fd >= 0)
+		close(ctx->output_fd);
+	free(ctx->csums);
+	if (format_current == ctx)
+		format_current = NULL;
 }
 
 int
-nextufs_format_main(int argc, char *argv[])
+nextufs_format(const struct nextufs_format_options *opts)
 {
-	long cylno, rpos, blk, i, j, inos, nbpi, fssize, warn = 0;
+	struct nextufs_format ctx;
+	long cylno, rpos, blk, i, j, inos, nbpi, fssize;
+	volatile long warn = 0;
 	char lastbuf[DEV_BSIZE];
-	int explicit_size = 0;
-	int force = 0;
 
-#ifndef STANDALONE
-	argc--, argv++;
-	while (argc > 0 && argv[0][0] == '-') {
-		if (strcmp(argv[0], "--help") == 0 || strcmp(argv[0], "-h") == 0) {
-			print_usage(stdout);
-			exit(0);
-		}
-		if (strcmp(argv[0], "--force-size") == 0) {
-			force = 1;
-			argc--, argv++;
-			continue;
-		}
-		switch (argv[0][1]) {
-		case 'N':
-			Nflag++;
-			break;
-		default:
-			fprintf(stderr, "%s: unknown flag\n", argv[0]);
-			print_usage(stderr);
-			exit(1);
-		}
-		argc--, argv++;
-	}
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.input_fd = -1;
+	ctx.output_fd = -1;
+	ctx.target_path = opts->target;
+	ctx.dry_run_flag = opts->dry_run;
+	ctx.base_offset_bytes = opts->base_offset;
+	format_current = &ctx;
 	time(&utime);
-	if (argc < 1) {
-		print_usage(stderr);
-		exit(1);
+	if (setjmp(ctx.abort_env) != 0) {
+		format_close(&ctx);
+		return 1;
 	}
-	fsys = argv[0];
-	if (argc > 1) {
-		fssize = atoi(argv[1]);
-		explicit_size = 1;
-	} else {
-		fssize = format_target_size_sectors(fsys);
-		if (!force && (unsigned long long)fssize > FORMAT_COMPAT_MAX_SECTORS) {
-			fprintf(stderr,
-			    "%s: target exceeds the NEXTSTEP/OPENSTEP compatibility limit; using %llu 1K sectors\n",
-			    fsys, (unsigned long long)FORMAT_COMPAT_MAX_SECTORS);
-			fssize = (long)FORMAT_COMPAT_MAX_SECTORS;
-		}
+	ctx.abort_active = 1;
+
+	if (opts->target == NULL || opts->size_1k_sectors == 0 ||
+	    opts->size_1k_sectors > LONG_MAX) {
+		fprintf(stderr, "nextufs.mkimg: invalid filesystem size\n");
+		return 1;
 	}
-	if (!force && explicit_size &&
+	fssize = (long)opts->size_1k_sectors;
+	if (!opts->force_size &&
 	    (unsigned long long)fssize > FORMAT_COMPAT_MAX_SECTORS) {
 		fprintf(stderr,
 		    "requested size %ld exceeds the NEXTSTEP/OPENSTEP compatibility limit of %llu 1K sectors\n",
 		    fssize, (unsigned long long)FORMAT_COMPAT_MAX_SECTORS);
-		exit(1);
+		return 1;
 	}
-	if (!Nflag && argc > 1 && !format_no_create) {
+	if (!Nflag && !opts->no_create) {
 		fso = creat(fsys, 0666);
 		if (fso < 0) {
 			fprintf(stderr, "%s: cannot create\n", fsys);
-			exit(1);
+			return 1;
 		}
 	} else if (!Nflag) {
 		fso = open(fsys, O_RDWR);
 		if (fso < 0) {
 			fprintf(stderr, "%s: cannot open for writing\n", fsys);
-			exit(1);
+			format_close(&ctx);
+			return 1;
 		}
 	}
 	fsi = open(fsys, 0);
 	if (fsi < 0) {
 		fprintf(stderr, "%s: cannot open\n", fsys);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
-#else
-	{
-		static char protos[60];
-		char fsbuf[100];
-
-		printf("file sys size: ");
-		gets(protos);
-		fssize = atoi(protos);
-		do {
-			printf("file system: ");
-			gets(fsbuf);
-			fso = open(fsbuf, 1);
-			fsi = open(fsbuf, 0);
-		} while (fso < 0 || fsi < 0);
+	if (fssize <= 0) {
+		fprintf(stderr, "preposterous size %ld\n", fssize);
+		format_close(&ctx);
+		return 1;
 	}
-	argc = 0;
-#endif
-	if (fssize <= 0)
-		fprintf(stderr, "preposterous size %ld\n", fssize), exit(1);
 	bzero(lastbuf, sizeof(lastbuf));
 	wtfs(fssize - 1, DEV_BSIZE, lastbuf);
 
-	if (argc > 2)
-		sblock.fs_nsect = atoi(argv[2]);
-	else
-		sblock.fs_nsect = DFLNSECT;
-	if (argc > 3)
-		sblock.fs_ntrak = atoi(argv[3]);
-	else
-		sblock.fs_ntrak = DFLNTRAK;
-	if (sblock.fs_ntrak <= 0)
-		fprintf(stderr, "preposterous ntrak %d\n", sblock.fs_ntrak), exit(1);
-	if (sblock.fs_nsect <= 0)
-		fprintf(stderr, "preposterous nsect %d\n", sblock.fs_nsect), exit(1);
+	sblock.fs_nsect = opts->nsect;
+	sblock.fs_ntrak = opts->ntrak;
+	if (sblock.fs_ntrak <= 0) {
+		fprintf(stderr, "preposterous ntrak %d\n", sblock.fs_ntrak);
+		format_close(&ctx);
+		return 1;
+	}
+	if (sblock.fs_nsect <= 0) {
+		fprintf(stderr, "preposterous nsect %d\n", sblock.fs_nsect);
+		format_close(&ctx);
+		return 1;
+	}
 	sblock.fs_spc = sblock.fs_ntrak * sblock.fs_nsect;
 
-	if (argc > 4)
-		sblock.fs_bsize = atoi(argv[4]);
-	else
-		sblock.fs_bsize = DESBLKSIZE;
-	if (argc > 5)
-		sblock.fs_fsize = atoi(argv[5]);
-	else
-		sblock.fs_fsize = DESFRAGSIZE;
+	sblock.fs_bsize = opts->bsize;
+	sblock.fs_fsize = opts->fsize;
 	if (!POWEROF2(sblock.fs_bsize)) {
 		fprintf(stderr, "block size must be a power of 2, not %d\n",
 		    sblock.fs_bsize);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (!POWEROF2(sblock.fs_fsize)) {
 		fprintf(stderr, "fragment size must be a power of 2, not %d\n",
 		    sblock.fs_fsize);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_fsize < DEV_BSIZE) {
 		fprintf(stderr, "fragment size %d is too small, minimum is %d\n",
 		    sblock.fs_fsize, DEV_BSIZE);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_bsize < MINBSIZE) {
 		fprintf(stderr, "block size %d is too small, minimum is %d\n",
 		    sblock.fs_bsize, MINBSIZE);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_bsize < sblock.fs_fsize) {
 		fprintf(stderr,
 		    "block size (%d) cannot be smaller than fragment size (%d)\n",
 		    sblock.fs_bsize, sblock.fs_fsize);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	sblock.fs_bmask = ~(sblock.fs_bsize - 1);
 	sblock.fs_fmask = ~(sblock.fs_fsize - 1);
@@ -238,7 +161,8 @@ nextufs_format_main(int argc, char *argv[])
 		    "fragment size %d is too small, minimum with block size %d is %d\n",
 		    sblock.fs_fsize, sblock.fs_bsize,
 		    sblock.fs_bsize / MAXFRAG);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	sblock.fs_nindir = sblock.fs_bsize / sizeof(daddr_t);
 	sblock.fs_inopb = sblock.fs_bsize / sizeof(struct dinode);
@@ -265,10 +189,11 @@ nextufs_format_main(int argc, char *argv[])
 		fprintf(stderr, "maximum block size with nsect %d and ntrak %d is %d\n",
 		    sblock.fs_nsect, sblock.fs_ntrak,
 		    sblock.fs_bsize / (sblock.fs_cpc / MAXCPG));
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
-	if (argc > 6) {
-		sblock.fs_cpg = atoi(argv[6]);
+	if (opts->cpg > 0) {
+		sblock.fs_cpg = opts->cpg;
 		sblock.fs_fpg = (sblock.fs_cpg * sblock.fs_spc) / NSPF(&sblock);
 	} else {
 		sblock.fs_cpg = MAX(sblock.fs_cpc, DESCPG);
@@ -283,17 +208,20 @@ nextufs_format_main(int argc, char *argv[])
 	}
 	if (sblock.fs_cpg < 1) {
 		fprintf(stderr, "cylinder groups must have at least 1 cylinder\n");
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_cpg > MAXCPG) {
 		fprintf(stderr, "cylinder groups are limited to %d cylinders\n",
 		    MAXCPG);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_cpg % sblock.fs_cpc != 0) {
 		fprintf(stderr, "cylinder groups must have a multiple of %d cylinders\n",
 		    sblock.fs_cpc);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 
 	sblock.fs_size = fssize = dbtofsb(&sblock, fssize);
@@ -304,7 +232,8 @@ nextufs_format_main(int argc, char *argv[])
 	}
 	if (sblock.fs_ncyl < 1) {
 		fprintf(stderr, "file systems must have at least one cylinder\n");
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if (sblock.fs_ntrak == 1) {
 		sblock.fs_cpc = 0;
@@ -353,7 +282,8 @@ next:
 		fprintf(stderr, "nsect %d, and ntrak %d, requires block size of %d,\n",
 		    sblock.fs_nsect, sblock.fs_ntrak, sblock.fs_bsize);
 		fprintf(stderr, "\tand fragment size of %d\n", sblock.fs_fsize);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	if ((unsigned long)sblock.fs_fpg >
 	    MAXBPG(&sblock) * (unsigned long)sblock.fs_frag) {
@@ -362,7 +292,8 @@ next:
 		fprintf(stderr, "max: %lu cylinders per group\n",
 		    (unsigned long)(MAXBPG(&sblock) * sblock.fs_frag /
 		    (sblock.fs_fpg / sblock.fs_cpg)));
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	sblock.fs_cgsize = fragroundup(&sblock,
 	    sizeof(struct cg) + howmany(sblock.fs_fpg, NBBY));
@@ -374,14 +305,15 @@ next:
 		    sblock.fs_nsect, sblock.fs_ntrak, sblock.fs_cpg);
 		fprintf(stderr, "as this would would have cyl groups whose size\n");
 		fprintf(stderr, "is not a multiple of %d; choke!\n", sblock.fs_fsize);
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 
 	inos = MAX(NBPI, sblock.fs_fsize);
-	if (argc > 9) {
-		i = atoi(argv[9]);
+	if (opts->nbpi > 0) {
+		i = opts->nbpi;
 		if (i <= 0)
-			fprintf(stderr, "%s: bogus nbpi reset to %ld\n", argv[9], inos);
+			fprintf(stderr, "bogus nbpi reset to %ld\n", inos);
 		else
 			inos = i;
 	}
@@ -408,7 +340,8 @@ next:
 		    sblock.fs_fpg / sblock.fs_frag);
 		fprintf(stderr,
 		    "number of cylinders per cylinder group must be increased\n");
-		exit(1);
+		format_close(&ctx);
+		return 1;
 	}
 	j = sblock.fs_ncg - 1;
 	if ((i = fssize - j * sblock.fs_fpg) < sblock.fs_fpg &&
@@ -444,10 +377,10 @@ next:
 	fscs = (struct csum *)calloc(1, sblock.fs_cssize);
 	sblock.fs_magic = FS_MAGIC;
 	sblock.fs_rotdelay = ROTDELAY;
-	if (argc > 7) {
-		sblock.fs_minfree = atoi(argv[7]);
+	if (opts->minfree >= 0) {
+		sblock.fs_minfree = opts->minfree;
 		if (sblock.fs_minfree < 0 || sblock.fs_minfree > 99) {
-			fprintf(stderr, "%s: bogus minfree reset to %d%%\n", argv[7],
+			fprintf(stderr, "bogus minfree reset to %d%%\n",
 				MINFREE);
 			sblock.fs_minfree = MINFREE;
 		}
@@ -455,18 +388,15 @@ next:
 		sblock.fs_minfree = MINFREE;
 	sblock.fs_maxcontig = MAXCONTIG;
 	sblock.fs_maxbpg = MAXBLKPG(&sblock);
-	if (argc > 8)
-		sblock.fs_rps = atoi(argv[8]);
-	else
-		sblock.fs_rps = DEFHZ;
-	if (argc > 10)
-		if (*argv[10] == 's')
+	sblock.fs_rps = opts->rps;
+	if (opts->opt != '\0')
+		if (opts->opt == 's')
 			sblock.fs_optim = FS_OPTSPACE;
-		else if (*argv[10] == 't')
+		else if (opts->opt == 't')
 			sblock.fs_optim = FS_OPTTIME;
 		else {
-			fprintf(stderr, "%s: bogus optimization preference %s\n",
-				argv[10], "reset to time");
+			fprintf(stderr, "%c: bogus optimization preference %s\n",
+				opts->opt, "reset to time");
 			sblock.fs_optim = FS_OPTTIME;
 		}
 	else
@@ -499,8 +429,10 @@ next:
 		printf(" %ld,", (long)fsbtodb(&sblock, cgsblock(&sblock, cylno)));
 	}
 	printf("\n");
-	if (Nflag)
-		exit(0);
+	if (Nflag) {
+		format_close(&ctx);
+		return 0;
+	}
 
 	fsinit();
 	sblock.fs_time = utime;
@@ -514,15 +446,6 @@ next:
 	for (cylno = 0; cylno < sblock.fs_ncg; cylno++)
 		write_superblock(fsbtodb(&sblock, cgsblock(&sblock, cylno)),
 		    &sblock);
-#ifndef STANDALONE
-	exit(0);
-#endif
+	format_close(&ctx);
+	return 0;
 }
-
-#ifndef FORMAT_NO_MAIN
-int
-main(int argc, char *argv[])
-{
-	return nextufs_format_main(argc, argv);
-}
-#endif

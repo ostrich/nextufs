@@ -9,6 +9,7 @@
 
 #ifndef STANDALONE
 #include <stdio.h>
+#include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -66,23 +67,55 @@ union format_cg_store {
 	char pad[MAXBSIZE];
 };
 
-extern union format_superblock_store fsun;
-extern union format_cg_store cgun;
-extern struct csum *fscs;
-extern struct dinode zino[MAXIPG];
-extern char *fsys;
-extern time_t utime;
-extern int fsi;
-extern int fso;
-extern int Nflag;
-extern int format_no_create;
-extern off_t format_base_offset;
+struct nextufs_format_options {
+	const char *target;
+	uint64_t size_1k_sectors;
+	int nsect;
+	int ntrak;
+	int bsize;
+	int fsize;
+	int cpg;
+	int minfree;
+	int rps;
+	int nbpi;
+	char opt;
+	int dry_run;
+	int force_size;
+	int no_create;
+	off_t base_offset;
+};
 
-#define sblock	fsun.fs
-#define acg	cgun.cg
+struct nextufs_format {
+	union format_superblock_store fsun;
+	union format_cg_store cgun;
+	struct csum *csums;
+	struct dinode zero_inodes[MAXIPG];
+	const char *target_path;
+	time_t utime;
+	int input_fd;
+	int output_fd;
+	int dry_run_flag;
+	off_t base_offset_bytes;
+	jmp_buf abort_env;
+	int abort_active;
+};
 
-void print_usage(FILE *out);
-int nextufs_format_main(int argc, char *argv[]);
+extern struct nextufs_format *format_current;
+
+#define fscs	(format_current->csums)
+#define zino	(format_current->zero_inodes)
+#define fsys	(format_current->target_path)
+#define utime	(format_current->utime)
+#define fsi	(format_current->input_fd)
+#define fso	(format_current->output_fd)
+#define Nflag	(format_current->dry_run_flag)
+#define format_base_offset	(format_current->base_offset_bytes)
+#define sblock	(format_current->fsun.fs)
+#define acg	(format_current->cgun.cg)
+
+void nextufs_format_defaults(struct nextufs_format_options *opts);
+int nextufs_format(const struct nextufs_format_options *opts);
+void format_abort(void);
 void initcg(int cylno);
 void fsinit(void);
 int makedir(struct direct *protodir, int entries);
