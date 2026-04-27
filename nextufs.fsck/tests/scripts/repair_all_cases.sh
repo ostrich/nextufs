@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/fsck.nextufs/tests"
+TEST_ROOT="$ROOT/nextufs.fsck/tests"
 CASES_DIR="$TEST_ROOT/cases"
 CORRUPT_DIR="$TEST_ROOT/cache/corrupt"
 WORK_DIR="$TEST_ROOT/work/repair-all"
-BIN="$ROOT/fsck.nextufs/fsck.nextufs"
+BIN="$ROOT/nextufs.fsck/nextufs.fsck"
 
-"$ROOT/fsck.nextufs/tests/scripts/build_corpus.sh" >/dev/null
+"$ROOT/nextufs.fsck/tests/scripts/build_corpus.sh" >/dev/null
 mkdir -p "$WORK_DIR"
 
 check_clean() {

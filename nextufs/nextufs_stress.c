@@ -1791,7 +1791,7 @@ nextufs_stress_run_fsck(struct nextufs_stress_ctx *ctx, const char *image_path,
 	char fsck_path[NEXTUFS_STRESS_MAX_PATH];
 	char *argv[4];
 
-	if (snprintf(fsck_path, sizeof(fsck_path), "%s/../fsck.nextufs/fsck.nextufs",
+	if (snprintf(fsck_path, sizeof(fsck_path), "%s/../nextufs.fsck/nextufs.fsck",
 	    ctx->exe_dir) >= (int)sizeof(fsck_path))
 		return -ENAMETOOLONG;
 	argv[0] = fsck_path;

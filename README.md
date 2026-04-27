@@ -4,7 +4,7 @@
 It includes:
 
 - `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
-- `fsck.nextufs/`: filesystem checker and repair tool
+- `nextufs.fsck/`: filesystem checker and repair tool
 - `nextufs.mkimg/`: labeled disk-image creator
 
 ## Features
@@ -22,7 +22,7 @@ It includes:
 - VDI differencing chains
 
 Writable support is available in `nextufs` for raw sources, standalone VDIs,
-and writable VDI chains. `fsck.nextufs` checks and repairs raw sources,
+and writable VDI chains. `nextufs.fsck` checks and repairs raw sources,
 standalone VDIs, and VDI differencing chains directly through the shared
 `nextufs` source backend. `nextufs.mkimg` creates labeled disk images that
 NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs.mkimg --raw`
@@ -67,8 +67,8 @@ mkdir -p /tmp/nextufs-mnt
 Check a filesystem:
 
 ```sh
-./fsck.nextufs/fsck.nextufs -n /path/to/filesystem.img
-./fsck.nextufs/fsck.nextufs -y /path/to/disk-or-vdi-source
+./nextufs.fsck/nextufs.fsck -n /path/to/filesystem.img
+./nextufs.fsck/nextufs.fsck -y /path/to/disk-or-vdi-source
 ```
 
 Create a labeled disk image:
@@ -102,5 +102,5 @@ make test-mkimg
 Component-specific notes are in:
 
 - [nextufs/README.md](nextufs/README.md)
-- [fsck.nextufs/README.md](fsck.nextufs/README.md)
+- [nextufs.fsck/README.md](nextufs.fsck/README.md)
 - [nextufs.mkimg/README.md](nextufs.mkimg/README.md)

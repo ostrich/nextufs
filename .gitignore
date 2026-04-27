@@ -8,13 +8,13 @@
 /nextufs/nextufs_mkfile
 /nextufs/nextufs_stress
 /fsck.legacy
-/fsck.nextufs/fsck.nextufs
+/nextufs.fsck/nextufs.fsck
 /nextufs.mkimg/nextufs.mkimg
 
-/fsck.nextufs/.build-next/
-/fsck.nextufs/tests/cache/
-/fsck.nextufs/tests/work/
-/fsck.nextufs/tests/tools/corrupt_raw_case
+/nextufs.fsck/.build-next/
+/nextufs.fsck/tests/cache/
+/nextufs.fsck/tests/work/
+/nextufs.fsck/tests/tools/corrupt_raw_case
 
 /nextufs/openstep42-base.raw
 /nextufs/openstep42-base.vdi
@@ -23,7 +23,7 @@
 /TODO.md
 /PLAN.md
 /TRACKING.md
-/fsck.nextufs/tests/MATRIX.md
+/nextufs.fsck/tests/MATRIX.md
 /third_party/
 
 /defrag.nextufs/

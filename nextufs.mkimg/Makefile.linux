@@ -4,7 +4,7 @@ FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
 FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -DFORMAT_NO_MAIN -Iinclude
 
 BIN = nextufs.mkimg
-FSCK_BIN = ../fsck.nextufs/fsck.nextufs
+FSCK_BIN = ../nextufs.fsck/nextufs.fsck
 FORMAT_SRCS = format/format.c format/format_fsinit.c format/format_io.c \
 	format/format_state.c
 FORMAT_OBJS = $(FORMAT_SRCS:format/%.c=%.o)
@@ -19,7 +19,7 @@ scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
 fsck-tool:
-	$(MAKE) -C ../fsck.nextufs -f Makefile.linux
+	$(MAKE) -C ../nextufs.fsck -f Makefile.linux
 
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS)

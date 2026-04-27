@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/fsck.nextufs/tests"
+TEST_ROOT="$ROOT/nextufs.fsck/tests"
 CACHE_DIR="$TEST_ROOT/cache"
 SEED_DIR="$CACHE_DIR/seeds"
 SEED="$SEED_DIR/base.raw"

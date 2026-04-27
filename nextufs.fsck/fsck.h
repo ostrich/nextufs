@@ -1,4 +1,4 @@
-/* Shared declarations for fsck.nextufs. */
+/* Shared declarations for nextufs.fsck. */
 
 #include <signal.h>
 #include <stddef.h>

@@ -8,9 +8,9 @@ fi
 
 MODE="$1"
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-CASES_DIR="$ROOT/fsck.nextufs/tests/cases"
+CASES_DIR="$ROOT/nextufs.fsck/tests/cases"
 
 for case_file in "$CASES_DIR"/*.txt; do
   case_name="$(basename "$case_file" .txt)"
-  bash "$ROOT/fsck.nextufs/tests/scripts/compare_case.sh" "$MODE" "$case_name" >/dev/null
+  bash "$ROOT/nextufs.fsck/tests/scripts/compare_case.sh" "$MODE" "$case_name" >/dev/null
 done

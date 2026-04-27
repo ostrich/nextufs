@@ -11,7 +11,7 @@ MODE="$2"
 CASE_NAME="$3"
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/fsck.nextufs/tests"
+TEST_ROOT="$ROOT/nextufs.fsck/tests"
 CACHE_DIR="$TEST_ROOT/cache"
 WORK_DIR="$TEST_ROOT/work"
 EXPECT_DIR="$CACHE_DIR/expected"
@@ -35,7 +35,7 @@ case "$ENGINE" in
     fi
     ;;
   shipped)
-    BIN="$ROOT/fsck.nextufs/fsck.nextufs"
+    BIN="$ROOT/nextufs.fsck/nextufs.fsck"
     ;;
   *)
     echo "unknown engine: $ENGINE" >&2

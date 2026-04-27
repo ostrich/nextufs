@@ -3,7 +3,7 @@ CFLAGS = -O2 -g -std=gnu99 -Wall -Wextra -Werror
 SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
 TEST_IMAGE = openstep42-base.raw
-FSCK_BIN = ../fsck.nextufs/fsck.nextufs
+FSCK_BIN = ../nextufs.fsck/nextufs.fsck
 MKIMG_BIN = ../nextufs.mkimg/nextufs.mkimg
 FUSE_CFLAGS != pkg-config --cflags fuse3
 FUSE_LIBS != pkg-config --libs fuse3
@@ -22,7 +22,7 @@ scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
 fsck-tool:
-	$(MAKE) -C ../fsck.nextufs -f Makefile.linux
+	$(MAKE) -C ../nextufs.fsck -f Makefile.linux
 
 mkimg-tool:
 	$(MAKE) -C ../nextufs.mkimg -f Makefile.linux

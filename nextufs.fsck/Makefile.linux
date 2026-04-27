@@ -9,7 +9,7 @@ TESTS_DIR = $(CURDIR)/tests
 REPAIR_TOOL_BIN = $(TESTS_DIR)/tools/corrupt_raw_case
 export TMPDIR = $(SCRATCH_DIR)
 
-BIN = fsck.nextufs
+BIN = nextufs.fsck
 SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c dir_scan.c \
 	frag_support.c inode_ops.c inode_scan.c main.c operator.c pass1.c \
 	pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c source.c \

@@ -1,4 +1,4 @@
-/* Local directory-entry definitions for NeXT/OpenStep UFS. */
+/* Local directory-entry definitions for NEXTSTEP/OPENSTEP UFS. */
 
 #include <stdint.h>
 
