@@ -48,7 +48,8 @@ front porch.
 - mounted filesystems
 - VDI and VDI differencing-chain containers
 - labeled images with more than one real partition entry
-- target sizes above `4,294,836,224` bytes unless `--force-size` is supplied
+- target sizes above `4,294,836,224` bytes (`4,194,176` 1 KiB sectors) unless
+  `--force-size` is supplied
 - target sizes that are not compatible with the existing cylinder-group layout
 - growth that would require unsupported metadata relocation
 
