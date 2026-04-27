@@ -1,4 +1,4 @@
-#include "mkfs.h"
+#include "format.h"
 
 static uint16_t
 swap16(uint16_t x)
@@ -21,7 +21,7 @@ rdfs(daddr_t bno, int size, char *bf)
 	int n;
 	off_t offset;
 
-	offset = (off_t)bno * (off_t)DEV_BSIZE;
+	offset = format_base_offset + (off_t)bno * (off_t)DEV_BSIZE;
 
 	if (lseek(fsi, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
@@ -44,7 +44,7 @@ wtfs(daddr_t bno, int size, char *bf)
 
 	if (Nflag)
 		return;
-	offset = (off_t)bno * (off_t)DEV_BSIZE;
+	offset = format_base_offset + (off_t)bno * (off_t)DEV_BSIZE;
 	if (lseek(fso, offset, SEEK_SET) < 0) {
 		fprintf(stderr, "seek error: %ld\n", (long)bno);
 		perror("wtfs");

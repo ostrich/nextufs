@@ -1,4 +1,4 @@
-/* Local directory-layout definitions for NeXT/OpenStep UFS. */
+/* Local directory-layout definitions for NEXTSTEP/OPENSTEP UFS. */
 
 #include <sys/types.h>
 #include <stdint.h>

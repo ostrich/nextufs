@@ -1,4 +1,4 @@
-/* Local filesystem-format definitions for NeXT/OpenStep UFS. */
+/* Local filesystem-format definitions for NEXTSTEP/OPENSTEP UFS. */
 
 #include <stdint.h>
 

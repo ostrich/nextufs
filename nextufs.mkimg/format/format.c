@@ -1,9 +1,9 @@
-/* Filesystem image construction logic for mkfs.nextufs. */
+/* Raw UFS construction logic used by nextufs.mkimg. */
 
-#include "mkfs.h"
+#include "format.h"
 
 static long
-mkfs_target_size_sectors(const char *path)
+format_target_size_sectors(const char *path)
 {
 	off_t bytes;
 	int fd;
@@ -39,7 +39,7 @@ void
 print_usage(FILE *out)
 {
 	fprintf(out,
-	    "usage: mkfs.nextufs [-N] <target> [size [nsect ntrak bsize fsize cpg minfree rps nbpi opt]]\n");
+	    "usage: nextufs.mkimg --raw [-N] <target> [size [nsect ntrak bsize fsize cpg minfree rps nbpi opt]]\n");
 	fprintf(out, "\n");
 	fprintf(out, "Required arguments:\n");
 	fprintf(out, "  target    output image or device path\n");
@@ -60,11 +60,11 @@ print_usage(FILE *out)
 	fprintf(out, "  opt       allocation policy           default: t (time)\n");
 	fprintf(out, "\n");
 	fprintf(out, "Notes:\n");
-	fprintf(out, "  - With only <target> and <size>, mkfs.nextufs uses the defaults above.\n");
-	fprintf(out, "  - With only <target>, mkfs.nextufs uses the full size of an existing\n");
+	fprintf(out, "  - With only <target> and <size>, nextufs.mkimg --raw uses the defaults above.\n");
+	fprintf(out, "  - With only <target>, nextufs.mkimg --raw uses the full size of an existing\n");
 	fprintf(out, "    target and the defaults above.\n");
 	fprintf(out, "  - By default, sizes are limited to %llu bytes for\n",
-	    (unsigned long long)MKFS_COMPAT_MAX_BYTES);
+	    (unsigned long long)FORMAT_COMPAT_MAX_BYTES);
 	fprintf(out, "    NEXTSTEP/OPENSTEP disk-tool compatibility.\n");
 	fprintf(out, "  - size is a positive count of 1 KiB sectors and must be large enough\n");
 	fprintf(out, "    for a valid filesystem layout.\n");
@@ -75,12 +75,13 @@ print_usage(FILE *out)
 	fprintf(out, "\n");
 	fprintf(out, "Flags:\n");
 	fprintf(out, "  -N        print geometry and layout details without creating a filesystem\n");
-	fprintf(out, "  --force   allow sizes above the NEXTSTEP/OPENSTEP compatibility limit\n");
+	fprintf(out, "  --force-size\n");
+	fprintf(out, "            allow sizes above the NEXTSTEP/OPENSTEP compatibility limit\n");
 	fprintf(out, "  -h        show this help\n");
 }
 
 int
-main(int argc, char *argv[])
+nextufs_format_main(int argc, char *argv[])
 {
 	long cylno, rpos, blk, i, j, inos, nbpi, fssize, warn = 0;
 	char lastbuf[DEV_BSIZE];
@@ -94,7 +95,7 @@ main(int argc, char *argv[])
 			print_usage(stdout);
 			exit(0);
 		}
-		if (strcmp(argv[0], "--force") == 0) {
+		if (strcmp(argv[0], "--force-size") == 0) {
 			force = 1;
 			argc--, argv++;
 			continue;
@@ -120,22 +121,22 @@ main(int argc, char *argv[])
 		fssize = atoi(argv[1]);
 		explicit_size = 1;
 	} else {
-		fssize = mkfs_target_size_sectors(fsys);
-		if (!force && (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+		fssize = format_target_size_sectors(fsys);
+		if (!force && (unsigned long long)fssize > FORMAT_COMPAT_MAX_SECTORS) {
 			fprintf(stderr,
 			    "%s: target exceeds the NEXTSTEP/OPENSTEP compatibility limit; using %llu 1K sectors\n",
-			    fsys, (unsigned long long)MKFS_COMPAT_MAX_SECTORS);
-			fssize = (long)MKFS_COMPAT_MAX_SECTORS;
+			    fsys, (unsigned long long)FORMAT_COMPAT_MAX_SECTORS);
+			fssize = (long)FORMAT_COMPAT_MAX_SECTORS;
 		}
 	}
 	if (!force && explicit_size &&
-	    (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+	    (unsigned long long)fssize > FORMAT_COMPAT_MAX_SECTORS) {
 		fprintf(stderr,
 		    "requested size %ld exceeds the NEXTSTEP/OPENSTEP compatibility limit of %llu 1K sectors\n",
-		    fssize, (unsigned long long)MKFS_COMPAT_MAX_SECTORS);
+		    fssize, (unsigned long long)FORMAT_COMPAT_MAX_SECTORS);
 		exit(1);
 	}
-	if (!Nflag && argc > 1) {
+	if (!Nflag && argc > 1 && !format_no_create) {
 		fso = creat(fsys, 0666);
 		if (fso < 0) {
 			fprintf(stderr, "%s: cannot create\n", fsys);
@@ -369,7 +370,7 @@ next:
 	if (sblock.fs_ncyl % sblock.fs_cpg)
 		sblock.fs_ncg++;
 	if ((sblock.fs_spc * sblock.fs_cpg) % NSPF(&sblock)) {
-		fprintf(stderr, "mkfs: nsect %d, ntrak %d, cpg %d is not tolerable\n",
+		fprintf(stderr, "nextufs.mkimg: nsect %d, ntrak %d, cpg %d is not tolerable\n",
 		    sblock.fs_nsect, sblock.fs_ntrak, sblock.fs_cpg);
 		fprintf(stderr, "as this would would have cyl groups whose size\n");
 		fprintf(stderr, "is not a multiple of %d; choke!\n", sblock.fs_fsize);
@@ -517,3 +518,11 @@ next:
 	exit(0);
 #endif
 }
+
+#ifndef FORMAT_NO_MAIN
+int
+main(int argc, char *argv[])
+{
+	return nextufs_format_main(argc, argv);
+}
+#endif

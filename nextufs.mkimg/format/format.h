@@ -1,7 +1,7 @@
-/* Shared state and helpers for mkfs.nextufs. */
+/* Shared state and helpers for nextufs.mkimg raw UFS formatting. */
 
-#ifndef MKFS_NEXTUFS_H
-#define MKFS_NEXTUFS_H
+#ifndef NEXTUFS_MKIMG_FORMAT_H
+#define NEXTUFS_MKIMG_FORMAT_H
 
 #ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
@@ -49,25 +49,25 @@
 #define MAXBLKPG(fs)	((fs)->fs_fsize / sizeof(daddr_t))
 #define	NBPI		2048
 #define	DEFHZ		60
-#define MKFS_COMPAT_MAX_BYTES	4294836224ULL
-#define MKFS_COMPAT_MAX_SECTORS	(MKFS_COMPAT_MAX_BYTES / 1024ULL)
+#define FORMAT_COMPAT_MAX_BYTES	4294836224ULL
+#define FORMAT_COMPAT_MAX_SECTORS	(FORMAT_COMPAT_MAX_BYTES / 1024ULL)
 
 #define UMASK		0755
 #define MAXINOPB	(MAXBSIZE / sizeof(struct dinode))
 #define POWEROF2(num)	(((num) & ((num) - 1)) == 0)
 
-union mkfs_superblock_store {
+union format_superblock_store {
 	struct fs fs;
 	char pad[MAXBSIZE];
 };
 
-union mkfs_cg_store {
+union format_cg_store {
 	struct cg cg;
 	char pad[MAXBSIZE];
 };
 
-extern union mkfs_superblock_store fsun;
-extern union mkfs_cg_store cgun;
+extern union format_superblock_store fsun;
+extern union format_cg_store cgun;
 extern struct csum *fscs;
 extern struct dinode zino[MAXIPG];
 extern char *fsys;
@@ -75,11 +75,14 @@ extern time_t utime;
 extern int fsi;
 extern int fso;
 extern int Nflag;
+extern int format_no_create;
+extern off_t format_base_offset;
 
 #define sblock	fsun.fs
 #define acg	cgun.cg
 
 void print_usage(FILE *out);
+int nextufs_format_main(int argc, char *argv[]);
 void initcg(int cylno);
 void fsinit(void);
 int makedir(struct direct *protodir, int entries);

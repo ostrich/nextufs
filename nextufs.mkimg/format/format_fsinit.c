@@ -1,4 +1,4 @@
-#include "mkfs.h"
+#include "format.h"
 
 /*
  * Root directory construction keeps inode numbers, entry ordering, and the

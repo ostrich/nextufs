@@ -5,7 +5,7 @@ It includes:
 
 - `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
 - `fsck.nextufs/`: filesystem checker and repair tool
-- `mkfs.nextufs/`: filesystem builder
+- `nextufs.mkimg/`: labeled disk-image creator
 
 ## Features
 
@@ -24,7 +24,9 @@ It includes:
 Writable support is available in `nextufs` for raw sources, standalone VDIs,
 and writable VDI chains. `fsck.nextufs` checks and repairs raw sources,
 standalone VDIs, and VDI differencing chains directly through the shared
-`nextufs` source backend. `mkfs.nextufs` creates raw filesystem images.
+`nextufs` source backend. `nextufs.mkimg` creates labeled disk images that
+NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs.mkimg --raw`
+creates raw filesystem images.
 
 ## Build
 
@@ -69,10 +71,16 @@ Check a filesystem:
 ./fsck.nextufs/fsck.nextufs -y /path/to/disk-or-vdi-source
 ```
 
-Create a filesystem:
+Create a labeled disk image:
 
 ```sh
-./mkfs.nextufs/mkfs.nextufs /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
+./nextufs.mkimg/nextufs.mkimg /tmp/nextufs.img 256M
+```
+
+Create a raw filesystem:
+
+```sh
+./nextufs.mkimg/nextufs.mkimg --raw /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
 ```
 
 ## Tests
@@ -88,11 +96,11 @@ Component-specific entrypoints:
 ```sh
 make test-nextufs
 make test-fsck
-make test-mkfs
+make test-mkimg
 ```
 
 Component-specific notes are in:
 
 - [nextufs/README.md](nextufs/README.md)
 - [fsck.nextufs/README.md](fsck.nextufs/README.md)
-- [mkfs.nextufs/README.md](mkfs.nextufs/README.md)
+- [nextufs.mkimg/README.md](nextufs.mkimg/README.md)

@@ -9,7 +9,7 @@
 /nextufs/nextufs_stress
 /fsck.legacy
 /fsck.nextufs/fsck.nextufs
-/mkfs.nextufs/mkfs.nextufs
+/nextufs.mkimg/nextufs.mkimg
 
 /fsck.nextufs/.build-next/
 /fsck.nextufs/tests/cache/
@@ -25,3 +25,6 @@
 /TRACKING.md
 /fsck.nextufs/tests/MATRIX.md
 /third_party/
+
+/defrag.nextufs/
+/resize.nextufs/
