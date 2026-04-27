@@ -6,6 +6,7 @@ It includes:
 - `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
 - `nextufs.fsck/`: filesystem checker and repair tool
 - `nextufs.mkimg/`: labeled disk-image creator
+- `nextufs.resize/`: offline grow-only image resizer
 
 ## Features
 
@@ -26,7 +27,8 @@ and writable VDI chains. `nextufs.fsck` checks and repairs raw sources,
 standalone VDIs, and VDI differencing chains directly through the shared
 `nextufs` source backend. `nextufs.mkimg` creates labeled disk images that
 NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs.mkimg --raw`
-creates raw filesystem images.
+creates raw filesystem images. `nextufs.resize` analyzes and grows raw UFS
+images and supported single-slice labeled disk images.
 
 ## Build
 
@@ -83,6 +85,13 @@ Create a raw filesystem:
 ./nextufs.mkimg/nextufs.mkimg --raw /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
 ```
 
+Analyze or grow an image:
+
+```sh
+./nextufs.resize/nextufs.resize analyze /path/to/source
+./nextufs.resize/nextufs.resize grow /path/to/source 2097152
+```
+
 ## Tests
 
 Run the main repo-wide test entrypoint:
@@ -97,6 +106,7 @@ Component-specific entrypoints:
 make test-nextufs
 make test-fsck
 make test-mkimg
+make test-resize
 ```
 
 Component-specific notes are in:
@@ -104,3 +114,4 @@ Component-specific notes are in:
 - [nextufs/README.md](nextufs/README.md)
 - [nextufs.fsck/README.md](nextufs.fsck/README.md)
 - [nextufs.mkimg/README.md](nextufs.mkimg/README.md)
+- [nextufs.resize/README.md](nextufs.resize/README.md)

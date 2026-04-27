@@ -10,6 +10,7 @@
 /fsck.legacy
 /nextufs.fsck/nextufs.fsck
 /nextufs.mkimg/nextufs.mkimg
+/nextufs.resize/nextufs.resize
 
 /nextufs.fsck/.build-next/
 /nextufs.fsck/tests/cache/
@@ -27,4 +28,3 @@
 /third_party/
 
 /defrag.nextufs/
-/resize.nextufs/
