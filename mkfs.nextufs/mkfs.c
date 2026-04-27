@@ -63,8 +63,9 @@ print_usage(FILE *out)
 	fprintf(out, "  - With only <target> and <size>, mkfs.nextufs uses the defaults above.\n");
 	fprintf(out, "  - With only <target>, mkfs.nextufs uses the full size of an existing\n");
 	fprintf(out, "    target and the defaults above.\n");
-	fprintf(out, "  - Sizes larger than 4 GiB are capped or rejected for\n");
-	fprintf(out, "    NEXTSTEP/OPENSTEP compatibility.\n");
+	fprintf(out, "  - By default, sizes are limited to %llu bytes for\n",
+	    (unsigned long long)MKFS_COMPAT_MAX_BYTES);
+	fprintf(out, "    NEXTSTEP/OPENSTEP disk-tool compatibility.\n");
 	fprintf(out, "  - size is a positive count of 1 KiB sectors and must be large enough\n");
 	fprintf(out, "    for a valid filesystem layout.\n");
 	fprintf(out, "  - If you specify geometry or policy arguments, include <size>\n");
@@ -74,6 +75,7 @@ print_usage(FILE *out)
 	fprintf(out, "\n");
 	fprintf(out, "Flags:\n");
 	fprintf(out, "  -N        print geometry and layout details without creating a filesystem\n");
+	fprintf(out, "  --force   allow sizes above the NEXTSTEP/OPENSTEP compatibility limit\n");
 	fprintf(out, "  -h        show this help\n");
 }
 
@@ -83,6 +85,7 @@ main(int argc, char *argv[])
 	long cylno, rpos, blk, i, j, inos, nbpi, fssize, warn = 0;
 	char lastbuf[DEV_BSIZE];
 	int explicit_size = 0;
+	int force = 0;
 
 #ifndef STANDALONE
 	argc--, argv++;
@@ -90,6 +93,11 @@ main(int argc, char *argv[])
 		if (strcmp(argv[0], "--help") == 0 || strcmp(argv[0], "-h") == 0) {
 			print_usage(stdout);
 			exit(0);
+		}
+		if (strcmp(argv[0], "--force") == 0) {
+			force = 1;
+			argc--, argv++;
+			continue;
 		}
 		switch (argv[0][1]) {
 		case 'N':
@@ -113,17 +121,18 @@ main(int argc, char *argv[])
 		explicit_size = 1;
 	} else {
 		fssize = mkfs_target_size_sectors(fsys);
-		if ((unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+		if (!force && (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
 			fprintf(stderr,
-			    "%s: target is larger than 4 GiB; using 4 GiB for NEXTSTEP/OPENSTEP compatibility\n",
-			    fsys);
+			    "%s: target exceeds the NEXTSTEP/OPENSTEP compatibility limit; using %llu 1K sectors\n",
+			    fsys, (unsigned long long)MKFS_COMPAT_MAX_SECTORS);
 			fssize = (long)MKFS_COMPAT_MAX_SECTORS;
 		}
 	}
-	if (explicit_size && (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
+	if (!force && explicit_size &&
+	    (unsigned long long)fssize > MKFS_COMPAT_MAX_SECTORS) {
 		fprintf(stderr,
-		    "requested size %ld exceeds the 4 GiB NEXTSTEP/OPENSTEP compatibility limit\n",
-		    fssize);
+		    "requested size %ld exceeds the NEXTSTEP/OPENSTEP compatibility limit of %llu 1K sectors\n",
+		    fssize, (unsigned long long)MKFS_COMPAT_MAX_SECTORS);
 		exit(1);
 	}
 	if (!Nflag && argc > 1) {

@@ -49,7 +49,7 @@
 #define MAXBLKPG(fs)	((fs)->fs_fsize / sizeof(daddr_t))
 #define	NBPI		2048
 #define	DEFHZ		60
-#define MKFS_COMPAT_MAX_BYTES	4294967296ULL
+#define MKFS_COMPAT_MAX_BYTES	4294836224ULL
 #define MKFS_COMPAT_MAX_SECTORS	(MKFS_COMPAT_MAX_BYTES / 1024ULL)
 
 #define UMASK		0755

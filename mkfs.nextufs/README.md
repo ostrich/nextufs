@@ -26,8 +26,11 @@ filesystem geometry and allocation policy.
 With only `target`, `mkfs.nextufs` uses the full size of an existing target and
 the same built-in defaults.
 
-`mkfs.nextufs` caps implicit target sizing at 4 GiB and rejects explicit sizes
-above 4 GiB for NEXTSTEP/OPENSTEP compatibility.
+By default, `mkfs.nextufs` caps implicit target sizing at `4,294,836,224`
+bytes and rejects explicit sizes above that limit for NEXTSTEP/OPENSTEP
+disk-tool compatibility. This corresponds to the largest fallback-geometry disk
+below the 32768-cylinder boundary. Use `--force` to override the compatibility
+limit when you intentionally want a larger raw filesystem.
 
 `size` is expressed in 1 KiB sectors, so `65536` creates a 64 MiB image.
 
