@@ -131,8 +131,8 @@ create_output(const struct options *opts)
 	int rc;
 
 	rc = nextufs_target_create_sized(opts->target,
-	    opts->force_overwrite ? NEXTUFS_TARGET_OVERWRITE :
-	    NEXTUFS_TARGET_CREATE_NEW, 0666, opts->bytes);
+	    opts->force_overwrite ? NEXTUFS_OPEN_OVERWRITE :
+	    NEXTUFS_OPEN_CREATE, 0666, opts->bytes);
 	if (rc < 0) {
 		fprintf(stderr, "nextufs mkimg: cannot create %s: %s\n",
 		    opts->target, strerror(-rc));

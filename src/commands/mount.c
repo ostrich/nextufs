@@ -210,9 +210,9 @@ nextufs_refresh_image(void)
 	nextufs_image_close(&g_img);
 	if (g_mount_readonly)
 		return nextufs_image_open_source(&g_img, g_image_path,
-		    NEXTUFS_SOURCE_READ_ONLY);
+		    NEXTUFS_OPEN_READ_ONLY);
 	return nextufs_image_open_source(&g_img, g_image_path,
-	    NEXTUFS_SOURCE_READ_WRITE);
+	    NEXTUFS_OPEN_READ_WRITE);
 }
 
 static int

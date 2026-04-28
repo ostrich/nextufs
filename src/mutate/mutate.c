@@ -14,7 +14,7 @@ static int
 nextufs__open_image_rw(const char *image_path, struct nextufs_image *img)
 {
 	return nextufs_image_open_source(img, image_path,
-	    NEXTUFS_SOURCE_READ_WRITE);
+	    NEXTUFS_OPEN_READ_WRITE);
 }
 
 static int

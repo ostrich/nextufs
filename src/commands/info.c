@@ -23,7 +23,7 @@ nextufs_info_main(int argc, char **argv)
 		return 1;
 	}
 	rc = nextufs_image_open_source(&img, argv[argi],
-	    NEXTUFS_SOURCE_READ_ONLY);
+	    NEXTUFS_OPEN_READ_ONLY);
 	if (rc < 0) {
 		fprintf(stderr, "failed to open source %s\n", argv[argi]);
 		return 1;

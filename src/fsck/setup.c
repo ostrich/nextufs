@@ -138,12 +138,12 @@ restat:
 
 		if (!nflag)
 			rc = nextufs_image_open_source(&dfile.image, devstr,
-			    NEXTUFS_SOURCE_READ_WRITE);
+			    NEXTUFS_OPEN_READ_WRITE);
 		else
 			rc = -1;
 		if (rc < 0) {
 			if (nextufs_image_open_source(&dfile.image, devstr,
-			    NEXTUFS_SOURCE_READ_ONLY) < 0) {
+			    NEXTUFS_OPEN_READ_ONLY) < 0) {
 				printf("Can't open %s\n", devstr);
 				return (0);
 			}

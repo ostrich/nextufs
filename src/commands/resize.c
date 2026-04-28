@@ -77,7 +77,7 @@ open_supported_image(struct image_open_result *out, const char *path, int writab
 		return rc;
 	memset(&out->img, 0, sizeof(out->img));
 	rc = nextufs_image_open_source(&out->img, path,
-	    writable ? NEXTUFS_SOURCE_READ_WRITE : NEXTUFS_SOURCE_READ_ONLY);
+	    writable ? NEXTUFS_OPEN_READ_WRITE : NEXTUFS_OPEN_READ_ONLY);
 	if (rc < 0)
 		return rc;
 	if (out->img.source_is_container) {
