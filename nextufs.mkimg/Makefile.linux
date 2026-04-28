@@ -48,17 +48,17 @@ test: all fsck-tool nextufs-tool
 		$(SCRATCH_DIR)/mkimg-overwrite.img $(SCRATCH_DIR)/mkimg-dry-run.img \
 		$(SCRATCH_DIR)/mkimg-limit.raw $(SCRATCH_DIR)/mkimg-too-large.raw \
 		$(SCRATCH_DIR)/mkimg-invalid.raw \
-		$(SCRATCH_DIR)/mkimg-labeled.probe $(SCRATCH_DIR)/mkimg-overwrite.err \
+		$(SCRATCH_DIR)/mkimg-labeled.inspect $(SCRATCH_DIR)/mkimg-overwrite.err \
 		$(SCRATCH_DIR)/mkimg-raw-label.err $(SCRATCH_DIR)/mkimg-invalid.err \
 		$(SCRATCH_DIR)/mkimg-too-large.err
 	./$(BIN) --raw $(SCRATCH_DIR)/mkimg-raw.img 64M >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw.img >/dev/null
 	./$(BIN) $(SCRATCH_DIR)/mkimg-labeled.img 64M >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
-	../nextufs/nextufs inspect $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.probe
-	grep -F 'disk label:' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
-	grep -F 'slice base:            0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
-	grep -F 'superblock base:       0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
+	../nextufs/nextufs inspect $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.inspect
+	grep -F 'disk label:' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'slice base:            0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'superblock base:       0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
 	./$(BIN) --raw $(SCRATCH_DIR)/mkimg-raw-full.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw-full.img >/dev/null
 	./$(BIN) --raw $(SCRATCH_DIR)/mkimg-raw-a.img 64M >/dev/null

@@ -29,7 +29,7 @@ FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
 
 .PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse scratch-dir fsck-tool mkimg-tool
 
-all: scratch-dir $(LIB) nextufs_probe nextufs nextufs_test nextufs_mkfile nextufs_stress
+all: scratch-dir $(LIB) nextufs nextufs_test nextufs_mkfile nextufs_stress
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
@@ -43,15 +43,12 @@ mkimg-tool:
 $(LIB): $(LIB_OBJS)
 	ar rcs $@ $(LIB_OBJS)
 
-nextufs_probe: nextufs_probe.o $(LIB)
-	$(CC) $(CFLAGS) -o $@ nextufs_probe.o $(LIB)
-
-nextufs: nextufs_cli.o nextufs_fuse_cli.o nextufs_probe_cli.o \
+nextufs: nextufs_cli.o nextufs_fuse_cli.o nextufs_cmd_inspect.o \
 	nextufs_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
 	nextufs_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
 	mkimg_format_io.o $(FSCK_OBJS) $(WRITE_OBJS) $(LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ nextufs_cli.o \
-		nextufs_fuse_cli.o nextufs_probe_cli.o nextufs_mkfile_cli.o \
+		nextufs_fuse_cli.o nextufs_cmd_inspect.o nextufs_mkfile_cli.o \
 		nextufs_mkimg_cli.o nextufs_resize_cli.o nextufs_stress_cli.o \
 		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
 		$(FSCK_OBJS) \
@@ -72,8 +69,8 @@ nextufs_fuse.o: nextufs_fuse.c
 nextufs_fuse_cli.o: nextufs_fuse.c
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_fuse.c
 
-nextufs_probe_cli.o: nextufs_probe.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_probe.c
+nextufs_cmd_inspect.o: nextufs_cmd_inspect.c
+	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_cmd_inspect.c
 
 nextufs_mkfile_cli.o: nextufs_mkfile.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_mkfile.c
@@ -118,10 +115,10 @@ test: all
 test-write: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-write-test.raw
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test 'hello from linux nextufs'
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test >$(SCRATCH_DIR)/nextufs_write_probe.out
-	grep -F "lookup '/private/tmp/nextufs-write-test':" $(SCRATCH_DIR)/nextufs_write_probe.out
-	grep -F 'hello from linux' $(SCRATCH_DIR)/nextufs_write_probe.out
-	grep -F 'nextufs' $(SCRATCH_DIR)/nextufs_write_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-test.raw /private/tmp/nextufs-write-test >$(SCRATCH_DIR)/nextufs_write_inspect.out
+	grep -F "lookup '/private/tmp/nextufs-write-test':" $(SCRATCH_DIR)/nextufs_write_inspect.out
+	grep -F 'hello from linux' $(SCRATCH_DIR)/nextufs_write_inspect.out
+	grep -F 'nextufs' $(SCRATCH_DIR)/nextufs_write_inspect.out
 	dd if=$(SCRATCH_DIR)/nextufs-write-test.raw of=$(SCRATCH_DIR)/nextufs-write-test-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-write-test-a.raw >$(SCRATCH_DIR)/nextufs_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_write_fsck.out
@@ -130,9 +127,9 @@ test-write-big: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-write-big.raw
 	awk 'BEGIN { for (i = 0; i < 3000; i++) printf "%c", 65 + (i % 26) }' >$(SCRATCH_DIR)/nextufs-big-input.bin
 	./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big $(SCRATCH_DIR)/nextufs-big-input.bin
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big >$(SCRATCH_DIR)/nextufs_write_big_probe.out
-	grep -F "lookup '/private/tmp/nextufs-write-big':" $(SCRATCH_DIR)/nextufs_write_big_probe.out
-	grep -F 'size=3000' $(SCRATCH_DIR)/nextufs_write_big_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-big.raw /private/tmp/nextufs-write-big >$(SCRATCH_DIR)/nextufs_write_big_inspect.out
+	grep -F "lookup '/private/tmp/nextufs-write-big':" $(SCRATCH_DIR)/nextufs_write_big_inspect.out
+	grep -F 'size=3000' $(SCRATCH_DIR)/nextufs_write_big_inspect.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-write-big-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-write-big.raw $(SCRATCH_DIR)/nextufs-write-big-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_write_big_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -152,9 +149,9 @@ test-write-grow: all
 		./nextufs mkfile $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp/nextufs-grow-$$i '' || exit $$?; \
 		i=`expr $$i + 1`; \
 	done
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp >$(SCRATCH_DIR)/nextufs_write_grow_probe.out
-	grep -F 'size=3072' $(SCRATCH_DIR)/nextufs_write_grow_probe.out
-	grep -F "nextufs-grow-119" $(SCRATCH_DIR)/nextufs_write_grow_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-write-grow.raw /private/tmp >$(SCRATCH_DIR)/nextufs_write_grow_inspect.out
+	grep -F 'size=3072' $(SCRATCH_DIR)/nextufs_write_grow_inspect.out
+	grep -F "nextufs-grow-119" $(SCRATCH_DIR)/nextufs_write_grow_inspect.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-write-grow-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-write-grow.raw $(SCRATCH_DIR)/nextufs-write-grow-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_write_grow_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -172,8 +169,8 @@ test-unlink: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-unlink.raw
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test 'unlink me'
 	./nextufs mkfile --unlink $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_probe.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-unlink-test' failed" $(SCRATCH_DIR)/nextufs_unlink_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_inspect.out 2>&1
+	grep -F "lookup '/private/tmp/nextufs-unlink-test' failed" $(SCRATCH_DIR)/nextufs_unlink_inspect.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-unlink-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-unlink.raw $(SCRATCH_DIR)/nextufs-unlink-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_unlink_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -191,11 +188,11 @@ test-mkdir: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-mkdir.raw
 	./nextufs mkfile --mkdir $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child 'inside dir'
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test >$(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
-	grep -F "lookup '/private/tmp/nextufs-dir-test':" $(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
-	grep -F "name='child'" $(SCRATCH_DIR)/nextufs_mkdir_probe_dir.out
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child >$(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
-	grep -F 'inside dir' $(SCRATCH_DIR)/nextufs_mkdir_probe_file.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test >$(SCRATCH_DIR)/nextufs_mkdir_inspect_dir.out
+	grep -F "lookup '/private/tmp/nextufs-dir-test':" $(SCRATCH_DIR)/nextufs_mkdir_inspect_dir.out
+	grep -F "name='child'" $(SCRATCH_DIR)/nextufs_mkdir_inspect_dir.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-mkdir.raw /private/tmp/nextufs-dir-test/child >$(SCRATCH_DIR)/nextufs_mkdir_inspect_file.out
+	grep -F 'inside dir' $(SCRATCH_DIR)/nextufs_mkdir_inspect_file.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-mkdir-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-mkdir.raw $(SCRATCH_DIR)/nextufs-mkdir-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_mkdir_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -215,8 +212,8 @@ test-rewrite: all
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'start'
 	./nextufs mkfile --overwrite $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test 'middle'
 	./nextufs mkfile --append $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test '+end'
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test >$(SCRATCH_DIR)/nextufs_rewrite_probe.out
-	grep -F 'middle+end' $(SCRATCH_DIR)/nextufs_rewrite_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-rewrite.raw /private/tmp/nextufs-rewrite-test >$(SCRATCH_DIR)/nextufs_rewrite_inspect.out
+	grep -F 'middle+end' $(SCRATCH_DIR)/nextufs_rewrite_inspect.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rewrite-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-rewrite.raw $(SCRATCH_DIR)/nextufs-rewrite-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rewrite_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -235,8 +232,8 @@ test-link-symlink: all
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src 'linked data'
 	./nextufs mkfile --link $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-src /private/tmp/nextufs-link-hard
 	./nextufs mkfile --symlink $(SCRATCH_DIR)/nextufs-link.raw nextufs-link-hard /private/tmp/nextufs-link-soft
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-hard >$(SCRATCH_DIR)/nextufs_link_probe_hard.out
-	grep -F 'linked data' $(SCRATCH_DIR)/nextufs_link_probe_hard.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-link.raw /private/tmp/nextufs-link-hard >$(SCRATCH_DIR)/nextufs_link_inspect_hard.out
+	grep -F 'linked data' $(SCRATCH_DIR)/nextufs_link_inspect_hard.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-link-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-link.raw $(SCRATCH_DIR)/nextufs-link-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_link_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -255,8 +252,8 @@ test-rmdir: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-rmdir.raw
 	./nextufs mkfile --mkdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
 	./nextufs mkfile --rmdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_probe.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-rmdir-test' failed" $(SCRATCH_DIR)/nextufs_rmdir_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_inspect.out 2>&1
+	grep -F "lookup '/private/tmp/nextufs-rmdir-test' failed" $(SCRATCH_DIR)/nextufs_rmdir_inspect.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rmdir-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-rmdir.raw $(SCRATCH_DIR)/nextufs-rmdir-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rmdir_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -276,9 +273,9 @@ test-meta: all
 	./nextufs mkfile --chmod $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 0600
 	./nextufs mkfile --chown $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 123 456
 	./nextufs mkfile --utimes $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test 111111111 222222222
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test >$(SCRATCH_DIR)/nextufs_meta_probe.out
-	grep -F 'mode=0100600' $(SCRATCH_DIR)/nextufs_meta_probe.out
-	grep -F 'uid=123 gid=456' $(SCRATCH_DIR)/nextufs_meta_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-meta.raw /private/tmp/nextufs-meta-test >$(SCRATCH_DIR)/nextufs_meta_inspect.out
+	grep -F 'mode=0100600' $(SCRATCH_DIR)/nextufs_meta_inspect.out
+	grep -F 'uid=123 gid=456' $(SCRATCH_DIR)/nextufs_meta_inspect.out
 	dd if=$(SCRATCH_DIR)/nextufs-meta.raw of=$(SCRATCH_DIR)/nextufs-meta-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-meta-a.raw >$(SCRATCH_DIR)/nextufs_meta_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_meta_fsck.out
@@ -293,10 +290,10 @@ test-rename: all
 	./nextufs mkfile --rename $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/file /private/tmp/nextufs-rename-b/existing
 	./nextufs mkfile --mkdir $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-a/subdir
 	./nextufs mkfile --rename $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-a/subdir /private/tmp/nextufs-rename-b/subdir
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/existing >$(SCRATCH_DIR)/nextufs_rename_probe_file.out
-	grep -F 'rename payload' $(SCRATCH_DIR)/nextufs_rename_probe_file.out
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/subdir >$(SCRATCH_DIR)/nextufs_rename_probe_dir.out
-	grep -F "lookup '/private/tmp/nextufs-rename-b/subdir':" $(SCRATCH_DIR)/nextufs_rename_probe_dir.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/existing >$(SCRATCH_DIR)/nextufs_rename_inspect_file.out
+	grep -F 'rename payload' $(SCRATCH_DIR)/nextufs_rename_inspect_file.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-rename.raw /private/tmp/nextufs-rename-b/subdir >$(SCRATCH_DIR)/nextufs_rename_inspect_dir.out
+	grep -F "lookup '/private/tmp/nextufs-rename-b/subdir':" $(SCRATCH_DIR)/nextufs_rename_inspect_dir.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rename-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-rename.raw $(SCRATCH_DIR)/nextufs-rename-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rename_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -318,12 +315,12 @@ test-truncate: all
 	printf '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0' >$(SCRATCH_DIR)/nextufs-zero-16.bin
 	printf 'tail' >$(SCRATCH_DIR)/nextufs-tail.bin
 	./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate $(SCRATCH_DIR)/nextufs-truncate-input.bin
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate >$(SCRATCH_DIR)/nextufs_truncate_probe_big.out
-	grep -F 'size=120000' $(SCRATCH_DIR)/nextufs_truncate_probe_big.out
-	grep -E 'indirect blocks: [0-9]' $(SCRATCH_DIR)/nextufs_truncate_probe_big.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate >$(SCRATCH_DIR)/nextufs_truncate_inspect_big.out
+	grep -F 'size=120000' $(SCRATCH_DIR)/nextufs_truncate_inspect_big.out
+	grep -E 'indirect blocks: [0-9]' $(SCRATCH_DIR)/nextufs_truncate_inspect_big.out
 	./nextufs mkfile --truncate $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate 4096
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate >$(SCRATCH_DIR)/nextufs_truncate_probe_small.out
-	grep -F 'size=4096' $(SCRATCH_DIR)/nextufs_truncate_probe_small.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate >$(SCRATCH_DIR)/nextufs_truncate_inspect_small.out
+	grep -F 'size=4096' $(SCRATCH_DIR)/nextufs_truncate_inspect_small.out
 	./nextufs mkfile --truncate $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate 16384
 	./nextufs mkfile --pwrite $(SCRATCH_DIR)/nextufs-truncate.raw /private/tmp/nextufs-truncate 12288 tail
 	mkdir -p $(SCRATCH_DIR)/nextufs-truncate-mnt
@@ -349,9 +346,9 @@ test-special: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-special.raw
 	./nextufs mkfile --mknod $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-fifo 010644 0
 	./nextufs mkfile --mknod $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-char 020600 259
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-char >$(SCRATCH_DIR)/nextufs_special_probe_char.out
-	grep -F 'mode=020600' $(SCRATCH_DIR)/nextufs_special_probe_char.out
-	grep -F 'rdev:         259' $(SCRATCH_DIR)/nextufs_special_probe_char.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-special.raw /private/tmp/nextufs-special-char >$(SCRATCH_DIR)/nextufs_special_inspect_char.out
+	grep -F 'mode=020600' $(SCRATCH_DIR)/nextufs_special_inspect_char.out
+	grep -F 'rdev:         259' $(SCRATCH_DIR)/nextufs_special_inspect_char.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-special-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-special.raw $(SCRATCH_DIR)/nextufs-special-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_special_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -393,9 +390,9 @@ test-fuse-write: all
 		fusermount3 -u $(SCRATCH_DIR)/nextufs-fuse-write-mnt; \
 		wait $$pid || true; \
 		trap - EXIT INT TERM
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-fuse-write.raw /private/tmp/nextufs-fuse-write-renamed >$(SCRATCH_DIR)/nextufs_fuse_write_probe.out
-	grep -F 'size=14000' $(SCRATCH_DIR)/nextufs_fuse_write_probe.out
-	grep -F 'hello+world' $(SCRATCH_DIR)/nextufs_fuse_write_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-fuse-write.raw /private/tmp/nextufs-fuse-write-renamed >$(SCRATCH_DIR)/nextufs_fuse_write_inspect.out
+	grep -F 'size=14000' $(SCRATCH_DIR)/nextufs_fuse_write_inspect.out
+	grep -F 'hello+world' $(SCRATCH_DIR)/nextufs_fuse_write_inspect.out
 	dd if=$(SCRATCH_DIR)/nextufs-fuse-write.raw of=$(SCRATCH_DIR)/nextufs-fuse-write-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-fuse-write-a.raw >$(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_fuse_write_fsck.out
@@ -418,13 +415,13 @@ test-permissions: all
 	if ./nextufs mkfile --policy user --uid 1001 --gid 1001 --rename $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim /private/tmp/nextufs-sticky/victim2; then exit 1; fi
 	if ./nextufs mkfile --policy user --uid 40000 --gid 0 $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow x; then exit 1; fi
 	if ./nextufs mkfile --policy user --uid 0 --gid 0 --chown $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file 40000 0; then exit 1; fi
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file >$(SCRATCH_DIR)/nextufs_permissions_probe.out
-	grep -F 'mode=0100755' $(SCRATCH_DIR)/nextufs_permissions_probe.out
-	grep -F 'uid=1000 gid=333' $(SCRATCH_DIR)/nextufs_permissions_probe.out
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim >$(SCRATCH_DIR)/nextufs_permissions_victim_probe.out
-	grep -F "lookup '/private/tmp/nextufs-sticky/victim':" $(SCRATCH_DIR)/nextufs_permissions_victim_probe.out
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow >$(SCRATCH_DIR)/nextufs_permissions_overflow_probe.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-overflow' failed" $(SCRATCH_DIR)/nextufs_permissions_overflow_probe.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-perm-file >$(SCRATCH_DIR)/nextufs_permissions_inspect.out
+	grep -F 'mode=0100755' $(SCRATCH_DIR)/nextufs_permissions_inspect.out
+	grep -F 'uid=1000 gid=333' $(SCRATCH_DIR)/nextufs_permissions_inspect.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim >$(SCRATCH_DIR)/nextufs_permissions_victim_inspect.out
+	grep -F "lookup '/private/tmp/nextufs-sticky/victim':" $(SCRATCH_DIR)/nextufs_permissions_victim_inspect.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow >$(SCRATCH_DIR)/nextufs_permissions_overflow_inspect.out 2>&1
+	grep -F "lookup '/private/tmp/nextufs-overflow' failed" $(SCRATCH_DIR)/nextufs_permissions_overflow_inspect.out
 	dd if=$(SCRATCH_DIR)/nextufs-permissions.raw of=$(SCRATCH_DIR)/nextufs-permissions-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-permissions-a.raw >$(SCRATCH_DIR)/nextufs_permissions_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_permissions_fsck.out
@@ -435,15 +432,15 @@ test-failure: all
 	dd if=/dev/zero of=$(SCRATCH_DIR)/nextufs-too-big.bin bs=1000000 count=6 status=none
 	./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /seed $(SCRATCH_DIR)/nextufs-seed.bin
 	if ./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /too-big $(SCRATCH_DIR)/nextufs-too-big.bin; then exit 1; fi
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /too-big >$(SCRATCH_DIR)/nextufs_failure_too_big_probe.out 2>&1
-	grep -F "lookup '/too-big' failed" $(SCRATCH_DIR)/nextufs_failure_too_big_probe.out
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_probe_before.out
-	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_probe_before.out
-	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_probe_before.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /too-big >$(SCRATCH_DIR)/nextufs_failure_too_big_inspect.out 2>&1
+	grep -F "lookup '/too-big' failed" $(SCRATCH_DIR)/nextufs_failure_too_big_inspect.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_inspect_before.out
+	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_inspect_before.out
+	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_inspect_before.out
 	if ./nextufs mkfile --truncate $(SCRATCH_DIR)/nextufs-failure.raw /seed 6000000; then exit 1; fi
-	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
-	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
-	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_probe_after.out
+	./nextufs inspect $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_inspect_after.out
+	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_inspect_after.out
+	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_inspect_after.out
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-failure.raw >$(SCRATCH_DIR)/nextufs_failure_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
@@ -476,8 +473,8 @@ test-stress-fuse: all
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out
 
 clean:
-	rm -f nextufs_probe nextufs_probe.o nextufs nextufs_cli.o \
-		nextufs_fuse.o nextufs_fuse_cli.o nextufs_probe_cli.o \
+	rm -f nextufs nextufs_cli.o \
+		nextufs_fuse.o nextufs_fuse_cli.o nextufs_cmd_inspect.o \
 		nextufs_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
 		nextufs_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
 		mkimg_format_io.o $(FSCK_OBJS) \

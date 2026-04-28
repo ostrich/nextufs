@@ -92,7 +92,7 @@ print_data_preview(const uint8_t *buf, size_t size)
 }
 
 int
-nextufs_probe_main(int argc, char **argv)
+nextufs_inspect_main(int argc, char **argv)
 {
 	struct nextufs_image img;
 	struct nextufs_inspect_info info;
@@ -166,6 +166,6 @@ nextufs_probe_main(int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-	return nextufs_probe_main(argc, argv);
+	return nextufs_inspect_main(argc, argv);
 }
 #endif

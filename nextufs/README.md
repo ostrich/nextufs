@@ -1,14 +1,14 @@
 # nextufs
 
-`nextufs` provides the shared filesystem library used by the probe tool, the
-FUSE frontend, and the offline mutation utilities.
+`nextufs` provides the unified command-line interface, shared filesystem
+library, FUSE frontend, and offline mutation utilities.
 
 ## Programs
 
-- `nextufs_probe`: inspect a filesystem source and resolve paths
-- `nextufs`: mount a source through FUSE
-- `nextufs_mkfile`: offline mutation tool used by tests and development
-- `nextufs_stress`: deterministic mutation stress harness
+- `nextufs inspect`: inspect a filesystem source and resolve paths
+- `nextufs mount`: mount a source through FUSE
+- `nextufs mkfile`: offline mutation tool used by tests and development
+- `nextufs stress`: deterministic mutation stress harness
 - `nextufs_test`: library regression binary
 
 ## Supported Sources
@@ -28,24 +28,24 @@ make -f Makefile.linux
 
 ## Examples
 
-Probe a source:
+Inspect a source:
 
 ```sh
-./nextufs_probe /path/to/source
-./nextufs_probe /path/to/source /etc/passwd
+./nextufs inspect /path/to/source
+./nextufs inspect /path/to/source /etc/passwd
 ```
 
 Mount a source read-only:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
-./nextufs /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
 Mount a source read-write:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o rw -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -o rw -f -s
 ```
 
 ## FUSE Modes
@@ -63,42 +63,42 @@ Mount a source read-write:
 Default mount behavior is read-only:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -f -s
 ```
 
 Read-write superuser mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
 ```
 
 Read-write user mode:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=user -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -o rw,mode=user -f -s
 ```
 
 Read-only user mode with explicit identity:
 
 ```sh
-./nextufs /path/to/source /tmp/nextufs-mnt -o ro,mode=user,uid=1000,gid=1000 -f -s
+./nextufs mount /path/to/source /tmp/nextufs-mnt -o ro,mode=user,uid=1000,gid=1000 -f -s
 ```
 
 Apply an offline mutation:
 
 ```sh
-./nextufs_mkfile --policy user --uid 1000 --gid 100 \
+./nextufs mkfile --policy user --uid 1000 --gid 100 \
   --chmod /path/to/source /private/tmp/example 0600
 ```
 
 Run stress:
 
 ```sh
-./nextufs_stress --seed 0x13579bdf --ops 250 /path/to/source
-./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 /path/to/source
+./nextufs stress --seed 0x13579bdf --ops 250 /path/to/source
+./nextufs stress --backend fuse --seed 0x13579bdf --ops 120 /path/to/source
 ```
 
-Warning: `nextufs_stress` intentionally performs destructive mutations. Never
+Warning: `nextufs stress` intentionally performs destructive mutations. Never
 run it against an original image, a preserved baseline, or a snapshot chain you
 care about. Use only disposable copies.
 

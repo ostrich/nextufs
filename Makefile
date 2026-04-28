@@ -51,7 +51,6 @@ install: nextufs
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/nextufs"
-	rm -f "$(DESTDIR)$(bindir)/nextufs_probe"
 	rm -f "$(DESTDIR)$(bindir)/nextufs.fsck"
 	rm -f "$(DESTDIR)$(bindir)/nextufs.mkimg"
 	rm -f "$(DESTDIR)$(bindir)/nextufs.resize"

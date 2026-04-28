@@ -3,7 +3,7 @@
 `nextufs` is a small toolchain for working with NEXTSTEP/OPENSTEP UFS filesystems.
 It includes:
 
-- `nextufs/`: shared library, probe tool, writable FUSE frontend, and stress tools
+- `nextufs/`: unified CLI, shared library, writable FUSE frontend, and stress tools
 - `nextufs.fsck/`: filesystem checker and repair tool
 - `nextufs.mkimg/`: labeled disk-image creator
 - `nextufs.resize/`: offline grow-only image resizer

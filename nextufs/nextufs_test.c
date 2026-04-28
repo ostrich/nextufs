@@ -71,7 +71,7 @@ int
 main(int argc, char **argv)
 {
 	struct nextufs_image img;
-	struct nextufs_probe_info probe;
+	struct nextufs_image_info image_info;
 	struct nextufs_node root;
 	struct nextufs_node node;
 	struct stat st;
@@ -87,11 +87,12 @@ main(int argc, char **argv)
 	}
 	if (nextufs_image_open(&img, argv[1]) < 0)
 		fail("open_image failed");
-	nextufs_probe_info_get(&img, &probe);
-	if (!probe.used_disk_label)
-		fail("expected disklabel-backed probe");
-	if (probe.label_version == 0 || probe.slice_base <= 0 || probe.slice_size <= 0)
-		fail("probe info incomplete");
+	nextufs_image_info_get(&img, &image_info);
+	if (!image_info.used_disk_label)
+		fail("expected disklabel-backed image info");
+	if (image_info.label_version == 0 || image_info.slice_base <= 0 ||
+	    image_info.slice_size <= 0)
+		fail("image info incomplete");
 
 	if (nextufs_node_get_root(&img, &root) < 0)
 		fail("get_root failed");

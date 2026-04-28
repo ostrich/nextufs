@@ -117,7 +117,7 @@ enum nextufs_target_access {
 	NEXTUFS_TARGET_OVERWRITE = 1,
 };
 
-struct nextufs_probe_info {
+struct nextufs_image_info {
 	off_t image_size;
 	off_t slice_base;
 	off_t slice_size;
@@ -163,8 +163,8 @@ int nextufs_image_pwrite(const struct nextufs_image *img, const void *buf,
 	size_t size, off_t offset);
 int nextufs_image_fsync(const struct nextufs_image *img);
 int nextufs_source_extract_slice(const char *source_path, int out_fd);
-void nextufs_probe_info_get(const struct nextufs_image *img,
-	struct nextufs_probe_info *info);
+void nextufs_image_info_get(const struct nextufs_image *img,
+	struct nextufs_image_info *info);
 int nextufs_node_get_root(const struct nextufs_image *img,
 	struct nextufs_node *node);
 int nextufs_node_get_by_inode(const struct nextufs_image *img, unsigned inode_no,

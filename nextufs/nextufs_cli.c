@@ -8,7 +8,7 @@ int nextufs_fsck_main(int argc, char **argv);
 int nextufs_mount_main(int argc, char **argv);
 int nextufs_mkfile_main(int argc, char **argv);
 int nextufs_mkimg_main(int argc, char **argv);
-int nextufs_probe_main(int argc, char **argv);
+int nextufs_inspect_main(int argc, char **argv);
 int nextufs_resize_main(int argc, char **argv);
 int nextufs_stress_main(int argc, char **argv);
 
@@ -101,7 +101,7 @@ dispatch_command(int argc, char **argv)
 	if (strcmp(cmd, "fsck") == 0)
 		return nextufs_fsck_main(argc, argv);
 	if (strcmp(cmd, "inspect") == 0)
-		return nextufs_probe_main(argc, argv);
+		return nextufs_inspect_main(argc, argv);
 	if (strcmp(cmd, "mkfile") == 0)
 		return nextufs_mkfile_main(argc, argv);
 	if (strcmp(cmd, "mkimg") == 0)

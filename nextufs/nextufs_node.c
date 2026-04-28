@@ -7,8 +7,8 @@
 #include <time.h>
 
 void
-nextufs_probe_info_get(const struct nextufs_image *img,
-    struct nextufs_probe_info *info)
+nextufs_image_info_get(const struct nextufs_image *img,
+    struct nextufs_image_info *info)
 {
 	memset(info, 0, sizeof(*info));
 	info->image_size = img->image_size;
