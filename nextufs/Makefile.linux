@@ -8,7 +8,7 @@ MKIMG_BIN = ../nextufs.mkimg/nextufs.mkimg
 FUSE_CFLAGS != pkg-config --cflags fuse3
 FUSE_LIBS != pkg-config --libs fuse3
 LIB_SRCS = nextufs_image.c nextufs_directory.c nextufs_path.c nextufs_node.c \
-	nextufs_layout.c nextufs_alloc.c
+	nextufs_layout.c nextufs_alloc.c nextufs_label.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 LIB = libnextufs.a
 WRITE_SRCS = nextufs_dir_mutate.c nextufs_mutate.c

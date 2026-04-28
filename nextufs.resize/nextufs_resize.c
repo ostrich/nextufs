@@ -1,5 +1,6 @@
 #include "../nextufs/nextufs.h"
 #include "../nextufs/nextufs_internal.h"
+#include "../nextufs/nextufs_label.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,27 +15,6 @@
 
 #define RESIZE_COMPAT_MAX_BYTES UINT64_C(4294836224)
 #define UFS_DISK_SECTOR_SIZE 512U
-#define SECTOR_SIZE 512U
-#define LABEL_SCAN_LIMIT (128U * 1024U)
-#define LABEL_PART_COUNT 8
-#define LABEL_FSTYPE_LEN 8U
-#define LABEL_DECODE_SIZE 0x660U
-#define DL_V1 0x4e655854U
-#define DL_V2 0x646c5632U
-#define DL_V3 0x646c5633U
-#define DL_DISKTAB_OFF 0x02cU
-#define DL_V3_CKSUM_OFF 0x022eU
-#define DL_V3_CKSUM_SIZE 0x0230U
-#define DT_ROOTPART_OFF 0x090U
-#define DT_PARTITIONS_OFF 0x094U
-#define DT_PARTITION_SIZE 0x040U
-#define PART_BASE_OFF 0x00U
-#define PART_SIZE_OFF 0x03U
-#define PART_BSIZE_OFF 0x06U
-#define PART_FSIZE_OFF 0x08U
-#define PART_TYPE_OFF 0x23U
-#define PART_UNUSED_BASE 0xffffffffU
-#define PART_UNUSED_SIZE 0xffffffU
 #define CSUM_SIZE 16U
 #define SB_SIZE_OFF 0x24U
 #define SB_DSIZE_OFF 0x28U
@@ -61,20 +41,6 @@ struct image_open_result {
 
 static int write_csum_entry(struct nextufs_image *img, uint32_t cg,
     int32_t ndir, int32_t nbfree, int32_t nifree, int32_t nffree);
-
-static uint32_t
-read_be24(const uint8_t *p)
-{
-	return ((uint32_t)p[0] << 16) | ((uint32_t)p[1] << 8) | (uint32_t)p[2];
-}
-
-static void
-write_be24(uint8_t *p, uint32_t v)
-{
-	p[0] = (uint8_t)(v >> 16);
-	p[1] = (uint8_t)(v >> 8);
-	p[2] = (uint8_t)v;
-}
 
 static void
 usage(FILE *out, const char *argv0)
@@ -138,106 +104,11 @@ open_supported_image(struct image_open_result *out, const char *path, int writab
 }
 
 static int
-label_partition_present(const uint8_t *part)
-{
-	uint32_t base = read_be24(part + PART_BASE_OFF);
-	uint32_t size = read_be24(part + PART_SIZE_OFF);
-	uint16_t bsize = nextufs__read_be16(part + PART_BSIZE_OFF);
-	uint16_t fsize = nextufs__read_be16(part + PART_FSIZE_OFF);
-	const uint8_t *type = part + PART_TYPE_OFF;
-	size_t i;
-	int type_empty = 1;
-
-	for (i = 0; i < LABEL_FSTYPE_LEN; i++) {
-		if (type[i] != '\0') {
-			type_empty = 0;
-			break;
-		}
-	}
-	if (base == PART_UNUSED_BASE || size == 0 || size == PART_UNUSED_SIZE ||
-	    bsize == 0 || bsize == 0xffffU || fsize == 0 || fsize == 0xffffU ||
-	    type_empty)
-		return 0;
-	return 1;
-}
-
-static int
-validate_single_slice_label_copy(const struct nextufs_image *img, off_t label_off,
-    int *matched_out)
-{
-	uint8_t label[LABEL_DECODE_SIZE];
-	const uint8_t *dt;
-	const uint8_t *root_part;
-	uint32_t version;
-	uint32_t label_blkno;
-	uint32_t secsize;
-	uint16_t front;
-	char rootpartition;
-	int root_index;
-	int present_count = 0;
-	int i;
-	int rc;
-
-	*matched_out = 0;
-	rc = nextufs__read_exact_fd(img->fd, label, sizeof(label), label_off);
-	if (rc < 0)
-		return rc;
-	version = nextufs__read_be32(label);
-	if (version != DL_V1 && version != DL_V2 && version != DL_V3)
-		return 0;
-	label_blkno = nextufs__read_be32(label + 0x04);
-	if ((uint64_t)label_blkno * SECTOR_SIZE != (uint64_t)label_off)
-		return 0;
-	dt = label + DL_DISKTAB_OFF;
-	secsize = nextufs__read_be16(dt + 0x032);
-	front = nextufs__read_be16(dt + 0x044);
-	rootpartition = (char)dt[DT_ROOTPART_OFF];
-	if (rootpartition < 'a' || rootpartition >= 'a' + LABEL_PART_COUNT)
-		return -EINVAL;
-	root_index = rootpartition - 'a';
-	for (i = 0; i < LABEL_PART_COUNT; i++) {
-		const uint8_t *part = dt + DT_PARTITIONS_OFF +
-		    ((size_t)i * DT_PARTITION_SIZE);
-
-		if (label_partition_present(part))
-			present_count++;
-	}
-	root_part = dt + DT_PARTITIONS_OFF +
-	    ((size_t)root_index * DT_PARTITION_SIZE);
-	if (!label_partition_present(root_part))
-		return -EINVAL;
-	if (present_count != 1)
-		return -ENOTSUP;
-	if (strcmp((const char *)(root_part + PART_TYPE_OFF), "4.3BSD") != 0)
-		return -ENOTSUP;
-	if (((uint64_t)front + read_be24(root_part + PART_BASE_OFF)) *
-	    secsize != (uint64_t)img->slice_base)
-		return -EINVAL;
-	*matched_out = 1;
-	return 0;
-}
-
-static int
 validate_labeled_grow_layout(const struct nextufs_image *img)
 {
-	off_t off;
-	int matched = 0;
-	int rc;
-
 	if (!img->used_disk_label)
 		return 0;
-	for (off = 0; off + LABEL_DECODE_SIZE <= LABEL_SCAN_LIMIT;
-	    off += SECTOR_SIZE) {
-		int copy_matched;
-
-		rc = validate_single_slice_label_copy(img, off, &copy_matched);
-		if (rc < 0)
-			return rc;
-		matched += copy_matched;
-	}
-	if (matched == 0)
-		return -EINVAL;
-	return 0;
+	return nextufs_label_validate_single_slice_fd(img->fd, img->slice_base);
 }
 
 static uint64_t
@@ -524,20 +395,6 @@ reserve_summary_extension(struct nextufs_image *img, uint32_t new_cssize,
 	return 0;
 }
 
-static uint16_t
-checksum_be16(const uint8_t *buf, size_t size)
-{
-	uint32_t sum = 0;
-	size_t i;
-
-	for (i = 0; i + 1 < size; i += 2) {
-		sum += nextufs__read_be16(buf + i);
-		if (sum > 65535U)
-			sum -= 65535U;
-	}
-	return (uint16_t)sum;
-}
-
 static uint32_t
 inode_direct_frags(const struct nextufs_image *img, const struct nextufs_inode *ino,
     uint32_t slot)
@@ -684,81 +541,17 @@ evacuate_summary_extension_range(struct nextufs_image *img, uint32_t new_cssize,
 }
 
 static int
-patch_one_label_partition_size(const struct nextufs_image *img, off_t label_off,
-    uint64_t slice_bytes, int *patched_out)
-{
-	uint8_t label[LABEL_DECODE_SIZE];
-	uint8_t tmp[DL_V3_CKSUM_SIZE];
-	uint8_t *dt;
-	uint8_t *part;
-	uint32_t version;
-	uint32_t label_blkno;
-	uint32_t secsize;
-	uint16_t front;
-	uint32_t size_blocks;
-	char rootpartition;
-	int part_index;
-	int rc;
-
-	*patched_out = 0;
-	rc = nextufs__read_exact_fd(img->fd, label, sizeof(label), label_off);
-	if (rc < 0)
-		return rc;
-	version = nextufs__read_be32(label);
-	if (version != DL_V1 && version != DL_V2 && version != DL_V3)
-		return 0;
-	label_blkno = nextufs__read_be32(label + 0x04);
-	if ((uint64_t)label_blkno * SECTOR_SIZE != (uint64_t)label_off)
-		return 0;
-	dt = label + DL_DISKTAB_OFF;
-	secsize = nextufs__read_be16(dt + 0x032);
-	front = nextufs__read_be16(dt + 0x044);
-	rootpartition = (char)dt[DT_ROOTPART_OFF];
-	if (rootpartition < 'a' || rootpartition >= 'a' + LABEL_PART_COUNT ||
-	    secsize == 0 || (slice_bytes % secsize) != 0)
-		return 0;
-	size_blocks = (uint32_t)(slice_bytes / secsize);
-	if (size_blocks > 0xffffffU)
-		return -EFBIG;
-	part_index = rootpartition - 'a';
-	part = dt + DT_PARTITIONS_OFF + ((size_t)part_index * DT_PARTITION_SIZE);
-	if (((uint64_t)front + read_be24(part + PART_BASE_OFF)) * secsize !=
-	    (uint64_t)img->slice_base)
-		return 0;
-	write_be24(part + PART_SIZE_OFF, size_blocks);
-	if (version == DL_V3) {
-		memcpy(tmp, label, sizeof(tmp));
-		memset(tmp + 0x04, 0, 4);
-		memset(tmp + DL_V3_CKSUM_OFF, 0, 2);
-		nextufs__write_be16(label + DL_V3_CKSUM_OFF,
-		    checksum_be16(tmp, sizeof(tmp)));
-	}
-	rc = nextufs__write_exact_fd(img->fd, label, sizeof(label), label_off);
-	if (rc == 0)
-		*patched_out = 1;
-	return rc;
-}
-
-static int
 patch_label_partition_size(const struct nextufs_image *img, uint64_t slice_bytes)
 {
-	off_t off;
 	int patched = 0;
 	int rc;
 
 	if (!img->used_disk_label)
 		return 0;
-	for (off = 0; off + LABEL_DECODE_SIZE <= LABEL_SCAN_LIMIT;
-	    off += SECTOR_SIZE) {
-		int did_patch;
-
-		rc = patch_one_label_partition_size(img, off, slice_bytes, &did_patch);
-		if (rc < 0)
-			return rc;
-		patched += did_patch;
-	}
-	if (patched == 0)
-		return -EINVAL;
+	rc = nextufs_label_patch_slice_size_fd(img->fd, img->slice_base,
+	    slice_bytes, &patched);
+	if (rc < 0)
+		return rc;
 	printf("nextufs.resize: updated %d disk label copies\n", patched);
 	return 0;
 }

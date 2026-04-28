@@ -3,11 +3,14 @@ CFLAGS ?= -O2 -g -std=gnu99 -Wall -Wextra -Werror
 FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
 FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Iinclude
 
+.NOTPARALLEL:
+
 BIN = nextufs.mkimg
 FSCK_BIN = ../nextufs.fsck/nextufs.fsck
 FORMAT_SRCS = format/format.c format/format_fsinit.c format/format_io.c
 FORMAT_OBJS = $(FORMAT_SRCS:format/%.c=%.o)
-OBJS = nextufs_mkimg.o label.o $(FORMAT_OBJS)
+OBJS = nextufs_mkimg.o $(FORMAT_OBJS)
+NEXTUFS_LIB = ../nextufs/libnextufs.a
 SCRATCH_DIR = $(CURDIR)/.scratch
 
 .PHONY: all clean test scratch-dir fsck-tool probe-tool resize-tool
@@ -28,14 +31,14 @@ resize-tool:
 
 resize-tool: fsck-tool
 
-$(BIN): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS)
+$(BIN): $(OBJS) $(NEXTUFS_LIB)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(NEXTUFS_LIB)
 
-nextufs_mkimg.o: nextufs_mkimg.c format/format.h label.h
-	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -c -o $@ nextufs_mkimg.c
+nextufs_mkimg.o: nextufs_mkimg.c format/format.h ../nextufs/nextufs_label.h
+	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -I../nextufs -c -o $@ nextufs_mkimg.c
 
-label.o: label.c label.h
-	$(CC) $(CFLAGS) -c -o $@ label.c
+$(NEXTUFS_LIB): ../nextufs/nextufs_label.c ../nextufs/nextufs_label.h
+	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
 
 %.o: format/%.c format/format.h
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -c -o $@ $<

@@ -1,7 +1,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "format.h"
-#include "label.h"
+#include "nextufs_label.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -304,9 +304,11 @@ main(int argc, char **argv)
 		return 0;
 	if (create_output(&opts) < 0)
 		return 1;
-	if (!opts.raw && nextufs_label_write(opts.target, opts.bytes,
-	    slice_bytes, opts.label) < 0)
+	if (!opts.raw && nextufs_label_write_path(opts.target, opts.bytes,
+	    slice_bytes, opts.label) < 0) {
+		fprintf(stderr, "nextufs.mkimg: failed to write disk label\n");
 		return 1;
+	}
 
 	return nextufs_format(&fmt);
 }
