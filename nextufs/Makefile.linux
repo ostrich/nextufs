@@ -1,7 +1,7 @@
 CC = cc
 CFLAGS = -I. -O2 -g -std=gnu99 -Wall -Wextra -Werror
 FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
-FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Iformat/include \
+FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Imkimg_format/include \
 	-Disblock=mkimg_isblock -Dclrblock=mkimg_clrblock \
 	-Dsetblock=mkimg_setblock -Dswap_superblock=mkimg_swap_superblock
 FSCK_CFLAGS ?= -O2 -g -std=gnu99 -fcommon -Wall -Wextra
@@ -77,19 +77,19 @@ commands/cmd_mkfile_cli.o: commands/cmd_mkfile.c
 
 commands/cmd_mkimg.o: commands/cmd_mkimg.c
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -DNEXTUFS_NO_STANDALONE \
-		-Iformat -I. -c -o $@ $<
+		-Imkimg_format -I. -c -o $@ $<
 
 commands/cmd_resize.o: commands/cmd_resize.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
-mkimg_format.o: format/format.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
+mkimg_format.o: mkimg_format/format.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Imkimg_format -c -o $@ $<
 
-mkimg_format_fsinit.o: format/format_fsinit.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
+mkimg_format_fsinit.o: mkimg_format/format_fsinit.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Imkimg_format -c -o $@ $<
 
-mkimg_format_io.o: format/format_io.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
+mkimg_format_io.o: mkimg_format/format_io.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Imkimg_format -c -o $@ $<
 
 fsck_%.o: ../nextufs.fsck/%.c
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
