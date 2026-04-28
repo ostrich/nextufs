@@ -83,13 +83,13 @@ Mount through FUSE. Mounts are read-only by default:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
-nextufs mount /path/to/source /tmp/nextufs-mnt -f -s
+nextufs mount /path/to/source /tmp/nextufs-mnt
 ```
 
 Request a writable mount explicitly:
 
 ```sh
-nextufs mount /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
+nextufs mount /path/to/source /tmp/nextufs-mnt -o rw,mode=su
 ```
 
 Check or repair a filesystem:

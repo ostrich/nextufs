@@ -127,9 +127,9 @@ Override the gid used for permission checks in
 .Pp
 Examples:
 .Bd -literal -offset indent
-nextufs mount image.img /mnt/nextufs -f -s
-nextufs mount image.img /mnt/nextufs -o rw,mode=su -f -s
-nextufs mount image.img /mnt/nextufs -o mode=user,uid=1000,gid=100 -f -s
+nextufs mount image.img /mnt/nextufs
+nextufs mount image.img /mnt/nextufs -o rw,mode=su
+nextufs mount image.img /mnt/nextufs -o mode=user,uid=1000,gid=100
 .Ed
 .Ss fsck
 .Bd -literal -offset indent
@@ -445,12 +445,12 @@ nextufs browse disk.img /etc/passwd
 Mount read-only:
 .Bd -literal -offset indent
 mkdir -p /tmp/nextufs-mnt
-nextufs mount disk.img /tmp/nextufs-mnt -f -s
+nextufs mount disk.img /tmp/nextufs-mnt
 .Ed
 .Pp
 Mount read-write with superuser-style policy:
 .Bd -literal -offset indent
-nextufs mount disk.img /tmp/nextufs-mnt -o rw,mode=su -f -s
+nextufs mount disk.img /tmp/nextufs-mnt -o rw,mode=su
 .Ed
 .Pp
 Check without modifying:
