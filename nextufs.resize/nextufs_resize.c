@@ -1,4 +1,5 @@
 #include "../nextufs/nextufs.h"
+#include "../nextufs/nextufs_inspect.h"
 #include "../nextufs/nextufs_internal.h"
 #include "../nextufs/nextufs_label.h"
 #include "../nextufs/nextufs_size.h"
@@ -763,8 +764,7 @@ cmd_analyze(const char *path)
 {
 	struct image_open_result opened;
 	struct nextufs_image *img;
-	uint64_t fs_size;
-	uint64_t slack;
+	struct nextufs_inspect_info info;
 	int rc;
 
 	rc = open_supported_image(&opened, path, 0);
@@ -773,37 +773,34 @@ cmd_analyze(const char *path)
 		return 1;
 	}
 	img = &opened.img;
-
-	fs_size = (uint64_t)img->sb.frag_count * img->sb.frag_size;
-	slack = (uint64_t)img->slice_size > fs_size ?
-	    (uint64_t)img->slice_size - fs_size : 0;
+	nextufs_inspect_collect(img, opened.backing_size, &info);
 
 	printf("source: %s\n", path);
 	printf("source kind:                   %s\n",
-	    opened.labeled ? "labeled disk image" : "raw filesystem image");
-	print_size_line("backing file size:", opened.backing_size);
-	if (opened.labeled) {
-		print_size_line("slice base:", (uint64_t)img->slice_base);
-		print_size_line("slice size:", (uint64_t)img->slice_size);
-		printf("root partition:               %c\n", img->rootpartition);
+	    nextufs_inspect_source_kind(&info));
+	print_size_line("backing file size:", info.backing_bytes);
+	if (info.used_disk_label) {
+		print_size_line("slice base:", info.slice_base);
+		print_size_line("slice size:", info.slice_bytes);
+		printf("root partition:               %c\n", info.rootpartition);
 	}
-	print_size_line("filesystem size:", fs_size);
-	print_size_line("trailing unused slice space:", slack);
+	print_size_line("filesystem size:", info.filesystem_bytes);
+	print_size_line("trailing unused slice space:", info.trailing_slice_slack);
 	print_size_line("compatibility ceiling:", NEXTUFS_COMPAT_MAX_BYTES);
-	printf("block size:                   %" PRIu32 "\n", img->sb.block_size);
-	printf("fragment size:                %" PRIu32 "\n", img->sb.frag_size);
-	printf("fragments/block:              %" PRIu32 "\n", img->sb.frags_per_block);
-	printf("cylinder groups:              %" PRIu32 "\n", img->sb.cg_count);
+	printf("block size:                   %" PRIu32 "\n", info.sb.block_size);
+	printf("fragment size:                %" PRIu32 "\n", info.sb.frag_size);
+	printf("fragments/block:              %" PRIu32 "\n", info.sb.frags_per_block);
+	printf("cylinder groups:              %" PRIu32 "\n", info.sb.cg_count);
 	printf("cylinder-summary capacity:    %" PRIu64 " groups\n",
-	    (uint64_t)img->sb.csum_size / CSUM_SIZE);
-	printf("fragments/group:              %" PRIu32 "\n", img->sb.frags_per_group);
-	printf("inodes/group:                 %" PRIu32 "\n", img->sb.inodes_per_group);
-	printf("cylinders/group:              %" PRIu32 "\n", img->sb.cpg);
-	printf("cylinders:                    %" PRIu32 "\n", img->sb.ncyl);
-	printf("data fragments:               %" PRIu32 "\n", img->sb.data_frag_count);
-	printf("free blocks:                  %" PRIu32 "\n", img->sb.free_block_count);
-	printf("free fragments:               %" PRIu32 "\n", img->sb.free_frag_count);
-	printf("free inodes:                  %" PRIu32 "\n", img->sb.free_inode_count);
+	    info.csum_capacity_groups);
+	printf("fragments/group:              %" PRIu32 "\n", info.sb.frags_per_group);
+	printf("inodes/group:                 %" PRIu32 "\n", info.sb.inodes_per_group);
+	printf("cylinders/group:              %" PRIu32 "\n", info.sb.cpg);
+	printf("cylinders:                    %" PRIu32 "\n", info.sb.ncyl);
+	printf("data fragments:               %" PRIu32 "\n", info.sb.data_frag_count);
+	printf("free blocks:                  %" PRIu32 "\n", info.sb.free_block_count);
+	printf("free fragments:               %" PRIu32 "\n", info.sb.free_frag_count);
+	printf("free inodes:                  %" PRIu32 "\n", info.sb.free_inode_count);
 
 	nextufs_image_close(img);
 	return 0;

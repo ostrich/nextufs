@@ -1,4 +1,5 @@
 #include "nextufs.h"
+#include "nextufs_inspect.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -9,29 +10,30 @@
 #define PREVIEW_BYTES 256
 
 static void
-print_superblock(const struct nextufs_image *img)
+print_superblock(const struct nextufs_inspect_info *info)
 {
-	printf("image size:            %jd bytes\n", (intmax_t)img->image_size);
+	const struct nextufs_superblock *sb = &info->sb;
+
+	printf("image size:            %" PRIu64 " bytes\n", info->image_bytes);
 	printf("slice base:            0x%jx (%jd)\n",
-	    (uintmax_t)img->slice_base, (intmax_t)img->slice_base);
+	    (uintmax_t)info->slice_base, (intmax_t)info->slice_base);
 	printf("superblock base:       0x%jx (%jd)\n",
-	    (uintmax_t)(img->slice_base + 0x2000),
-	    (intmax_t)(img->slice_base + 0x2000));
-	printf("superblock magic:      0x%08" PRIx32 "\n", img->sb.fs_magic);
-	printf("block size:            %" PRIu32 "\n", img->sb.block_size);
-	printf("fragment size:         %" PRIu32 "\n", img->sb.frag_size);
-	printf("frags/block:           %" PRIu32 "\n", img->sb.frags_per_block);
+	    (uintmax_t)info->superblock_base, (intmax_t)info->superblock_base);
+	printf("superblock magic:      0x%08" PRIx32 "\n", sb->fs_magic);
+	printf("block size:            %" PRIu32 "\n", sb->block_size);
+	printf("fragment size:         %" PRIu32 "\n", sb->frag_size);
+	printf("frags/block:           %" PRIu32 "\n", sb->frags_per_block);
 	printf("frags total/data:      %" PRIu32 " / %" PRIu32 "\n",
-	    img->sb.frag_count, img->sb.data_frag_count);
-	printf("cylinder groups:       %" PRIu32 "\n", img->sb.cg_count);
-	printf("cylinders/group:       %" PRIu32 "\n", img->sb.cpg);
-	printf("inodes/group:          %" PRIu32 "\n", img->sb.inodes_per_group);
-	printf("frags/group:           %" PRIu32 "\n", img->sb.frags_per_group);
-	printf("inodes/block:          %" PRIu32 "\n", img->sb.inodes_per_block);
-	printf("fsbtodb shift:         %" PRIu32 "\n", img->sb.fsbtodb);
-	printf("nindir:                %" PRIu32 "\n", img->sb.nindir);
+	    sb->frag_count, sb->data_frag_count);
+	printf("cylinder groups:       %" PRIu32 "\n", sb->cg_count);
+	printf("cylinders/group:       %" PRIu32 "\n", sb->cpg);
+	printf("inodes/group:          %" PRIu32 "\n", sb->inodes_per_group);
+	printf("frags/group:           %" PRIu32 "\n", sb->frags_per_group);
+	printf("inodes/block:          %" PRIu32 "\n", sb->inodes_per_block);
+	printf("fsbtodb shift:         %" PRIu32 "\n", sb->fsbtodb);
+	printf("nindir:                %" PRIu32 "\n", sb->nindir);
 	printf("optim/state:           %" PRIu32 " / %u\n",
-	    img->sb.optim, (unsigned)img->sb.state);
+	    sb->optim, (unsigned)sb->state);
 }
 
 static void
@@ -119,7 +121,7 @@ int
 main(int argc, char **argv)
 {
 	struct nextufs_image img;
-	struct nextufs_probe_info probe;
+	struct nextufs_inspect_info info;
 	struct nextufs_node node;
 	int rc;
 
@@ -133,14 +135,14 @@ main(int argc, char **argv)
 		return 1;
 	}
 	printf("source: %s\n", argv[1]);
-	nextufs_probe_info_get(&img, &probe);
-	if (probe.used_disk_label) {
+	nextufs_inspect_collect(&img, 0, &info);
+	if (info.used_disk_label) {
 		printf("disk label:            version=0x%08x off=0x%jx secsize=%u front=%u root=%c\n",
-		    probe.label_version, (uintmax_t)probe.label_off,
-		    probe.label_secsize, probe.label_front,
-		    probe.rootpartition ? probe.rootpartition : '?');
+		    info.label_version, (uintmax_t)info.label_off,
+		    info.label_secsize, info.label_front,
+		    info.rootpartition ? info.rootpartition : '?');
 	}
-	print_superblock(&img);
+	print_superblock(&info);
 	rc = nextufs_node_get_root(&img, &node);
 	if (rc < 0) {
 		nextufs_image_close(&img);
