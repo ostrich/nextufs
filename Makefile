@@ -43,7 +43,7 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=$(OBJ_DIR)/src/fsck/%.o)
-PUBLIC_HDRS = include/nextufs.h include/nextufs_image.h include/nextufs_node.h \
+PUBLIC_HDRS = include/nextufs_image.h include/nextufs_node.h \
 	include/nextufs_mutate.h include/nextufs_info.h include/nextufs_label.h \
 	include/nextufs_report.h include/nextufs_size.h
 INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
