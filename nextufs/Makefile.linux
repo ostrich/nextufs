@@ -21,6 +21,7 @@ LIB_OBJS = $(LIB_SRCS:.c=.o)
 LIB = libnextufs.a
 WRITE_SRCS = mutate/dir_mutate.c mutate/mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
+WRITE_LIB = libnextufs_mutate.a
 FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	dir_scan.c frag_support.c inode_ops.c inode_scan.c main.c operator.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
@@ -29,7 +30,7 @@ FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
 
 .PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse scratch-dir fsck-tool mkimg-tool
 
-all: scratch-dir $(LIB) nextufs nextufs_test nextufs_mkfile nextufs_stress
+all: scratch-dir $(LIB) $(WRITE_LIB) nextufs nextufs_test nextufs_mkfile nextufs_stress
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
@@ -43,25 +44,28 @@ mkimg-tool:
 $(LIB): $(LIB_OBJS)
 	ar rcs $@ $(LIB_OBJS)
 
+$(WRITE_LIB): $(WRITE_OBJS)
+	ar rcs $@ $(WRITE_OBJS)
+
 nextufs: commands/nextufs.o commands/cmd_mount.o commands/cmd_inspect.o \
 	commands/cmd_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
 	commands/cmd_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
-	mkimg_format_io.o $(FSCK_OBJS) $(WRITE_OBJS) $(LIB)
+	mkimg_format_io.o $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ commands/nextufs.o \
 		commands/cmd_mount.o commands/cmd_inspect.o commands/cmd_mkfile_cli.o \
 		nextufs_mkimg_cli.o nextufs_resize_cli.o commands/cmd_stress_cli.o \
 		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
 		$(FSCK_OBJS) \
-		$(WRITE_OBJS) $(LIB) $(FUSE_LIBS)
+		$(WRITE_LIB) $(LIB) $(FUSE_LIBS)
 
 nextufs_test: nextufs_test.o $(LIB)
 	$(CC) $(CFLAGS) -o $@ nextufs_test.o $(LIB)
 
-nextufs_mkfile: commands/cmd_mkfile.o $(WRITE_OBJS) $(LIB)
-	$(CC) $(CFLAGS) -o $@ commands/cmd_mkfile.o $(WRITE_OBJS) $(LIB)
+nextufs_mkfile: commands/cmd_mkfile.o $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) -o $@ commands/cmd_mkfile.o $(WRITE_LIB) $(LIB)
 
-nextufs_stress: commands/cmd_stress.o $(WRITE_OBJS) $(LIB)
-	$(CC) $(CFLAGS) -o $@ commands/cmd_stress.o $(WRITE_OBJS) $(LIB)
+nextufs_stress: commands/cmd_stress.o $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) -o $@ commands/cmd_stress.o $(WRITE_LIB) $(LIB)
 
 commands/cmd_mount.o: commands/cmd_mount.c
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
@@ -478,7 +482,7 @@ clean:
 		mkimg_format.o mkimg_format_fsinit.o \
 		mkimg_format_io.o $(FSCK_OBJS) \
 		nextufs_test nextufs_test.o nextufs_mkfile \
-		nextufs_stress $(LIB) $(LIB_OBJS) $(WRITE_OBJS)
+		nextufs_stress $(LIB) $(WRITE_LIB) $(LIB_OBJS) $(WRITE_OBJS)
 	rm -f nextufs_alloc.o nextufs_cli.o nextufs_cmd_inspect.o \
 		nextufs_dir_mutate.o nextufs_directory.o nextufs_fuse_cli.o \
 		nextufs_image.o nextufs_inspect.o nextufs_label.o \

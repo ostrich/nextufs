@@ -43,8 +43,7 @@ repair-tools: scratch-dir
 	$(MAKE) -C ../nextufs -f Makefile.linux nextufs_mkfile
 	$(CC) $(CFLAGS) -I../nextufs -o $(REPAIR_TOOL_BIN) \
 		$(TESTS_DIR)/tools/corrupt_raw_case.c \
-		../nextufs/mutate/dir_mutate.o ../nextufs/mutate/mutate.o \
-		../nextufs/libnextufs.a
+		../nextufs/libnextufs_mutate.a ../nextufs/libnextufs.a
 
 repair-lab: repair-tools
 	bash $(TESTS_DIR)/scripts/build_corpus.sh
