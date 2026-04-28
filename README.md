@@ -19,12 +19,11 @@ images.
 
 ## Supported Sources
 
-| Source type | Read | Write | Notes |
-| --- | --- | --- | --- |
-| Raw UFS filesystem image | yes | yes | Filesystem starts at byte zero. |
-| Labeled NeXT disk image | yes | yes | Contains a NeXT disk label and a UFS slice. |
-| Standalone VirtualBox VDI | yes | yes | Dynamic VDIs are handled through the VDI backend. |
-| VirtualBox VDI chain | yes | yes | Point commands at the current chain head, not the base image. |
+- Raw UFS filesystem images. The filesystem starts at byte zero.
+- Labeled NeXT disk images. These contain a NeXT disk label and a UFS slice.
+- Standalone VirtualBox VDI images.
+- VirtualBox VDI chains. Point commands at the current chain head, not the
+  base image.
 
 For VDI chains, use `tools/vdi_chain.py` to identify base, intermediate, and
 head images:
