@@ -1,0 +1,519 @@
+.Dd April 28, 2026
+.Dt NEXTUFS 1
+.Os Linux
+.Sh NAME
+.Nm nextufs
+.Nd inspect, mount, check, repair, create, resize, and modify NeXT UFS images
+.Sh SYNOPSIS
+.Bd -literal -offset indent
+nextufs [-h|--help]
+nextufs --version
+nextufs info [--json] <source>
+nextufs browse <source> [path]
+nextufs mount <source> <mountpoint> [fuse options ...]
+nextufs fsck [-n|-N|-y|-Y] [-p] [-P] [-b block] [-d] <source> [...]
+nextufs mkimg [options] <target> <size> [raw-geometry-args...]
+nextufs resize grow [--force-size] <source> <size-1k-sectors>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] <source> <path> <contents>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] <operation> <source> <operation-args...>
+.Ed
+.Sh DESCRIPTION
+.Nm
+is a Linux userspace tool for working with
+.Tn NEXTSTEP
+and
+.Tn OPENSTEP
+UFS filesystems.
+It uses a single public command with subcommands for source inspection,
+filesystem browsing, FUSE mounting, metadata checking and repair, image
+creation, offline growth, and offline file mutation.
+.Pp
+.Nm
+understands raw UFS filesystem images, labeled NeXT disk images, standalone
+VirtualBox VDI images, and VirtualBox differencing VDI chains.
+For VDI chains, pass the current chain head to
+.Nm .
+Use
+.Pa tools/vdi_chain.py
+from the
+.Pa tools/
+directory to identify the base, intermediate, and head images in a VM
+directory.
+.Sh GLOBAL OPTIONS
+.Bl -tag -width Ds
+.It Fl h , Fl -help
+Show top-level usage.
+.It Fl -version
+Show the
+.Nm
+version.
+.El
+.Sh COMMANDS
+.Ss info
+.Bd -literal -offset indent
+nextufs info [--json] <source>
+.Ed
+.Pp
+Show source layout and filesystem information.
+The report includes source type, source size, slice layout, filesystem size,
+compatibility ceiling, block and fragment geometry, cylinder group counts,
+free-space counters, and disk-label details when present.
+.Bl -tag -width Ds
+.It Fl -json
+Emit JSON instead of human-readable text.
+The JSON output is built from the same collected source and filesystem
+information as the text report.
+.El
+.Ss browse
+.Bd -literal -offset indent
+nextufs browse <source> [path]
+.Ed
+.Pp
+Browse a filesystem without mounting it.
+With no
+.Ar path ,
+prints root inode information and the root directory listing.
+With
+.Ar path ,
+also resolves that path and prints inode information.
+Directory targets are listed, symbolic links show their target, and regular
+files include a short data preview.
+.Ss mount
+.Bd -literal -offset indent
+nextufs mount <source> <mountpoint> [fuse options]
+.Ed
+.Pp
+Mount a source image through FUSE.
+Mounts default to read-only unless a writable mount is explicitly requested.
+Options not handled by
+.Nm
+are passed through to FUSE.
+.Pp
+The following
+.Fl o
+options are interpreted by
+.Nm :
+.Bl -tag -width "mode=user"
+.It Cm ro
+Open the source read-only.
+This is the default when neither
+.Cm ro
+nor
+.Cm rw
+is supplied.
+.It Cm rw
+Open the source read-write and allow mutating FUSE operations.
+.It Cm mode=su
+Use superuser-style filesystem access policy.
+In read-only mounts, this allows full read access through the mounted
+filesystem.
+In writable mounts, it allows write operations without enforcing image-owner
+permission checks.
+This is the default mount policy.
+.It Cm mode=user
+Use user-style filesystem access policy.
+Permission checks are enforced using the caller's FUSE uid/gid, unless
+overridden by
+.Cm uid=
+or
+.Cm gid= .
+.It Cm uid Ns = Ns Ar uid
+Override the uid used for permission checks in
+.Cm mode=user .
+.It Cm gid Ns = Ns Ar gid
+Override the gid used for permission checks in
+.Cm mode=user .
+.El
+.Pp
+Examples:
+.Bd -literal -offset indent
+nextufs mount image.img /mnt/nextufs -f -s
+nextufs mount image.img /mnt/nextufs -o rw,mode=su -f -s
+nextufs mount image.img /mnt/nextufs -o mode=user,uid=1000,gid=100 -f -s
+.Ed
+.Ss fsck
+.Bd -literal -offset indent
+nextufs fsck [-n|-y] [-p] [-P] [-b block] [-d] <source> [...]
+.Ed
+.Pp
+Check and optionally repair UFS metadata.
+.Nm
+.Cm fsck
+uses the shared source backend, so the same raw, labeled, standalone VDI, and
+VDI-chain source handling is used by the rest of the tool.
+.Pp
+Pass the current VDI chain head when checking or repairing a VDI chain.
+.Bl -tag -width Ds
+.It Fl n , Fl N
+Answer no to repair prompts.
+This is the usual non-mutating check mode.
+.It Fl y , Fl Y
+Answer yes to repair prompts.
+This repairs metadata and modifies the source.
+.It Fl p
+Run in preen mode.
+.It Fl P
+Force preen mode.
+.It Fl b Ar block
+Use an alternate superblock location.
+The block may be supplied as
+.Fl b Ns Ar block
+or
+.Fl b Ar block .
+.It Fl d
+Enable checker debug output.
+.El
+.Ss mkimg
+.Bd -literal -offset indent
+nextufs mkimg [options] <target> <size> [raw-geometry-args...]
+.Ed
+.Pp
+Create a new UFS image.
+By default,
+.Nm
+.Cm mkimg
+creates a labeled NeXT disk image with a 160 KiB front porch, NeXT disk label,
+and UFS root slice.
+With
+.Fl -raw ,
+it creates a raw UFS filesystem starting at byte zero.
+.Pp
+Existing targets are not overwritten unless
+.Fl -force-overwrite
+is supplied.
+.Pp
+Bare numeric sizes are interpreted differently by mode:
+.Bl -bullet
+.It
+For labeled images, a bare number is bytes.
+.It
+For raw images, a bare number is 1 KiB sectors.
+.El
+.Pp
+Sizes may also use
+.Cm K ,
+.Cm M ,
+or
+.Cm G
+suffixes.
+Suffixes always represent bytes.
+.Bl -tag -width Ds
+.It Fl -raw
+Create a raw UFS filesystem image at byte zero.
+.It Fl -label Ar name
+Set the NeXT disk label name for a labeled image.
+This option is invalid with
+.Fl -raw .
+If omitted, the label is derived from the target filename.
+.It Fl -dry-run
+Print the planned layout without creating or modifying the target.
+.It Fl -force-size
+Allow a target size above the NEXTSTEP/OPENSTEP compatibility ceiling.
+Without this option,
+.Nm
+rejects sizes above 4,294,836,224 bytes, or 4,194,176 1 KiB sectors.
+.It Fl -force-overwrite
+Replace an existing target file.
+.It Fl h , Fl -help
+Show
+.Cm mkimg
+usage.
+.El
+.Pp
+When
+.Fl -raw
+is used, optional raw geometry arguments may follow
+.Ar size :
+.Bd -literal -offset indent
+nsect ntrak bsize fsize cpg minfree rps nbpi opt
+.Ed
+.Pp
+These are low-level UFS formatter parameters:
+sectors per track, tracks per cylinder, block size, fragment size, cylinders
+per group, minimum free percentage, revolutions per second, bytes per inode,
+and optimization preference.
+They are intended for reproducibility and compatibility testing; ordinary use
+should omit them.
+.Ss resize grow
+.Bd -literal -offset indent
+nextufs resize grow [--force-size] <source> <size-1k-sectors>
+.Ed
+.Pp
+Grow a supported raw UFS image or supported single-slice labeled NeXT disk
+image offline.
+For labeled disk images, the requested size is the final image size.
+For raw filesystem images, the requested size is the final filesystem size.
+.Pp
+Bare numeric sizes are interpreted as 1 KiB sectors.
+Sizes may also use
+.Cm K ,
+.Cm M ,
+or
+.Cm G
+suffixes, which represent bytes.
+.Bl -tag -width Ds
+.It Fl -force-size
+Allow a target size above the NEXTSTEP/OPENSTEP compatibility ceiling.
+.El
+.Ss mkfile
+.Bd -literal -offset indent
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] <source> <path> <contents>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --unlink <source> <path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --mkdir <source> <path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --overwrite <source> <path> <contents>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --append <source> <path> <contents>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --rmdir <source> <path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --link <source> <source-path> <target-path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --rename <source> <source-path> <target-path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --symlink <source> <target> <link-path>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --truncate <source> <path> <size>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --pwrite <source> <path> <offset> <contents>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --mknod <source> <path> <octal-mode> <rdev>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --chmod <source> <path> <octal-mode>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --chown <source> <path> <uid|keep> <gid|keep>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --utimes <source> <path> <atime> <mtime>
+nextufs mkfile [--policy su|user] [--uid uid] [--gid gid] --from-file <source> <path> <host-file>
+.Ed
+.Pp
+Apply offline file and directory mutations directly to a source image.
+This command is useful for testing, recovery work, and scripted image changes.
+It modifies the source.
+.Pp
+Common
+.Cm mkfile
+options:
+.Bl -tag -width "--policy su"
+.It Fl -policy Cm su
+Use superuser-style mutation policy.
+This is the default.
+.It Fl -policy Cm user
+Use user-style mutation policy and enforce ownership and permission checks.
+If
+.Fl -uid
+or
+.Fl -gid
+is omitted, that id remains 0.
+.It Fl -uid Ar uid
+Set the uid used by
+.Cm --policy user .
+.It Fl -gid Ar gid
+Set the gid used by
+.Cm --policy user .
+.El
+.Pp
+Operations:
+.Bl -tag -width "--overwrite"
+.It Ar source path contents
+Create a regular file at
+.Ar path
+with string
+.Ar contents .
+Fails if the path already exists.
+.It Fl -unlink Ar source path
+Remove a non-directory entry.
+.It Fl -mkdir Ar source path
+Create a directory.
+.It Fl -overwrite Ar source path contents
+Replace the contents of an existing regular file with
+.Ar contents .
+.It Fl -append Ar source path contents
+Append
+.Ar contents
+to an existing regular file.
+.It Fl -rmdir Ar source path
+Remove an empty directory.
+.It Fl -link Ar source source-path target-path
+Create a hard link from
+.Ar target-path
+to
+.Ar source-path .
+.It Fl -rename Ar source source-path target-path
+Rename or move
+.Ar source-path
+to
+.Ar target-path .
+.It Fl -symlink Ar source target link-path
+Create a symbolic link at
+.Ar link-path
+whose target string is
+.Ar target .
+.It Fl -truncate Ar source path size
+Resize an existing regular file to
+.Ar size
+bytes.
+.It Fl -pwrite Ar source path offset contents
+Write
+.Ar contents
+to an existing regular file starting at byte
+.Ar offset .
+.It Fl -mknod Ar source path octal-mode rdev
+Create a special node with mode
+.Ar octal-mode
+and device value
+.Ar rdev .
+.It Fl -chmod Ar source path octal-mode
+Change the mode bits of
+.Ar path .
+.It Fl -chown Ar source path uid|keep gid|keep
+Change owner and group.
+Use
+.Cm keep
+or
+.Cm -1
+for either field to leave it unchanged.
+.It Fl -utimes Ar source path atime mtime
+Set access and modification timestamps.
+Times are integer Unix timestamps.
+.It Fl -from-file Ar source path host-file
+Create a regular file at
+.Ar path
+using bytes read from
+.Ar host-file .
+.El
+.Sh SOURCE TYPES
+.Bl -tag -width Ds
+.It Raw UFS filesystem image
+The UFS filesystem begins at byte zero.
+.It Labeled NeXT disk image
+The source contains a NeXT disk label and a UFS slice.
+.It Standalone VDI
+A supported VirtualBox VDI image.
+.It VDI chain
+A VirtualBox differencing chain.
+Pass the current head image.
+.Nm
+resolves parent images by UUID through the shared VDI source backend.
+.El
+.Sh SIZE VALUES
+Size arguments accept positive integers.
+The suffixes
+.Cm K ,
+.Cm M ,
+and
+.Cm G
+mean KiB, MiB, and GiB byte quantities.
+.Pp
+The meaning of a bare number is command-specific:
+.Bl -bullet
+.It
+.Cm mkimg
+labeled mode: bytes.
+.It
+.Cm mkimg --raw :
+1 KiB sectors.
+.It
+.Cm resize grow :
+1 KiB sectors.
+.El
+.Pp
+The default NEXTSTEP/OPENSTEP compatibility ceiling is 4,294,836,224 bytes,
+or 4,194,176 1 KiB sectors.
+Commands that create or grow images refuse larger sizes unless
+.Fl -force-size
+is supplied.
+.Sh SAFETY
+.Bl -bullet
+.It
+.Cm info ,
+.Cm browse ,
+and
+.Cm fsck -n
+are intended to be non-mutating.
+.It
+.Cm fsck -y ,
+writable FUSE mounts,
+.Cm resize grow ,
+and
+.Cm mkfile
+modify the source.
+.It
+Work on a copy before repairing, resizing, or mutating an image that matters.
+.It
+For VDI chains, writes go through the chain head.
+Passing a base image or older snapshot is not equivalent to modifying the
+current VM state.
+.It
+.Cm mkimg
+refuses to overwrite existing targets unless
+.Fl -force-overwrite
+is supplied.
+.El
+.Sh EXAMPLES
+Show source and filesystem information:
+.Bd -literal -offset indent
+nextufs info disk.img
+nextufs info --json disk.img
+.Ed
+.Pp
+Browse a file without mounting:
+.Bd -literal -offset indent
+nextufs browse disk.img /etc/passwd
+.Ed
+.Pp
+Mount read-only:
+.Bd -literal -offset indent
+mkdir -p /tmp/nextufs-mnt
+nextufs mount disk.img /tmp/nextufs-mnt -f -s
+.Ed
+.Pp
+Mount read-write with superuser-style policy:
+.Bd -literal -offset indent
+nextufs mount disk.img /tmp/nextufs-mnt -o rw,mode=su -f -s
+.Ed
+.Pp
+Check without modifying:
+.Bd -literal -offset indent
+nextufs fsck -n disk.img
+.Ed
+.Pp
+Repair a copied image:
+.Bd -literal -offset indent
+cp disk.img disk-repair.img
+nextufs fsck -y disk-repair.img
+.Ed
+.Pp
+Create a labeled 256 MiB NeXT disk image:
+.Bd -literal -offset indent
+nextufs mkimg nextufs.img 256M
+.Ed
+.Pp
+Create a raw UFS image:
+.Bd -literal -offset indent
+nextufs mkimg --raw nextufs.raw 256M
+.Ed
+.Pp
+Create a file offline:
+.Bd -literal -offset indent
+nextufs mkfile disk.img /private/tmp/example "hello"
+.Ed
+.Pp
+Trace a VDI chain:
+.Bd -literal -offset indent
+tools/vdi_chain.py trace "/path/to/VM/Snapshots/{uuid}.vdi"
+.Ed
+.Sh EXIT STATUS
+.Ex -std
+.Pp
+Command usage errors generally return 2.
+Runtime failures generally return 1.
+.Sh FILES
+.Bl -tag -width "tools/vdi_chain.py"
+.It Pa tools/vdi_chain.py
+Utility for scanning and tracing VirtualBox VDI parent/child chains.
+.It Pa tests/fsck/
+Reproducible fsck corruption fixtures and repair tests.
+.El
+.Sh SEE ALSO
+.Xr fsck 8 ,
+.Xr mount 8 ,
+.Xr fusermount3 1
+.Sh BUGS
+Shrinking filesystems is not implemented.
+.Pp
+.Cm resize grow
+supports raw images and supported single-slice labeled disk images.
+.Pp
+Some low-level
+.Cm mkimg --raw
+geometry arguments are exposed for reproducibility and compatibility testing
+rather than normal day-to-day image creation.

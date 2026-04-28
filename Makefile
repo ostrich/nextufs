@@ -1,6 +1,7 @@
 CC = cc
 prefix ?= /usr/local
 bindir ?= $(prefix)/bin
+mandir ?= $(prefix)/share/man
 DESTDIR ?=
 INSTALL ?= install
 CFLAGS = -Iinclude -Isrc -O2 -g -std=gnu99 -Wall -Wextra -Werror
@@ -560,9 +561,12 @@ repair-repair-all: all repair-tools
 install: nextufs
 	$(INSTALL) -d "$(DESTDIR)$(bindir)"
 	$(INSTALL) -m 0755 nextufs "$(DESTDIR)$(bindir)/nextufs"
+	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
+	$(INSTALL) -m 0644 man/nextufs.1 "$(DESTDIR)$(mandir)/man1/nextufs.1"
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/nextufs"
+	rm -f "$(DESTDIR)$(mandir)/man1/nextufs.1"
 
 clean:
 	rm -f nextufs src/commands/main.o \
