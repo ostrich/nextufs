@@ -65,32 +65,44 @@ def load(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
-def text_value(path, label):
-    pattern = re.compile(rf"^{re.escape(label)}\s+([0-9]+)")
+def text_line(path, label):
+    pattern = re.compile(rf"^\s*{re.escape(label)}:?\s+(.+)$")
     with open(path, encoding="utf-8") as f:
         for line in f:
             m = pattern.match(line)
             if m:
-                return int(m.group(1))
+                return m.group(1)
     raise SystemExit(f"missing text label {label!r} in {path}")
+
+def text_value(path, label):
+    numeric = re.match(r"([0-9]+)", text_line(path, label))
+    if numeric:
+        return int(numeric.group(1))
+    raise SystemExit(f"non-numeric text label {label!r} in {path}")
+
+def text_offset(path, label):
+    parenthesized = re.search(r"\(([0-9]+)\)", text_line(path, label))
+    if parenthesized:
+        return int(parenthesized.group(1))
+    return text_value(path, label)
 
 raw = load(raw_json_path)
 labeled = load(labeled_json_path)
 
 assert raw["source_kind"] == "raw filesystem image"
 assert raw["used_disk_label"] is False
-assert raw["filesystem_bytes"] == text_value(raw_text, "filesystem size:")
-assert raw["compatibility_ceiling_bytes"] == text_value(raw_text, "compatibility ceiling:")
-assert raw["cylinder_summary_capacity_groups"] == text_value(raw_text, "cylinder-summary capacity:")
-assert raw["filesystem"]["block_size"] == text_value(raw_text, "block size:")
-assert raw["filesystem"]["fragment_size"] == text_value(raw_text, "fragment size:")
+assert raw["filesystem_bytes"] == text_value(raw_text, "filesystem size")
+assert raw["compatibility_ceiling_bytes"] == text_value(raw_text, "compatibility ceiling")
+assert raw["cylinder_summary_capacity_groups"] == text_value(raw_text, "cylinder-summary capacity")
+assert raw["filesystem"]["block_size"] == text_value(raw_text, "block size")
+assert raw["filesystem"]["fragment_size"] == text_value(raw_text, "fragment size")
 
 assert labeled["source_kind"] == "labeled disk image"
 assert labeled["used_disk_label"] is True
 assert labeled["slice_base"] == 163840
-assert labeled["slice_base"] == text_value(labeled_text, "slice base:")
-assert labeled["slice_bytes"] == text_value(labeled_text, "slice size:")
-assert labeled["filesystem_bytes"] == text_value(labeled_text, "filesystem size:")
+assert labeled["slice_base"] == text_offset(labeled_text, "slice base")
+assert labeled["slice_bytes"] == text_value(labeled_text, "slice size")
+assert labeled["filesystem_bytes"] == text_value(labeled_text, "filesystem size")
 assert labeled["label"]["root_partition"] == "a"
 PY
 

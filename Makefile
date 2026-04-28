@@ -171,9 +171,9 @@ test-mkimg: all
 	./nextufs mkimg $(SCRATCH_DIR)/mkimg-labeled.img 64M >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
 	./nextufs info $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.inspect
-	grep -F 'disk label:' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
-	grep -F 'slice base:            0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
-	grep -F 'superblock base:       0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'Disk Label' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'slice base                     0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'superblock base                0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
 	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw-full.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw-full.img >/dev/null
 	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw-a.img 64M >/dev/null

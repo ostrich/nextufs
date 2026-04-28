@@ -4,10 +4,10 @@
 #include <inttypes.h>
 #include <string.h>
 
-void
-nextufs_report_size_line(FILE *out, const char *label, uint64_t bytes)
+static void
+report_size_line(FILE *out, const char *label, uint64_t bytes)
 {
-	fprintf(out, "%-30s %" PRIu64 " bytes (%" PRIu64 " 1K sectors)\n",
+	fprintf(out, "  %-30s %" PRIu64 " bytes (%" PRIu64 " 1K sectors)\n",
 	    label, bytes, bytes / 1024U);
 }
 
@@ -39,93 +39,127 @@ nextufs_report_errno(FILE *out, const char *command, const char *action,
 }
 
 static void
+report_section(FILE *out, const char *name)
+{
+	fprintf(out, "%s\n", name);
+}
+
+static void
+report_next_section(FILE *out, const char *name)
+{
+	fprintf(out, "\n%s\n", name);
+}
+
+static void
+report_string_line(FILE *out, const char *label, const char *value)
+{
+	fprintf(out, "  %-30s %s\n", label, value);
+}
+
+static void
+report_u32_line(FILE *out, const char *label, uint32_t value)
+{
+	fprintf(out, "  %-30s %" PRIu32 "\n", label, value);
+}
+
+static void
+report_hex32_line(FILE *out, const char *label, uint32_t value)
+{
+	fprintf(out, "  %-30s 0x%08" PRIx32 "\n", label, value);
+}
+
+static void
+report_offset_line(FILE *out, const char *label, uint64_t value)
+{
+	fprintf(out, "  %-30s 0x%jx (%" PRIu64 ")\n",
+	    label, (uintmax_t)value, value);
+}
+
+static void
 report_superblock_text(FILE *out, const struct nextufs_info *info)
 {
 	const struct nextufs_superblock *sb = &info->sb;
 
-	fprintf(out, "image size:            %" PRIu64 " bytes\n",
-	    info->image_bytes);
-	fprintf(out, "slice base:            0x%jx (%jd)\n",
-	    (uintmax_t)info->slice_base, (intmax_t)info->slice_base);
-	fprintf(out, "superblock base:       0x%jx (%jd)\n",
-	    (uintmax_t)info->superblock_base,
-	    (intmax_t)info->superblock_base);
-	fprintf(out, "superblock magic:      0x%08" PRIx32 "\n",
-	    sb->fs_magic);
-	fprintf(out, "block size:            %" PRIu32 "\n", sb->block_size);
-	fprintf(out, "fragment size:         %" PRIu32 "\n", sb->frag_size);
-	fprintf(out, "frags/block:           %" PRIu32 "\n",
-	    sb->frags_per_block);
-	fprintf(out, "frags total/data:      %" PRIu32 " / %" PRIu32 "\n",
-	    sb->frag_count, sb->data_frag_count);
-	fprintf(out, "cylinder groups:       %" PRIu32 "\n", sb->cg_count);
-	fprintf(out, "cylinders/group:       %" PRIu32 "\n", sb->cpg);
-	fprintf(out, "inodes/group:          %" PRIu32 "\n",
-	    sb->inodes_per_group);
-	fprintf(out, "frags/group:           %" PRIu32 "\n",
-	    sb->frags_per_group);
-	fprintf(out, "inodes/block:          %" PRIu32 "\n",
-	    sb->inodes_per_block);
-	fprintf(out, "fsbtodb shift:         %" PRIu32 "\n", sb->fsbtodb);
-	fprintf(out, "nindir:                %" PRIu32 "\n", sb->nindir);
-	fprintf(out, "optim/state:           %" PRIu32 " / %u\n",
+	report_hex32_line(out, "magic", sb->fs_magic);
+	report_u32_line(out, "fsbtodb shift", sb->fsbtodb);
+	report_u32_line(out, "indirect entries/block", sb->nindir);
+	report_u32_line(out, "inodes/block", sb->inodes_per_block);
+	fprintf(out, "  %-30s %" PRIu32 " / %" PRIu32 "\n",
+	    "fragments total/data", sb->frag_count, sb->data_frag_count);
+	fprintf(out, "  %-30s %" PRIu32 " / %u\n", "optimization/state",
 	    sb->optim, (unsigned)sb->state);
+}
+
+static void
+report_geometry_text(FILE *out, const struct nextufs_info *info)
+{
+	const struct nextufs_superblock *sb = &info->sb;
+
+	report_u32_line(out, "block size", sb->block_size);
+	report_u32_line(out, "fragment size", sb->frag_size);
+	report_u32_line(out, "fragments/block", sb->frags_per_block);
+	report_u32_line(out, "fragments/group", sb->frags_per_group);
+	report_u32_line(out, "inodes/group", sb->inodes_per_group);
+	report_u32_line(out, "cylinders/group", sb->cpg);
+	report_u32_line(out, "cylinders", sb->ncyl);
+	report_u32_line(out, "cylinder groups", sb->cg_count);
+	fprintf(out, "  %-30s %" PRIu64 " groups\n",
+	    "cylinder-summary capacity", info->csum_capacity_groups);
+}
+
+static void
+report_free_space_text(FILE *out, const struct nextufs_info *info)
+{
+	const struct nextufs_superblock *sb = &info->sb;
+
+	report_u32_line(out, "data fragments", sb->data_frag_count);
+	report_u32_line(out, "free blocks", sb->free_block_count);
+	report_u32_line(out, "free fragments", sb->free_frag_count);
+	report_u32_line(out, "free inodes", sb->free_inode_count);
 }
 
 void
 nextufs_report_info_text(FILE *out, const char *source,
     const struct nextufs_info *info)
 {
-	fprintf(out, "source: %s\n", source);
-	fprintf(out, "source kind:                   %s\n",
-	    nextufs_info_source_kind(info));
-	nextufs_report_size_line(out, "backing file size:",
+	report_section(out, "Source");
+	report_string_line(out, "path", source);
+	report_string_line(out, "kind", nextufs_info_source_kind(info));
+	report_size_line(out, "backing file size",
 	    info->backing_bytes);
+	report_size_line(out, "image size", info->image_bytes);
+
 	if (info->used_disk_label) {
-		nextufs_report_size_line(out, "slice base:", info->slice_base);
-		nextufs_report_size_line(out, "slice size:", info->slice_bytes);
-		fprintf(out, "root partition:               %c\n",
-		    info->rootpartition);
+		char root[2];
+
+		root[0] = info->rootpartition ? info->rootpartition : '?';
+		root[1] = '\0';
+		report_next_section(out, "Disk Label");
+		report_hex32_line(out, "version", info->label_version);
+		report_offset_line(out, "offset", info->label_off);
+		report_u32_line(out, "sector size", info->label_secsize);
+		report_u32_line(out, "front porch sectors", info->label_front);
+		report_string_line(out, "root partition", root);
 	}
-	nextufs_report_size_line(out, "filesystem size:",
+
+	report_next_section(out, "Layout");
+	report_offset_line(out, "slice base", info->slice_base);
+	report_size_line(out, "slice size", info->slice_bytes);
+	report_offset_line(out, "superblock base", info->superblock_base);
+	report_size_line(out, "filesystem size",
 	    info->filesystem_bytes);
-	nextufs_report_size_line(out, "trailing unused slice space:",
+	report_size_line(out, "trailing unused slice space",
 	    info->trailing_slice_slack);
-	nextufs_report_size_line(out, "compatibility ceiling:",
+	report_size_line(out, "compatibility ceiling",
 	    NEXTUFS_COMPAT_MAX_BYTES);
-	fprintf(out, "block size:                   %" PRIu32 "\n",
-	    info->sb.block_size);
-	fprintf(out, "fragment size:                %" PRIu32 "\n",
-	    info->sb.frag_size);
-	fprintf(out, "fragments/block:              %" PRIu32 "\n",
-	    info->sb.frags_per_block);
-	fprintf(out, "cylinder groups:              %" PRIu32 "\n",
-	    info->sb.cg_count);
-	fprintf(out, "cylinder-summary capacity:    %" PRIu64 " groups\n",
-	    info->csum_capacity_groups);
-	fprintf(out, "fragments/group:              %" PRIu32 "\n",
-	    info->sb.frags_per_group);
-	fprintf(out, "inodes/group:                 %" PRIu32 "\n",
-	    info->sb.inodes_per_group);
-	fprintf(out, "cylinders/group:              %" PRIu32 "\n",
-	    info->sb.cpg);
-	fprintf(out, "cylinders:                    %" PRIu32 "\n",
-	    info->sb.ncyl);
-	fprintf(out, "data fragments:               %" PRIu32 "\n",
-	    info->sb.data_frag_count);
-	fprintf(out, "free blocks:                  %" PRIu32 "\n",
-	    info->sb.free_block_count);
-	fprintf(out, "free fragments:               %" PRIu32 "\n",
-	    info->sb.free_frag_count);
-	fprintf(out, "free inodes:                  %" PRIu32 "\n",
-	    info->sb.free_inode_count);
-	if (info->used_disk_label) {
-		fprintf(out,
-		    "disk label:                    version=0x%08x off=0x%jx secsize=%u front=%u root=%c\n",
-		    info->label_version, (uintmax_t)info->label_off,
-		    info->label_secsize, info->label_front,
-		    info->rootpartition ? info->rootpartition : '?');
-	}
+
+	report_next_section(out, "Geometry");
+	report_geometry_text(out, info);
+
+	report_next_section(out, "Free Space");
+	report_free_space_text(out, info);
+
+	report_next_section(out, "Superblock");
 	report_superblock_text(out, info);
 }
 
