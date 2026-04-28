@@ -5,7 +5,7 @@ INSTALL ?= install
 
 .PHONY: all clean test test-nextufs test-fsck test-mkimg test-resize fsck mkimg resize nextufs install uninstall
 
-all: nextufs fsck mkimg resize
+all: nextufs
 
 nextufs:
 	$(MAKE) -C nextufs -f Makefile.linux
@@ -45,13 +45,9 @@ clean:
 	$(MAKE) -C nextufs.mkimg -f Makefile.linux clean
 	$(MAKE) -C nextufs.resize -f Makefile.linux clean
 
-install: all
+install: nextufs
 	$(INSTALL) -d "$(DESTDIR)$(bindir)"
 	$(INSTALL) -m 0755 nextufs/nextufs "$(DESTDIR)$(bindir)/nextufs"
-	$(INSTALL) -m 0755 nextufs/nextufs_probe "$(DESTDIR)$(bindir)/nextufs_probe"
-	$(INSTALL) -m 0755 nextufs.fsck/nextufs.fsck "$(DESTDIR)$(bindir)/nextufs.fsck"
-	$(INSTALL) -m 0755 nextufs.mkimg/nextufs.mkimg "$(DESTDIR)$(bindir)/nextufs.mkimg"
-	$(INSTALL) -m 0755 nextufs.resize/nextufs.resize "$(DESTDIR)$(bindir)/nextufs.resize"
 
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/nextufs"
