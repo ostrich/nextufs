@@ -7,8 +7,7 @@ FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Iinclude
 
 BIN = nextufs.mkimg
 FSCK_BIN = ../nextufs.fsck/nextufs.fsck
-FORMAT_SRCS = format/format.c format/format_fsinit.c format/format_io.c
-FORMAT_OBJS = $(FORMAT_SRCS:format/%.c=%.o)
+FORMAT_OBJS = format.o format_fsinit.o format_io.o
 OBJS = nextufs_mkimg.o $(FORMAT_OBJS)
 NEXTUFS_LIB = ../nextufs/libnextufs.a
 SCRATCH_DIR = $(CURDIR)/.scratch
@@ -29,16 +28,22 @@ nextufs-tool:
 $(BIN): $(OBJS) $(NEXTUFS_LIB)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(NEXTUFS_LIB)
 
-nextufs_mkimg.o: ../nextufs/commands/cmd_mkimg.c format/format.h ../nextufs/nextufs_label.h \
+nextufs_mkimg.o: ../nextufs/commands/cmd_mkimg.c ../nextufs/format/format.h ../nextufs/nextufs_label.h \
 	../nextufs/nextufs_size.h
-	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -I../nextufs -c -o $@ $<
+	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -I../nextufs/format -I../nextufs -c -o $@ $<
 
 $(NEXTUFS_LIB): ../nextufs/core/label.c ../nextufs/nextufs_label.h \
 	../nextufs/core/size.c ../nextufs/nextufs_size.h
 	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
 
-%.o: format/%.c format/format.h
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -c -o $@ $<
+format.o: ../nextufs/format/format.c ../nextufs/format/format.h
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs/format -c -o $@ $<
+
+format_fsinit.o: ../nextufs/format/format_fsinit.c ../nextufs/format/format.h
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs/format -c -o $@ $<
+
+format_io.o: ../nextufs/format/format_io.c ../nextufs/format/format.h
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs/format -c -o $@ $<
 
 test: all fsck-tool nextufs-tool
 	rm -f $(SCRATCH_DIR)/mkimg-raw.img $(SCRATCH_DIR)/mkimg-labeled.img \

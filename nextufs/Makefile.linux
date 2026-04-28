@@ -81,19 +81,19 @@ commands/cmd_stress_cli.o: commands/cmd_stress.c
 
 commands/cmd_mkimg.o: commands/cmd_mkimg.c
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -DNEXTUFS_NO_STANDALONE \
-		-I../nextufs.mkimg/format -I. -c -o $@ $<
+		-Iformat -I. -c -o $@ $<
 
 commands/cmd_resize.o: commands/cmd_resize.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
-mkimg_format.o: ../nextufs.mkimg/format/format.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+mkimg_format.o: format/format.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
 
-mkimg_format_fsinit.o: ../nextufs.mkimg/format/format_fsinit.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+mkimg_format_fsinit.o: format/format_fsinit.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
 
-mkimg_format_io.o: ../nextufs.mkimg/format/format_io.c
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+mkimg_format_io.o: format/format_io.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Iformat -c -o $@ $<
 
 fsck_%.o: ../nextufs.fsck/%.c
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
