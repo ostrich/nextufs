@@ -162,6 +162,10 @@ struct fsck_ctx {
 	off_t	ctx_bmapsz;
 	daddr_t	ctx_n_blks;
 	daddr_t	ctx_n_files;
+	daddr_t	ctx_badblk;
+	daddr_t	ctx_dupblk;
+	struct dups *ctx_duphead;
+	ino_t	ctx_startinum;
 #if	NeXT_MOD
 	int	ctx_error_count;
 #endif
@@ -238,6 +242,10 @@ void fsck_abort(int status);
 #define	bmapsz		(fsck_ctx_current()->ctx_bmapsz)
 #define	n_blks		(fsck_ctx_current()->ctx_n_blks)
 #define	n_files		(fsck_ctx_current()->ctx_n_files)
+#define	badblk		(fsck_ctx_current()->ctx_badblk)
+#define	dupblk		(fsck_ctx_current()->ctx_dupblk)
+#define	duphead		(fsck_ctx_current()->ctx_duphead)
+#define	startinum	(fsck_ctx_current()->ctx_startinum)
 #if	NeXT_MOD
 #define	error_count	(fsck_ctx_current()->ctx_error_count)
 #endif

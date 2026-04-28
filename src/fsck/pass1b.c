@@ -13,7 +13,6 @@
 #include "fsck.h"
 
 static int	pass1bcheck(struct inodesc *idesc);
-static struct dups *duphead;
 
 void
 pass1b(void)

@@ -149,7 +149,6 @@ DINODE *
 ginode(ino_t inumber)
 {
 	daddr_t iblk;
-	static ino_t startinum = 0;
 
 	if (inumber < ROOTINO || inumber > imax)
 		errexit("bad inode number %lu to ginode\n",

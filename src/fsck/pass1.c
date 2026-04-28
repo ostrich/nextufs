@@ -12,9 +12,6 @@
 #include <mntent.h>
 #include "fsck.h"
 
-static daddr_t badblk;
-static daddr_t dupblk;
-
 void
 pass1(void)
 {
