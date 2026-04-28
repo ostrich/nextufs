@@ -179,13 +179,13 @@ struct fsck_runtime_options {
 	char	opt_preen;
 };
 
-extern struct fsck_runtime_options fsck_runtime_opts;
-extern int fsck_process_exitstat;
+extern int fsck_return_to_single_user;
 
 struct fsck_ctx *fsck_ctx_current(void);
 void fsck_ctx_set_current(struct fsck_ctx *ctx);
 void fsck_ctx_init(struct fsck_ctx *ctx);
-void fsck_ctx_init_from_runtime(struct fsck_ctx *ctx);
+void fsck_ctx_init_from_runtime(struct fsck_ctx *ctx,
+    const struct fsck_runtime_options *opts);
 
 #define	inoblk		(fsck_ctx_current()->ctx_inoblk)
 #define	fileblk		(fsck_ctx_current()->ctx_fileblk)
@@ -274,7 +274,7 @@ void	pass2(void);
 void	pass3(void);
 void	pass4(void);
 void	pass5(void);
-void	checkfilesys(char *filesys);
+int	checkfilesys(char *filesys, const struct fsck_runtime_options *opts);
 char	*blockcheck(char *name);
 char	*rawname(char *cp);
 char	*unrawname(char *cp);

@@ -72,11 +72,10 @@ catch(int signo)
 void
 catchquit(int signo)
 {
-	extern int returntosingle;
 	(void)signo;
 
 	printf("returning to single-user after filesystem check\n");
-	returntosingle = 1;
+	fsck_return_to_single_user = 1;
 	(void)signal(SIGQUIT, SIG_DFL);
 }
 

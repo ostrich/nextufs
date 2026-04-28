@@ -712,11 +712,3 @@ nextufs_mount_main(int argc, char **argv)
 	nextufs_image_close(&g_img);
 	return rc;
 }
-
-#ifndef NEXTUFS_NO_STANDALONE
-int
-main(int argc, char **argv)
-{
-	return nextufs_mount_main(argc, argv);
-}
-#endif

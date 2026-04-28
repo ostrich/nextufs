@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define NEXTUFS_VERSION "0.1.0-dev"
+#include "commands.h"
 
-int nextufs_fsck_main(int argc, char **argv);
-int nextufs_mount_main(int argc, char **argv);
-int nextufs_mkfile_main(int argc, char **argv);
-int nextufs_mkimg_main(int argc, char **argv);
-int nextufs_browse_main(int argc, char **argv);
-int nextufs_info_main(int argc, char **argv);
-int nextufs_resize_main(int argc, char **argv);
+#define NEXTUFS_VERSION "0.1.0-dev"
 
 static void
 usage(FILE *out)

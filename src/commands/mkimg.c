@@ -271,11 +271,3 @@ nextufs_mkimg_main(int argc, char **argv)
 
 	return nextufs_format(&fmt);
 }
-
-#ifndef NEXTUFS_NO_STANDALONE
-int
-main(int argc, char **argv)
-{
-	return nextufs_mkimg_main(argc, argv);
-}
-#endif

@@ -16,54 +16,56 @@
 #include "fsck.h"
 #include "nextufs_fsck.h"
 
-int	returntosingle;
+int	fsck_return_to_single_user;
 
 int
 nextufs_fsck_run(int argc, char **argv)
 {
 	int pid, passno, anygtr, sumstatus;
+	int process_exitstat;
 	char *name;
+	struct fsck_runtime_options opts;
 
-	memset(&fsck_runtime_opts, 0, sizeof(fsck_runtime_opts));
-	fsck_process_exitstat = 0;
-	returntosingle = 0;
+	memset(&opts, 0, sizeof(opts));
+	process_exitstat = 0;
+	fsck_return_to_single_user = 0;
 	sync();
 	while (--argc > 0 && **++argv == '-') {
 		switch (*++*argv) {
 		case 'p':
-			fsck_runtime_opts.opt_preen++;
+			opts.opt_preen++;
 			break;
 #if	NeXT
 		case 'P':
-		    	fsck_runtime_opts.opt_Pflag++;
-			fsck_runtime_opts.opt_preen++;
+			opts.opt_Pflag++;
+			opts.opt_preen++;
 			break;
 #endif
 		case 'b':
 			if (argv[0][1] != '\0') {
-				fsck_runtime_opts.opt_bflag = atoi(argv[0]+1);
+				opts.opt_bflag = atoi(argv[0]+1);
 			} else {
-				fsck_runtime_opts.opt_bflag = atoi(*++argv);
+				opts.opt_bflag = atoi(*++argv);
 				argc--;
 			}
 			printf("Alternate super block location: %d\n",
-			    fsck_runtime_opts.opt_bflag);
+			    opts.opt_bflag);
 			break;
 
 		case 'd':
-			fsck_runtime_opts.opt_debug++;
+			opts.opt_debug++;
 			break;
 
 		case 'n':	/* default no answer flag */
 		case 'N':
-			fsck_runtime_opts.opt_nflag++;
-			fsck_runtime_opts.opt_yflag = 0;
+			opts.opt_nflag++;
+			opts.opt_yflag = 0;
 			break;
 
 		case 'y':	/* default yes answer flag */
 		case 'Y':
-			fsck_runtime_opts.opt_yflag++;
-			fsck_runtime_opts.opt_nflag = 0;
+			opts.opt_yflag++;
+			opts.opt_nflag = 0;
 			break;
 
 		default:
@@ -72,14 +74,14 @@ nextufs_fsck_run(int argc, char **argv)
 	}
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
 		(void)signal(SIGINT, catch);
-	if (fsck_runtime_opts.opt_preen)
+	if (opts.opt_preen)
 		(void)signal(SIGQUIT, catchquit);
 	if (argc) {
 		while (argc-- > 0) {
-			checkfilesys(*argv);
+			process_exitstat |= checkfilesys(*argv, &opts);
 			argv++;
 		}
-		return fsck_process_exitstat;
+		return process_exitstat;
 	}
 	sumstatus = 0;
 	passno = 1;
@@ -102,12 +104,12 @@ nextufs_fsck_run(int argc, char **argv)
 				continue;
 			}
 			mnt = mntdup(mnt);
-			if (fsck_runtime_opts.opt_preen == 0 ||
+			if (opts.opt_preen == 0 ||
 			    (passno == 1 && mnt->mnt_passno == passno)) {
 				name = blockcheck(mnt->mnt_fsname);
 				if (name != NULL)
-					checkfilesys(name);
-				else if (fsck_runtime_opts.opt_preen)
+					process_exitstat |= checkfilesys(name, &opts);
+				else if (opts.opt_preen)
 					exit(8);
 			} else if (mnt->mnt_passno > passno) 
 				anygtr = 1;
@@ -122,13 +124,14 @@ nextufs_fsck_run(int argc, char **argv)
 					name = blockcheck(mnt->mnt_fsname);
 					if (name == NULL)
 						exit(8);
-					checkfilesys(name);
-					exit(fsck_process_exitstat);
+					process_exitstat |= checkfilesys(name,
+					    &opts);
+					exit(process_exitstat);
 				}
 			}
 		}
 		endmntent(fstab);
-		if (fsck_runtime_opts.opt_preen) {
+		if (opts.opt_preen) {
 			int status;
 			while (wait(&status) != -1) {
 				if (WIFEXITED(status))
@@ -141,15 +144,7 @@ nextufs_fsck_run(int argc, char **argv)
 	} while (anygtr);
 	if (sumstatus)
 		return 8;
-	if (returntosingle)
+	if (fsck_return_to_single_user)
 		return 2;
-	return fsck_process_exitstat;
+	return process_exitstat;
 }
-
-#ifndef NEXTUFS_NO_STANDALONE
-int
-main(int argc, char **argv)
-{
-	return nextufs_fsck_run(argc, argv);
-}
-#endif

@@ -67,26 +67,26 @@ nextufs_stress: src/commands/stress.o $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) -o $@ src/commands/stress.o $(WRITE_LIB) $(LIB)
 
 src/commands/mount.o: src/commands/mount.c
-	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
 
 src/commands/info.o: src/commands/info.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/browse.o: src/commands/browse.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/fsck.o: src/commands/fsck.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/mkfile_cli.o: src/commands/mkfile.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/mkimg.o: src/commands/mkimg.c
-	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -DNEXTUFS_NO_STANDALONE \
+	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
 		-Isrc/mkimg_format -Iinclude -c -o $@ $<
 
 src/commands/resize.o: src/commands/resize.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 mkimg_format.o: src/mkimg_format/format.c
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
@@ -98,7 +98,7 @@ mkimg_format_io.o: src/mkimg_format/format_io.c
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
 fsck_%.o: src/fsck/%.c
-	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
 
 test: test-nextufs test-fsck
 

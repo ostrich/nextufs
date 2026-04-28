@@ -38,11 +38,3 @@ nextufs_info_main(int argc, char **argv)
 	nextufs_image_close(&img);
 	return 0;
 }
-
-#ifndef NEXTUFS_NO_STANDALONE
-int
-main(int argc, char **argv)
-{
-	return nextufs_info_main(argc, argv);
-}
-#endif

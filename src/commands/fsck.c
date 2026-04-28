@@ -1,3 +1,4 @@
+#include "commands.h"
 #include "nextufs_fsck.h"
 
 int

@@ -162,17 +162,19 @@ checkfilesys_active(char *filesys)
 		exit(4);
 }
 
-void
-checkfilesys(char *filesys)
+int
+checkfilesys(char *filesys, const struct fsck_runtime_options *opts)
 {
 	struct fsck_ctx ctx;
+	int status;
 
-	fsck_ctx_init_from_runtime(&ctx);
+	fsck_ctx_init_from_runtime(&ctx, opts);
 	fsck_ctx_set_current(&ctx);
 	checkfilesys_active(filesys);
 	fsck_source_cleanup();
-	fsck_process_exitstat |= ctx.ctx_exitstat;
+	status = ctx.ctx_exitstat;
 	fsck_ctx_set_current(NULL);
+	return status;
 }
 
 char *

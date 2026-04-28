@@ -276,11 +276,3 @@ nextufs_mkfile_main(int argc, char **argv)
 	}
 	return 0;
 }
-
-#ifndef NEXTUFS_NO_STANDALONE
-int
-main(int argc, char **argv)
-{
-	return nextufs_mkfile_main(argc, argv);
-}
-#endif

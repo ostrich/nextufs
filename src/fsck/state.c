@@ -12,9 +12,6 @@
 #include <mntent.h>
 #include "fsck.h"
 
-struct fsck_runtime_options fsck_runtime_opts;
-int fsck_process_exitstat;
-
 static struct fsck_ctx *g_fsck_current_ctx;
 
 struct fsck_ctx *
@@ -46,15 +43,16 @@ fsck_ctx_init(struct fsck_ctx *ctx)
 }
 
 void
-fsck_ctx_init_from_runtime(struct fsck_ctx *ctx)
+fsck_ctx_init_from_runtime(struct fsck_ctx *ctx,
+    const struct fsck_runtime_options *opts)
 {
 	fsck_ctx_init(ctx);
 #if	NeXT
-	ctx->ctx_Pflag = fsck_runtime_opts.opt_Pflag;
+	ctx->ctx_Pflag = opts->opt_Pflag;
 #endif
-	ctx->ctx_nflag = fsck_runtime_opts.opt_nflag;
-	ctx->ctx_yflag = fsck_runtime_opts.opt_yflag;
-	ctx->ctx_bflag = fsck_runtime_opts.opt_bflag;
-	ctx->ctx_debug = fsck_runtime_opts.opt_debug;
-	ctx->ctx_preen = fsck_runtime_opts.opt_preen;
+	ctx->ctx_nflag = opts->opt_nflag;
+	ctx->ctx_yflag = opts->opt_yflag;
+	ctx->ctx_bflag = opts->opt_bflag;
+	ctx->ctx_debug = opts->opt_debug;
+	ctx->ctx_preen = opts->opt_preen;
 }
