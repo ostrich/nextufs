@@ -13,6 +13,8 @@ FSCK_CFLAGS ?= -O2 -g -std=gnu99 -fcommon -Wall -Wextra
 FSCK_CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 \
 	-Isrc/fsck/include -Iinclude
 SCRATCH_DIR = $(CURDIR)/.scratch
+BUILD_DIR = build
+OBJ_DIR = $(BUILD_DIR)/obj
 export TMPDIR = $(SCRATCH_DIR)
 TEST_IMAGE ?= .scratch/openstep42-base.raw
 FSCK_BIN = ./nextufs fsck
@@ -22,16 +24,29 @@ FUSE_LIBS != pkg-config --libs fuse3
 LIB_SRCS = src/core/image.c src/core/directory.c src/core/path.c src/core/node.c \
 	src/core/layout.c src/core/alloc.c src/core/label.c src/core/size.c \
 	src/core/source.c src/core/info.c src/core/report.c
-LIB_OBJS = $(LIB_SRCS:.c=.o)
-LIB = libnextufs.a
+LIB_OBJS = $(LIB_SRCS:%.c=$(OBJ_DIR)/%.o)
+LIB = $(BUILD_DIR)/libnextufs.a
 WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c
-WRITE_OBJS = $(WRITE_SRCS:.c=.o)
-WRITE_LIB = libnextufs_mutate.a
+WRITE_OBJS = $(WRITE_SRCS:%.c=$(OBJ_DIR)/%.o)
+WRITE_LIB = $(BUILD_DIR)/libnextufs_mutate.a
+COMMAND_OBJS = $(OBJ_DIR)/src/commands/main.o \
+	$(OBJ_DIR)/src/commands/mount.o \
+	$(OBJ_DIR)/src/commands/info.o \
+	$(OBJ_DIR)/src/commands/browse.o \
+	$(OBJ_DIR)/src/commands/fsck.o \
+	$(OBJ_DIR)/src/commands/mkfile_cli.o \
+	$(OBJ_DIR)/src/commands/mkimg.o \
+	$(OBJ_DIR)/src/commands/resize.o
+STRESS_OBJ = $(OBJ_DIR)/src/commands/stress.o
+TEST_OBJ = $(OBJ_DIR)/tests/nextufs/nextufs_test.o
+FORMAT_OBJS = $(OBJ_DIR)/src/mkimg_format/format.o \
+	$(OBJ_DIR)/src/mkimg_format/format_fsinit.o \
+	$(OBJ_DIR)/src/mkimg_format/format_io.o
 FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	dir_scan.c driver.c frag_support.c inode_ops.c inode_scan.c operator.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
-FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
+FSCK_OBJS = $(FSCK_SRCS:%.c=$(OBJ_DIR)/src/fsck/%.o)
 PUBLIC_HDRS = include/nextufs.h include/nextufs_image.h include/nextufs_node.h \
 	include/nextufs_mutate.h include/nextufs_info.h include/nextufs_label.h \
 	include/nextufs_report.h include/nextufs_size.h
@@ -45,70 +60,76 @@ scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
 $(LIB): $(LIB_OBJS)
+	@mkdir -p $(@D)
 	ar rcs $@ $(LIB_OBJS)
 
 $(WRITE_LIB): $(WRITE_OBJS)
+	@mkdir -p $(@D)
 	ar rcs $@ $(WRITE_OBJS)
 
-nextufs: src/commands/main.o src/commands/mount.o src/commands/info.o \
-	src/commands/browse.o \
-	src/commands/fsck.o src/commands/mkfile_cli.o \
-	src/commands/mkimg.o src/commands/resize.o \
-	mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
-	$(FSCK_OBJS) $(LIB) $(WRITE_LIB)
-	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ src/commands/main.o \
-		src/commands/mount.o src/commands/info.o src/commands/browse.o \
-		src/commands/fsck.o \
-		src/commands/mkfile_cli.o \
-		src/commands/mkimg.o src/commands/resize.o \
-		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
-		$(FSCK_OBJS) \
-		$(WRITE_LIB) $(LIB) $(FUSE_LIBS)
+nextufs: $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ $(COMMAND_OBJS) \
+		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS)
 
-nextufs_test: tests/nextufs/nextufs_test.o $(LIB)
-	$(CC) $(CFLAGS) -o $@ tests/nextufs/nextufs_test.o $(LIB)
+nextufs_test: $(TEST_OBJ) $(LIB)
+	$(CC) $(CFLAGS) -o $@ $(TEST_OBJ) $(LIB)
 
-nextufs_stress: src/commands/stress.o $(LIB) $(WRITE_LIB)
-	$(CC) $(CFLAGS) -o $@ src/commands/stress.o $(WRITE_LIB) $(LIB)
+nextufs_stress: $(STRESS_OBJ) $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) -o $@ $(STRESS_OBJ) $(WRITE_LIB) $(LIB)
 
 $(LIB_OBJS): $(INTERNAL_HDRS)
 $(WRITE_OBJS): $(INTERNAL_HDRS)
-tests/nextufs/nextufs_test.o: $(PUBLIC_HDRS)
-src/commands/stress.o: src/commands/stress.c $(PUBLIC_HDRS)
+$(TEST_OBJ): tests/nextufs/nextufs_test.c $(PUBLIC_HDRS)
+$(STRESS_OBJ): src/commands/stress.c $(PUBLIC_HDRS)
 
-src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
+$(OBJ_DIR)/src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
 
-src/commands/info.o: src/commands/info.c $(PUBLIC_HDRS)
+$(OBJ_DIR)/src/commands/info.o: src/commands/info.c $(PUBLIC_HDRS)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/browse.o: src/commands/browse.c $(PUBLIC_HDRS)
+$(OBJ_DIR)/src/commands/browse.o: src/commands/browse.c $(PUBLIC_HDRS)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/fsck.o: src/commands/fsck.c src/commands/commands.h include/nextufs_fsck.h
+$(OBJ_DIR)/src/commands/fsck.o: src/commands/fsck.c src/commands/commands.h include/nextufs_fsck.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/mkfile_cli.o: src/commands/mkfile.c $(PUBLIC_HDRS)
+$(OBJ_DIR)/src/commands/mkfile_cli.o: src/commands/mkfile.c $(PUBLIC_HDRS)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h
+$(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
 		-Isrc/mkimg_format -Iinclude -c -o $@ $<
 
-src/commands/resize.o: src/commands/resize.c $(INTERNAL_HDRS)
+$(OBJ_DIR)/src/commands/resize.o: src/commands/resize.c $(INTERNAL_HDRS)
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-mkimg_format.o: src/mkimg_format/format.c
+$(OBJ_DIR)/src/mkimg_format/format.o: src/mkimg_format/format.c
+	@mkdir -p $(@D)
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-mkimg_format_fsinit.o: src/mkimg_format/format_fsinit.c
+$(OBJ_DIR)/src/mkimg_format/format_fsinit.o: src/mkimg_format/format_fsinit.c
+	@mkdir -p $(@D)
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-mkimg_format_io.o: src/mkimg_format/format_io.c
+$(OBJ_DIR)/src/mkimg_format/format_io.o: src/mkimg_format/format_io.c
+	@mkdir -p $(@D)
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-fsck_%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs_image.h include/nextufs_fsck.h
+$(OBJ_DIR)/src/fsck/%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs_image.h include/nextufs_fsck.h
+	@mkdir -p $(@D)
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
+
+$(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 test: test-nextufs test-fsck
 
@@ -569,20 +590,8 @@ uninstall:
 	rm -f "$(DESTDIR)$(mandir)/man1/nextufs.1"
 
 clean:
-	rm -f nextufs src/commands/main.o \
-		src/commands/mount.o src/commands/info.o src/commands/browse.o \
-		src/commands/fsck.o src/commands/mkfile.o src/commands/mkfile_cli.o \
-		src/commands/mkimg.o src/commands/resize.o \
-		src/commands/stress.o src/commands/stress_cli.o \
-		mkimg_format.o mkimg_format_fsinit.o \
-		mkimg_format_io.o $(FSCK_OBJS) \
-		nextufs_test tests/nextufs/nextufs_test.o nextufs_mkfile \
-		nextufs_stress tests/fsck/tools/corrupt_raw_case \
-		$(LIB) $(WRITE_LIB) $(LIB_OBJS) $(WRITE_OBJS)
-	rm -f nextufs_alloc.o nextufs_cli.o \
-		nextufs_dir_mutate.o nextufs_directory.o nextufs_fuse_cli.o \
-		nextufs_image.o nextufs_info.o nextufs_label.o \
-		nextufs_layout.o nextufs_mkfile.o nextufs_mkfile_cli.o \
-		nextufs_mutate.o nextufs_node.o nextufs_path.o \
-		nextufs_report.o nextufs_size.o nextufs_source.o \
-		nextufs_stress.o nextufs_stress_cli.o
+	rm -rf $(BUILD_DIR)
+	rm -f nextufs nextufs_test nextufs_stress \
+		tests/fsck/tools/corrupt_raw_case
+	rm -f *.o *.a src/commands/*.o src/core/*.o src/mutate/*.o \
+		tests/nextufs/*.o
