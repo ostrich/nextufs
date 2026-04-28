@@ -102,7 +102,7 @@ fsck_%.o: ../nextufs.fsck/%.c
 
 test: all
 	./nextufs --help >/dev/null
-	./nextufs probe $(TEST_IMAGE) >/dev/null
+	./nextufs inspect $(TEST_IMAGE) >/dev/null
 	./nextufs fsck -n $(TEST_IMAGE) >/dev/null
 	./nextufs resize analyze $(TEST_IMAGE) >/dev/null
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
