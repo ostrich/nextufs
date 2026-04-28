@@ -124,6 +124,11 @@ Grow a supported image offline. Bare numbers are interpreted as 1 KiB sectors:
 nextufs resize grow /path/to/source 2097152
 ```
 
+By default, `mkimg` and `resize grow` enforce the NEXTSTEP/OPENSTEP
+compatibility ceiling of `4294836224` bytes, or `4194176` 1 KiB sectors.
+Use `--force-size` only when intentionally creating or growing beyond that
+limit.
+
 Apply an offline mutation:
 
 ```sh
@@ -142,8 +147,9 @@ nextufs mkfile --policy user --uid 1000 --gid 100 \
   base image is not equivalent to modifying the current VM state.
 - `mkimg` refuses to overwrite existing files unless `--force-overwrite` is
   supplied.
-- `mkimg` and `resize grow` enforce the NEXTSTEP/OPENSTEP compatibility size
-  limit unless `--force-size` is supplied.
+- `mkimg` and `resize grow` enforce the NEXTSTEP/OPENSTEP compatibility ceiling
+  of `4294836224` bytes, or `4194176` 1 KiB sectors, unless `--force-size` is
+  supplied.
 
 ## Testing
 

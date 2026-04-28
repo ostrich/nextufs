@@ -211,7 +211,7 @@ Print the planned layout without creating or modifying the target.
 Allow a target size above the NEXTSTEP/OPENSTEP compatibility ceiling.
 Without this option,
 .Nm
-rejects sizes above 4,294,836,224 bytes, or 4,194,176 1 KiB sectors.
+rejects sizes above 4294836224 bytes, or 4194176 1 KiB sectors.
 .It Fl -force-overwrite
 Replace an existing target file.
 .It Fl h , Fl -help
@@ -406,8 +406,8 @@ labeled mode: bytes.
 1 KiB sectors.
 .El
 .Pp
-The default NEXTSTEP/OPENSTEP compatibility ceiling is 4,294,836,224 bytes,
-or 4,194,176 1 KiB sectors.
+The default NEXTSTEP/OPENSTEP compatibility ceiling is 4294836224 bytes,
+or 4194176 1 KiB sectors.
 Commands that create or grow images refuse larger sizes unless
 .Fl -force-size
 is supplied.
