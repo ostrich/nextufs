@@ -27,7 +27,7 @@ WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c
 WRITE_OBJS = $(WRITE_SRCS:.c=.o)
 WRITE_LIB = libnextufs_mutate.a
 FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
-	dir_scan.c frag_support.c inode_ops.c inode_scan.c main.c operator.c \
+	dir_scan.c driver.c frag_support.c inode_ops.c inode_scan.c operator.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
@@ -47,11 +47,13 @@ $(WRITE_LIB): $(WRITE_OBJS)
 
 nextufs: src/commands/main.o src/commands/mount.o src/commands/info.o \
 	src/commands/browse.o \
-	src/commands/mkfile_cli.o src/commands/mkimg.o src/commands/resize.o \
+	src/commands/fsck.o src/commands/mkfile_cli.o \
+	src/commands/mkimg.o src/commands/resize.o \
 	mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
 	$(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ src/commands/main.o \
 		src/commands/mount.o src/commands/info.o src/commands/browse.o \
+		src/commands/fsck.o \
 		src/commands/mkfile_cli.o \
 		src/commands/mkimg.o src/commands/resize.o \
 		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
@@ -71,6 +73,9 @@ src/commands/info.o: src/commands/info.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
 src/commands/browse.o: src/commands/browse.c
+	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
+
+src/commands/fsck.o: src/commands/fsck.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
 src/commands/mkfile_cli.o: src/commands/mkfile.c
@@ -550,7 +555,7 @@ uninstall:
 clean:
 	rm -f nextufs src/commands/main.o \
 		src/commands/mount.o src/commands/info.o src/commands/browse.o \
-		src/commands/mkfile.o src/commands/mkfile_cli.o \
+		src/commands/fsck.o src/commands/mkfile.o src/commands/mkfile_cli.o \
 		src/commands/mkimg.o src/commands/resize.o \
 		src/commands/stress.o src/commands/stress_cli.o \
 		mkimg_format.o mkimg_format_fsinit.o \

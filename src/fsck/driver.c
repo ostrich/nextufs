@@ -1,4 +1,4 @@
-/* Process entry point and multi-filesystem driver. */
+/* Multi-filesystem checker driver. */
 
 #include <stdio.h>
 #include <sys/param.h>
@@ -14,11 +14,12 @@
 #include <mntent.h>
 #include <strings.h>
 #include "fsck.h"
+#include "nextufs_fsck.h"
 
 int	returntosingle;
 
 int
-nextufs_fsck_main(int argc, char *argv[])
+nextufs_fsck_run(int argc, char **argv)
 {
 	int pid, passno, anygtr, sumstatus;
 	char *name;
@@ -147,8 +148,8 @@ nextufs_fsck_main(int argc, char *argv[])
 
 #ifndef NEXTUFS_NO_STANDALONE
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
-	return nextufs_fsck_main(argc, argv);
+	return nextufs_fsck_run(argc, argv);
 }
 #endif
