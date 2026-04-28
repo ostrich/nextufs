@@ -179,3 +179,7 @@ Additional fsck corpus notes are in [tests/fsck/README.md](tests/fsck/README.md)
 - `include/`: public and internal C headers.
 - `tools/`: support utilities such as `vdi_chain.py`.
 - `tests/`: command tests and fsck corruption fixtures.
+
+## License
+
+nextufs is released under the MIT License. See [LICENSE](LICENSE).
