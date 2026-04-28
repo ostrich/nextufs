@@ -11,18 +11,17 @@
 
 #define DEV_SECTOR_SIZE 512U
 #define LABEL_COPY_COUNT 4U
-#define LABEL_PART_COUNT 8
 #define LABEL_COPY_STRIDE 7680U
-#define LABEL_SCAN_LIMIT (128U * 1024U)
-#define LABEL_DECODE_SIZE 0x660U
+#define LABEL_VALIDATE_SIZE 0x660U
 #define LABEL_WRITE_SIZE 0x300U
 #define LABEL_CKSUM_SIZE 0x230U
-#define LABEL_FSTYPE_LEN 8U
 #define DL_V1 0x4e655854U
 #define DL_V2 0x646c5632U
 #define DL_V3 0x646c5633U
 #define DL_DISKTAB_OFF 0x02cU
 #define DL_V3_CKSUM_OFF 0x022eU
+#define DL_CKSUM_OFF 0x1c58U
+#define DL_V3_CKSUM_SIZE 0x0230U
 #define DT_NAME_OFF 0x000U
 #define DT_TYPE_OFF 0x018U
 #define DT_SECSIZE_OFF 0x032U
@@ -91,6 +90,19 @@ put_string(uint8_t *dst, size_t len, const char *s)
 	memcpy(dst, s, n);
 }
 
+static void
+copy_cstr_field(char *dst, size_t dst_size, const uint8_t *src, size_t src_size)
+{
+	size_t n = 0;
+
+	while (n < src_size && src[n] != '\0')
+		n++;
+	if (n >= dst_size)
+		n = dst_size - 1;
+	memcpy(dst, src, n);
+	dst[n] = '\0';
+}
+
 static int
 label_partition_present(const uint8_t *part)
 {
@@ -102,7 +114,7 @@ label_partition_present(const uint8_t *part)
 	size_t i;
 	int type_empty = 1;
 
-	for (i = 0; i < LABEL_FSTYPE_LEN; i++) {
+	for (i = 0; i < NEXTUFS_LABEL_FSTYPE_LEN; i++) {
 		if (type[i] != '\0') {
 			type_empty = 0;
 			break;
@@ -113,6 +125,123 @@ label_partition_present(const uint8_t *part)
 	    type_empty)
 		return 0;
 	return 1;
+}
+
+int
+nextufs_label_is_version(uint32_t version)
+{
+	return version == DL_V1 || version == DL_V2 || version == DL_V3;
+}
+
+int
+nextufs_label_decode(struct nextufs_disk_label *dl, const uint8_t *buf,
+    size_t size, off_t off)
+{
+	size_t i;
+	uint8_t tmp[DL_V3_CKSUM_SIZE];
+	const uint8_t *dt;
+
+	if (size < NEXTUFS_LABEL_DECODE_SIZE)
+		return -1;
+	memset(dl, 0, sizeof(*dl));
+	dl->version = nextufs__read_be32(buf + 0x00);
+	if (!nextufs_label_is_version(dl->version))
+		return -1;
+	dl->label_off = off;
+	dl->label_blkno = nextufs__read_be32(buf + 0x04);
+	dt = buf + DL_DISKTAB_OFF;
+	dl->secsize = nextufs__read_be16(dt + DT_SECSIZE_OFF);
+	dl->front = nextufs__read_be16(dt + DT_FRONT_OFF);
+	dl->rootpartition = (char)dt[DT_ROOTPART_OFF];
+	if (dl->version == DL_V3) {
+		dl->checksum = nextufs__read_be16(buf + DL_V3_CKSUM_OFF);
+		dl->checksum_present = dl->checksum != 0;
+		memcpy(tmp, buf, sizeof(tmp));
+		memset(tmp + 0x04, 0, 4);
+		memset(tmp + DL_V3_CKSUM_OFF, 0, 2);
+		dl->checksum_valid =
+		    checksum_be16(tmp, sizeof(tmp)) == dl->checksum;
+	} else {
+		dl->checksum = nextufs__read_be16(buf + DL_CKSUM_OFF);
+		dl->checksum_present = dl->checksum != 0;
+		dl->checksum_valid = 0;
+	}
+	for (i = 0; i < NEXTUFS_LABEL_PART_COUNT; i++) {
+		const uint8_t *p = dt + DT_PARTITIONS_OFF +
+		    (i * DT_PARTITION_SIZE);
+		struct nextufs_label_partition *part = &dl->part[i];
+		int all_zero = 1;
+		int all_ff = 1;
+		size_t j;
+
+		for (j = 0; j < DT_PARTITION_SIZE; j++) {
+			if (p[j] != 0x00)
+				all_zero = 0;
+			if (p[j] != 0xff)
+				all_ff = 0;
+		}
+		part->base_blocks = read_be24(p + PART_BASE_OFF);
+		part->size_blocks = read_be24(p + PART_SIZE_OFF);
+		part->block_size = nextufs__read_be16(p + PART_BSIZE_OFF);
+		part->frag_size = nextufs__read_be16(p + PART_FSIZE_OFF);
+		copy_cstr_field(part->type, sizeof(part->type),
+		    p + PART_TYPE_OFF, NEXTUFS_LABEL_FSTYPE_LEN);
+		part->present = !all_zero && !all_ff &&
+		    part->base_blocks != 0xffffffU &&
+		    part->size_blocks != 0 &&
+		    part->size_blocks != 0xffffffU &&
+		    part->block_size != 0 &&
+		    part->block_size != 0xffff &&
+		    part->frag_size != 0 &&
+		    part->frag_size != 0xffff &&
+		    part->block_size >= part->frag_size &&
+		    part->type[0] != '\0';
+	}
+	if (dl->secsize == 0 ||
+	    (dl->secsize % NEXTUFS_LABEL_DEV_SECTOR_SIZE) != 0)
+		return -1;
+	if ((uint64_t)dl->label_blkno * NEXTUFS_LABEL_DEV_SECTOR_SIZE !=
+	    (uint64_t)off)
+		return -1;
+	if (dl->checksum_present && !dl->checksum_valid)
+		return -1;
+	return 0;
+}
+
+int
+nextufs_label_pick_slice(const struct nextufs_disk_label *dl,
+    off_t *slice_base_out, off_t *slice_size_out)
+{
+	size_t i;
+
+	if (dl->rootpartition >= 'a' &&
+	    dl->rootpartition < 'a' + NEXTUFS_LABEL_PART_COUNT) {
+		i = (size_t)(dl->rootpartition - 'a');
+		if (dl->part[i].present && dl->part[i].size_blocks != 0) {
+			*slice_base_out =
+			    (off_t)(((uint64_t)dl->front +
+			    dl->part[i].base_blocks) * dl->secsize);
+			if (slice_size_out != NULL)
+				*slice_size_out =
+				    (off_t)((uint64_t)dl->part[i].size_blocks *
+				    dl->secsize);
+			return 0;
+		}
+	}
+	for (i = 0; i < NEXTUFS_LABEL_PART_COUNT; i++) {
+		if (!dl->part[i].present || dl->part[i].size_blocks == 0)
+			continue;
+		if (strcmp(dl->part[i].type, "4.3BSD") != 0)
+			continue;
+		*slice_base_out = (off_t)(((uint64_t)dl->front +
+		    dl->part[i].base_blocks) * dl->secsize);
+		if (slice_size_out != NULL)
+			*slice_size_out =
+			    (off_t)((uint64_t)dl->part[i].size_blocks *
+			    dl->secsize);
+		return 0;
+	}
+	return -1;
 }
 
 static int
@@ -147,7 +276,8 @@ write_label_copy(int fd, off_t off, uint32_t total_blocks,
 	dt[DT_ROOTPART_OFF] = 'a';
 	dt[DT_RWPART_OFF] = 'b';
 
-	memset(dt + DT_PARTITIONS_OFF, 0xff, LABEL_PART_COUNT * DT_PARTITION_SIZE);
+	memset(dt + DT_PARTITIONS_OFF, 0xff,
+	    NEXTUFS_LABEL_PART_COUNT * DT_PARTITION_SIZE);
 	part = dt + DT_PARTITIONS_OFF;
 	memset(part, 0, DT_PARTITION_SIZE);
 	write_be24(part + PART_BASE_OFF, 0);
@@ -205,7 +335,7 @@ static int
 validate_one_label_copy(int fd, off_t label_off, off_t slice_base,
     int *matched_out)
 {
-	uint8_t label[LABEL_DECODE_SIZE];
+	uint8_t label[LABEL_VALIDATE_SIZE];
 	const uint8_t *dt;
 	const uint8_t *root_part;
 	uint32_t version;
@@ -232,10 +362,11 @@ validate_one_label_copy(int fd, off_t label_off, off_t slice_base,
 	secsize = nextufs__read_be16(dt + DT_SECSIZE_OFF);
 	front = nextufs__read_be16(dt + DT_FRONT_OFF);
 	rootpartition = (char)dt[DT_ROOTPART_OFF];
-	if (rootpartition < 'a' || rootpartition >= 'a' + LABEL_PART_COUNT)
+	if (rootpartition < 'a' ||
+	    rootpartition >= 'a' + NEXTUFS_LABEL_PART_COUNT)
 		return -EINVAL;
 	root_index = rootpartition - 'a';
-	for (i = 0; i < LABEL_PART_COUNT; i++) {
+	for (i = 0; i < NEXTUFS_LABEL_PART_COUNT; i++) {
 		const uint8_t *part = dt + DT_PARTITIONS_OFF +
 		    ((size_t)i * DT_PARTITION_SIZE);
 
@@ -264,7 +395,7 @@ nextufs_label_validate_single_slice_fd(int fd, off_t slice_base)
 	int matched = 0;
 	int rc;
 
-	for (off = 0; off + LABEL_DECODE_SIZE <= LABEL_SCAN_LIMIT;
+	for (off = 0; off + LABEL_VALIDATE_SIZE <= NEXTUFS_LABEL_SCAN_LIMIT;
 	    off += DEV_SECTOR_SIZE) {
 		int copy_matched;
 
@@ -280,7 +411,7 @@ static int
 patch_one_label_partition_size(int fd, off_t label_off, off_t slice_base,
     uint64_t slice_bytes, int *patched_out)
 {
-	uint8_t label[LABEL_DECODE_SIZE];
+	uint8_t label[LABEL_VALIDATE_SIZE];
 	uint8_t tmp[LABEL_CKSUM_SIZE];
 	uint8_t *dt;
 	uint8_t *part;
@@ -307,7 +438,8 @@ patch_one_label_partition_size(int fd, off_t label_off, off_t slice_base,
 	secsize = nextufs__read_be16(dt + DT_SECSIZE_OFF);
 	front = nextufs__read_be16(dt + DT_FRONT_OFF);
 	rootpartition = (char)dt[DT_ROOTPART_OFF];
-	if (rootpartition < 'a' || rootpartition >= 'a' + LABEL_PART_COUNT ||
+	if (rootpartition < 'a' ||
+	    rootpartition >= 'a' + NEXTUFS_LABEL_PART_COUNT ||
 	    secsize == 0 || (slice_bytes % secsize) != 0)
 		return 0;
 	size_blocks = (uint32_t)(slice_bytes / secsize);
@@ -340,7 +472,7 @@ nextufs_label_patch_slice_size_fd(int fd, off_t slice_base,
 	int patched = 0;
 	int rc;
 
-	for (off = 0; off + LABEL_DECODE_SIZE <= LABEL_SCAN_LIMIT;
+	for (off = 0; off + LABEL_VALIDATE_SIZE <= NEXTUFS_LABEL_SCAN_LIMIT;
 	    off += DEV_SECTOR_SIZE) {
 		int did_patch;
 
