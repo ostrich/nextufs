@@ -662,7 +662,7 @@ static const struct fuse_operations nextufs_ops = {
 };
 
 int
-main(int argc, char **argv)
+nextufs_mount_main(int argc, char **argv)
 {
 	struct fuse_args args;
 	int rc;
@@ -710,3 +710,11 @@ main(int argc, char **argv)
 	nextufs_image_close(&g_img);
 	return rc;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_mount_main(argc, argv);
+}
+#endif

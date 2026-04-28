@@ -98,7 +98,7 @@ parse_global_ctx_args(int argc, char **argv, int *argi,
 }
 
 int
-main(int argc, char **argv)
+nextufs_mkfile_main(int argc, char **argv)
 {
 	struct nextufs_write_ctx ctx;
 	uid_t uid;
@@ -276,3 +276,11 @@ main(int argc, char **argv)
 	}
 	return 0;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_mkfile_main(argc, argv);
+}
+#endif

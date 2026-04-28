@@ -118,7 +118,7 @@ print_data_preview(const uint8_t *buf, size_t size)
 }
 
 int
-main(int argc, char **argv)
+nextufs_probe_main(int argc, char **argv)
 {
 	struct nextufs_image img;
 	struct nextufs_inspect_info info;
@@ -177,3 +177,11 @@ main(int argc, char **argv)
 	nextufs_image_close(&img);
 	return 0;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_probe_main(argc, argv);
+}
+#endif

@@ -23,7 +23,7 @@ trap cleanup EXIT
 fusermount3 -u "${mountpoint}" >/dev/null 2>&1 || true
 mkdir -p "${mountpoint}"
 
-./nextufs "${image}" "${mountpoint}" -f -s >/tmp/nextufs_fuse_test.log 2>&1 &
+./nextufs mount "${image}" "${mountpoint}" -f -s >/tmp/nextufs_fuse_test.log 2>&1 &
 pid=$!
 sleep 1
 

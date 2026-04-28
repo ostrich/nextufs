@@ -2886,7 +2886,7 @@ nextufs_stress_batch(struct nextufs_stress_ctx *base)
 }
 
 int
-main(int argc, char **argv)
+nextufs_stress_main(int argc, char **argv)
 {
 	struct nextufs_stress_ctx ctx;
 	const char *image_path = NULL;
@@ -3064,3 +3064,11 @@ main(int argc, char **argv)
 	nextufs_stress_cleanup(&ctx);
 	return 0;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_stress_main(argc, argv);
+}
+#endif
