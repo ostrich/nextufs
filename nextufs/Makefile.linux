@@ -46,17 +46,20 @@ $(WRITE_LIB): $(WRITE_OBJS)
 
 nextufs: commands/nextufs.o commands/cmd_mount.o commands/cmd_inspect.o \
 	commands/cmd_mkfile_cli.o commands/cmd_mkimg.o commands/cmd_resize.o \
-	commands/cmd_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
-	mkimg_format_io.o $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
+	mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
+	$(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ commands/nextufs.o \
 		commands/cmd_mount.o commands/cmd_inspect.o commands/cmd_mkfile_cli.o \
-		commands/cmd_mkimg.o commands/cmd_resize.o commands/cmd_stress_cli.o \
+		commands/cmd_mkimg.o commands/cmd_resize.o \
 		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
 		$(FSCK_OBJS) \
 		$(WRITE_LIB) $(LIB) $(FUSE_LIBS)
 
 nextufs_test: nextufs_test.o $(LIB)
 	$(CC) $(CFLAGS) -o $@ nextufs_test.o $(LIB)
+
+nextufs_stress: commands/cmd_stress.o $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) -o $@ commands/cmd_stress.o $(WRITE_LIB) $(LIB)
 
 commands/cmd_mount.o: commands/cmd_mount.c
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
@@ -65,9 +68,6 @@ commands/cmd_inspect.o: commands/cmd_inspect.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
 commands/cmd_mkfile_cli.o: commands/cmd_mkfile.c
-	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
-
-commands/cmd_stress_cli.o: commands/cmd_stress.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
 commands/cmd_mkimg.o: commands/cmd_mkimg.c
@@ -483,30 +483,30 @@ test-failure: all
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-failure.raw >$(SCRATCH_DIR)/nextufs_failure_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_failure_fsck.out
 
-test-stress: all
+test-stress: all nextufs_stress
 	$(MKIMG_BIN) --force-overwrite --raw $(SCRATCH_DIR)/nextufs-stress.raw 8192 63 16 8192 1024 16 10 60 2048 t
-	./nextufs stress --seed 0x13579bdf --ops 250 --quiet $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress.log
+	./nextufs_stress --seed 0x13579bdf --ops 250 --quiet $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress.log
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-stress.raw >$(SCRATCH_DIR)/nextufs_stress_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress.log
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_fsck.out
 
-test-stress-base: all
+test-stress-base: all nextufs_stress
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-stress-base.raw
-	./nextufs stress --seed 0x2468ace0 --ops 220 --root /private/tmp/nextufs-stress --quiet $(SCRATCH_DIR)/nextufs-stress-base.raw >$(SCRATCH_DIR)/nextufs_stress_base.log
+	./nextufs_stress --seed 0x2468ace0 --ops 220 --root /private/tmp/nextufs-stress --quiet $(SCRATCH_DIR)/nextufs-stress-base.raw >$(SCRATCH_DIR)/nextufs_stress_base.log
 	dd if=$(SCRATCH_DIR)/nextufs-stress-base.raw of=$(SCRATCH_DIR)/nextufs-stress-base-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-stress-base-a.raw >$(SCRATCH_DIR)/nextufs_stress_base_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_base.log
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_base_fsck.out
 
-test-stress-batch: all
+test-stress-batch: all nextufs_stress
 	rm -rf $(SCRATCH_DIR)/nextufs-stress-batch-fail
 	$(MKIMG_BIN) --force-overwrite --raw $(SCRATCH_DIR)/nextufs-stress-batch.raw 8192 63 16 8192 1024 16 10 60 2048 t
-	./nextufs stress --seed 0x13579bdf --ops 120 --batch 4 --save-fail-dir $(SCRATCH_DIR)/nextufs-stress-batch-fail --quiet $(SCRATCH_DIR)/nextufs-stress-batch.raw >$(SCRATCH_DIR)/nextufs_stress_batch.log
+	./nextufs_stress --seed 0x13579bdf --ops 120 --batch 4 --save-fail-dir $(SCRATCH_DIR)/nextufs-stress-batch-fail --quiet $(SCRATCH_DIR)/nextufs-stress-batch.raw >$(SCRATCH_DIR)/nextufs_stress_batch.log
 	grep -F 'nextufs_stress: batch ok' $(SCRATCH_DIR)/nextufs_stress_batch.log
 
-test-stress-fuse: all
+test-stress-fuse: all nextufs_stress
 	$(MKIMG_BIN) --force-overwrite --raw $(SCRATCH_DIR)/nextufs-stress-fuse.raw 8192 63 16 8192 1024 16 10 60 2048 t
-	./nextufs stress --backend fuse --seed 0x13579bdf --ops 120 --quiet $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse.log
+	./nextufs_stress --backend fuse --seed 0x13579bdf --ops 120 --quiet $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse.log
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-stress-fuse.raw >$(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out
 	grep -F 'nextufs_stress: ok' $(SCRATCH_DIR)/nextufs_stress_fuse.log
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_stress_fuse_fsck.out

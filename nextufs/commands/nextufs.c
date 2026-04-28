@@ -10,7 +10,6 @@ int nextufs_mkfile_main(int argc, char **argv);
 int nextufs_mkimg_main(int argc, char **argv);
 int nextufs_inspect_main(int argc, char **argv);
 int nextufs_resize_main(int argc, char **argv);
-int nextufs_stress_main(int argc, char **argv);
 
 static void
 usage(FILE *out)
@@ -28,7 +27,6 @@ usage(FILE *out)
 	fprintf(out, "  mkfile   apply offline file/directory mutations\n");
 	fprintf(out, "  mkimg    create raw or labeled UFS images\n");
 	fprintf(out, "  resize   grow images offline\n");
-	fprintf(out, "  stress   run mutation stress tests\n");
 	fprintf(out, "\n");
 	fprintf(out, "Run 'nextufs <command> --help' for command-specific usage.\n");
 }
@@ -78,11 +76,6 @@ command_usage(FILE *out, const char *cmd)
 		    "usage: nextufs resize grow [--force-size] <source> <size>\n");
 		return;
 	}
-	if (strcmp(cmd, "stress") == 0) {
-		fprintf(out,
-		    "usage: nextufs stress [--seed n] [--ops n] [--backend offline|fuse] <source>\n");
-		return;
-	}
 	fprintf(out, "nextufs: unknown command '%s'\n", cmd);
 	usage(out);
 }
@@ -108,8 +101,6 @@ dispatch_command(int argc, char **argv)
 		return nextufs_mkimg_main(argc, argv);
 	if (strcmp(cmd, "resize") == 0)
 		return nextufs_resize_main(argc, argv);
-	if (strcmp(cmd, "stress") == 0)
-		return nextufs_stress_main(argc, argv);
 	fprintf(stderr, "nextufs: unknown command '%s'\n", cmd);
 	usage(stderr);
 	return 2;

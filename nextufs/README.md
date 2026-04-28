@@ -10,7 +10,6 @@ library, FUSE frontend, and offline mutation utilities.
 - `nextufs mkimg`: create raw or labeled UFS images
 - `nextufs resize`: grow supported images offline
 - `nextufs mkfile`: offline mutation tool used by tests and development
-- `nextufs stress`: deterministic mutation stress harness
 - `nextufs_test`: library regression binary
 
 ## Supported Sources
@@ -104,17 +103,6 @@ Apply an offline mutation:
 ./nextufs mkfile --policy user --uid 1000 --gid 100 \
   --chmod /path/to/source /private/tmp/example 0600
 ```
-
-Run stress:
-
-```sh
-./nextufs stress --seed 0x13579bdf --ops 250 /path/to/source
-./nextufs stress --backend fuse --seed 0x13579bdf --ops 120 /path/to/source
-```
-
-Warning: `nextufs stress` intentionally performs destructive mutations. Never
-run it against an original image, a preserved baseline, or a snapshot chain you
-care about. Use only disposable copies.
 
 ## Tests
 
