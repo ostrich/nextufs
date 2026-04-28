@@ -32,7 +32,7 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
 
-.PHONY: all clean install uninstall test test-nextufs test-fsck test-mkimg test-resize test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse repair-tools repair-corpus repair-lab repair-smoke repair-repair-all scratch-dir
+.PHONY: all clean install uninstall test test-nextufs test-cli-contract test-fsck test-mkimg test-resize test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse repair-tools repair-corpus repair-lab repair-smoke repair-repair-all scratch-dir
 
 all: scratch-dir $(LIB) $(WRITE_LIB) nextufs nextufs_test
 
@@ -102,7 +102,7 @@ fsck_%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs.h include/nextufs_fsck.h
 
 test: test-nextufs test-fsck
 
-test-nextufs: all test-mkimg test-resize
+test-nextufs: all test-mkimg test-resize test-cli-contract
 	./nextufs --help >/dev/null
 	./nextufs --version >/dev/null
 	./nextufs info --help >/dev/null
@@ -118,6 +118,9 @@ test-nextufs: all test-mkimg test-resize
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	./tests/nextufs/test_fuse.sh $(TEST_IMAGE)
+
+test-cli-contract: all
+	sh tests/nextufs/test_cli_contract.sh $(SCRATCH_DIR)
 
 test-fsck: test-nextufs repair-smoke
 

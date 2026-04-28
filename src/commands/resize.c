@@ -1,6 +1,7 @@
 #include "nextufs.h"
 #include "nextufs_internal.h"
 #include "nextufs_label.h"
+#include "nextufs_report.h"
 #include "nextufs_size.h"
 
 #include <errno.h>
@@ -45,7 +46,9 @@ static int write_csum_entry(struct nextufs_image *img, uint32_t cg,
 static void
 usage(FILE *out, const char *argv0)
 {
-	fprintf(out, "usage: %s grow [--force-size] <source> <size-1k-sectors>\n", argv0);
+	const char *cmd = strcmp(argv0, "resize") == 0 ? "nextufs resize" : argv0;
+
+	fprintf(out, "usage: %s grow [--force-size] <source> <size-1k-sectors>\n", cmd);
 	fprintf(out, "\n");
 	fprintf(out, "For labeled disk images, grow size is the final image size.\n");
 	fprintf(out, "For raw filesystem images, grow size is the filesystem size.\n");
@@ -776,23 +779,25 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 
 	if (nextufs_parse_size_bytes(sectors_arg, NEXTUFS_BARE_SIZE_1K_SECTORS,
 	    &target_backing_bytes) < 0) {
-		fprintf(stderr, "nextufs resize: invalid size '%s'\n", sectors_arg);
+		nextufs_report_invalid_value(stderr, "resize", "size",
+		    sectors_arg);
 		return 1;
 	}
 	if ((target_backing_bytes % NEXTUFS_KIB_BYTES) != 0) {
-		fprintf(stderr, "nextufs resize: requested size must align to 1K sectors\n");
+		nextufs_report_error(stderr, "resize",
+		    "requested size must align to 1K sectors");
 		return 1;
 	}
 	sectors = target_backing_bytes / NEXTUFS_KIB_BYTES;
 	if (!force && target_backing_bytes > NEXTUFS_COMPAT_MAX_BYTES) {
-		fprintf(stderr,
-		    "nextufs resize: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
+		nextufs_report_error(stderr, "resize",
+		    "requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override");
 		return 1;
 	}
 
 	rc = open_supported_image(&opened, path, 1);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs resize: cannot open '%s' writable: %d\n",
+		nextufs_report_errno(stderr, "resize", "open source writable",
 		    path, rc);
 		return 1;
 	}

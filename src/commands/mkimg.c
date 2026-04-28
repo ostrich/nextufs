@@ -3,6 +3,7 @@
 #include "format.h"
 #include "nextufs.h"
 #include "nextufs_label.h"
+#include "nextufs_report.h"
 #include "nextufs_size.h"
 
 #include <errno.h>
@@ -134,8 +135,8 @@ create_output(const struct options *opts)
 	    opts->force_overwrite ? NEXTUFS_OPEN_OVERWRITE :
 	    NEXTUFS_OPEN_CREATE, 0666, opts->bytes);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs mkimg: cannot create %s: %s\n",
-		    opts->target, strerror(-rc));
+		nextufs_report_errno(stderr, "mkimg", "cannot create",
+		    opts->target, rc);
 		return -1;
 	}
 	return 0;
@@ -234,16 +235,18 @@ nextufs_mkimg_main(int argc, char **argv)
 		return 0;
 	}
 	if (!opts.force_size && opts.bytes > NEXTUFS_COMPAT_MAX_BYTES) {
-		fprintf(stderr,
-		    "nextufs mkimg: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
+		nextufs_report_error(stderr, "mkimg",
+		    "requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override");
 		return 1;
 	}
 	if ((opts.bytes % UFS_SECTOR_SIZE) != 0) {
-		fprintf(stderr, "nextufs mkimg: size must be a multiple of 1024 bytes\n");
+		nextufs_report_error(stderr, "mkimg",
+		    "size must be a multiple of 1024 bytes");
 		return 1;
 	}
 	if (!opts.raw && opts.bytes <= NEXTUFS_LABEL_FRONT_PORCH_BYTES) {
-		fprintf(stderr, "nextufs mkimg: labeled image is too small for the front porch\n");
+		nextufs_report_error(stderr, "mkimg",
+		    "labeled image is too small for the front porch");
 		return 1;
 	}
 
@@ -251,11 +254,12 @@ nextufs_mkimg_main(int argc, char **argv)
 	    opts.bytes - NEXTUFS_LABEL_FRONT_PORCH_BYTES;
 	fs_sectors = slice_bytes / UFS_SECTOR_SIZE;
 	if (fs_sectors > LONG_MAX) {
-		fprintf(stderr, "nextufs mkimg: filesystem is too large\n");
+		nextufs_report_error(stderr, "mkimg", "filesystem is too large");
 		return 1;
 	}
 	if (format_options_from_cli(&opts, fs_sectors, &fmt) < 0) {
-		fprintf(stderr, "nextufs mkimg: invalid raw geometry argument\n");
+		nextufs_report_error(stderr, "mkimg",
+		    "invalid raw geometry argument");
 		return 1;
 	}
 	print_plan(&opts, slice_bytes);
@@ -265,7 +269,7 @@ nextufs_mkimg_main(int argc, char **argv)
 		return 1;
 	if (!opts.raw && nextufs_label_write_path(opts.target, opts.bytes,
 	    slice_bytes, opts.label) < 0) {
-		fprintf(stderr, "nextufs mkimg: failed to write disk label\n");
+		nextufs_report_error(stderr, "mkimg", "failed to write disk label");
 		return 1;
 	}
 

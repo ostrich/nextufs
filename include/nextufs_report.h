@@ -7,6 +7,11 @@
 #include <stdint.h>
 
 void nextufs_report_size_line(FILE *out, const char *label, uint64_t bytes);
+void nextufs_report_error(FILE *out, const char *command, const char *message);
+void nextufs_report_invalid_value(FILE *out, const char *command,
+	const char *field, const char *value);
+void nextufs_report_errno(FILE *out, const char *command, const char *action,
+	const char *subject, int rc);
 void nextufs_report_info_text(FILE *out, const char *source,
 	const struct nextufs_info *info);
 void nextufs_report_info_json(FILE *out, const char *source,

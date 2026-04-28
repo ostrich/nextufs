@@ -1,4 +1,5 @@
 #include "nextufs.h"
+#include "nextufs_report.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -102,11 +103,14 @@ nextufs_browse_main(int argc, char **argv)
 	rc = nextufs_image_open_source(&img, argv[argi],
 	    NEXTUFS_OPEN_READ_ONLY);
 	if (rc < 0) {
-		fprintf(stderr, "failed to open source %s\n", argv[argi]);
+		nextufs_report_errno(stderr, "browse", "open source",
+		    argv[argi], rc);
 		return 1;
 	}
 	rc = nextufs_node_get_root(&img, &node);
 	if (rc < 0) {
+		nextufs_report_errno(stderr, "browse", "read root inode",
+		    argv[argi], rc);
 		nextufs_image_close(&img);
 		return 1;
 	}
@@ -133,7 +137,8 @@ nextufs_browse_main(int argc, char **argv)
 					print_data_preview(preview, got);
 			}
 		} else {
-			fprintf(stderr, "lookup '%s' failed\n", argv[argi + 1]);
+			nextufs_report_errno(stderr, "browse", "lookup path",
+			    argv[argi + 1], rc);
 		}
 	}
 	nextufs_image_close(&img);

@@ -2,6 +2,7 @@
 
 #include "nextufs.h"
 #include "nextufs_internal.h"
+#include "nextufs_report.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -681,12 +682,13 @@ nextufs_mount_main(int argc, char **argv)
 	g_mount_gid_set = 0;
 	rc = nextufs_build_fuse_args(argc, argv, &args);
 	if (rc < 0) {
-		fprintf(stderr, "failed to parse fuse args: %s\n", strerror(-rc));
+		nextufs_report_errno(stderr, "mount", "parse FUSE args", NULL,
+		    rc);
 		return 1;
 	}
 	if (realpath(argv[1], g_image_path_buf) == NULL) {
-		fprintf(stderr, "failed to resolve image path %s: %s\n", argv[1],
-		    strerror(errno));
+		nextufs_report_errno(stderr, "mount", "resolve image path",
+		    argv[1], errno);
 		fuse_opt_free_args(&args);
 		return 1;
 	}
@@ -695,15 +697,16 @@ nextufs_mount_main(int argc, char **argv)
 	if (!g_mount_request_rw && !g_mount_saw_access_opt) {
 		if (fuse_opt_add_arg(&args, "-o") != 0 ||
 		    fuse_opt_add_arg(&args, "ro") != 0) {
-			fprintf(stderr, "failed to set read-only fuse args\n");
+			nextufs_report_error(stderr, "mount",
+			    "failed to set read-only FUSE args");
 			fuse_opt_free_args(&args);
 			return 1;
 		}
 	}
 	rc = nextufs_refresh_image();
 	if (rc < 0) {
-		fprintf(stderr, "failed to open source %s: %s\n", argv[1],
-		    strerror(-rc));
+		nextufs_report_errno(stderr, "mount", "open source", argv[1],
+		    rc);
 		fuse_opt_free_args(&args);
 		return 1;
 	}

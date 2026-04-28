@@ -2,12 +2,40 @@
 #include "nextufs_size.h"
 
 #include <inttypes.h>
+#include <string.h>
 
 void
 nextufs_report_size_line(FILE *out, const char *label, uint64_t bytes)
 {
 	fprintf(out, "%-30s %" PRIu64 " bytes (%" PRIu64 " 1K sectors)\n",
 	    label, bytes, bytes / 1024U);
+}
+
+void
+nextufs_report_error(FILE *out, const char *command, const char *message)
+{
+	fprintf(out, "nextufs %s: %s\n", command, message);
+}
+
+void
+nextufs_report_invalid_value(FILE *out, const char *command, const char *field,
+    const char *value)
+{
+	fprintf(out, "nextufs %s: invalid %s '%s'\n", command, field, value);
+}
+
+void
+nextufs_report_errno(FILE *out, const char *command, const char *action,
+    const char *subject, int rc)
+{
+	int err = rc < 0 ? -rc : rc;
+
+	if (subject != NULL && subject[0] != '\0') {
+		fprintf(out, "nextufs %s: %s %s: %s\n", command, action,
+		    subject, strerror(err));
+		return;
+	}
+	fprintf(out, "nextufs %s: %s: %s\n", command, action, strerror(err));
 }
 
 static void
@@ -146,6 +174,10 @@ nextufs_report_info_json(FILE *out, const char *source,
 	    info->filesystem_bytes);
 	fprintf(out, "  \"trailing_slice_slack\": %" PRIu64 ",\n",
 	    info->trailing_slice_slack);
+	fprintf(out, "  \"compatibility_ceiling_bytes\": %" PRIu64 ",\n",
+	    NEXTUFS_COMPAT_MAX_BYTES);
+	fprintf(out, "  \"cylinder_summary_capacity_groups\": %" PRIu64 ",\n",
+	    info->csum_capacity_groups);
 	fprintf(out, "  \"used_disk_label\": %s,\n",
 	    info->used_disk_label ? "true" : "false");
 	fprintf(out, "  \"label\": {\n");

@@ -83,7 +83,7 @@ command_usage(FILE *out, const char *cmd)
 	}
 	if (strcmp(cmd, "resize") == 0) {
 		fprintf(out,
-		    "usage: nextufs resize grow [--force-size] <source> <size>\n");
+		    "usage: nextufs resize grow [--force-size] <source> <size-1k-sectors>\n");
 		return;
 	}
 	fprintf(out, "nextufs: unknown command '%s'\n", cmd);
