@@ -69,7 +69,8 @@ nextufs_fsck_run(int argc, char **argv)
 			break;
 
 		default:
-			errexit("%c option?\n", **argv);
+			fprintf(stderr, "%c option?\n", **argv);
+			return 2;
 		}
 	}
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
@@ -92,8 +93,11 @@ nextufs_fsck_run(int argc, char **argv)
 		/*
 		 *  This might not work.  
 		 */
-		if ((fstab = setmntent(MNTTAB, "r")) == NULL)
-			errexit("Can't open checklist file: %s\n", MNTTAB);
+		if ((fstab = setmntent(MNTTAB, "r")) == NULL) {
+			fprintf(stderr, "Can't open checklist file: %s\n",
+			    MNTTAB);
+			return 8;
+		}
 		while ((mnt = getmntent(fstab)) != 0) {
 			if (strcmp(mnt->mnt_type, MNTTYPE_43)) {
 				continue;

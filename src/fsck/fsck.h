@@ -1,6 +1,7 @@
 /* Shared declarations for the fsck implementation. */
 
 #include <signal.h>
+#include <setjmp.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <limits.h>
@@ -166,6 +167,8 @@ struct fsck_ctx {
 #endif
 	struct dinode ctx_zino;
 	struct csum *ctx_fsck_fs_csp[MAXCSBUFS];
+	jmp_buf	ctx_abort;
+	char	ctx_abort_active;
 };
 
 struct fsck_runtime_options {
@@ -186,6 +189,7 @@ void fsck_ctx_set_current(struct fsck_ctx *ctx);
 void fsck_ctx_init(struct fsck_ctx *ctx);
 void fsck_ctx_init_from_runtime(struct fsck_ctx *ctx,
     const struct fsck_runtime_options *opts);
+void fsck_abort(int status);
 
 #define	inoblk		(fsck_ctx_current()->ctx_inoblk)
 #define	fileblk		(fsck_ctx_current()->ctx_fileblk)

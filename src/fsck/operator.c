@@ -61,6 +61,17 @@ getline(FILE *fp, char *loc, int maxlen)
 }
 
 void
+fsck_abort(int status)
+{
+	struct fsck_ctx *ctx;
+
+	ctx = fsck_ctx_current();
+	if (ctx != NULL && ctx->ctx_abort_active)
+		longjmp(ctx->ctx_abort, status);
+	exit(status);
+}
+
+void
 catch(int signo)
 {
 	(void)signo;
@@ -138,7 +149,7 @@ errexit(char *fmt, ...)
 	va_start(ap, fmt);
 	vreport(0, fmt, ap);
 	va_end(ap);
-	exit(8);
+	fsck_abort(8);
 }
 
 void
@@ -157,7 +168,7 @@ pfatal(char *fmt, ...)
 		printf("\n");
 		printf("%s: UNEXPECTED INCONSISTENCY; RUN fsck MANUALLY.\n",
 			devname);
-		exit(8);
+		fsck_abort(8);
 	}
 	va_start(ap, fmt);
 	vprintf(fmt, ap);

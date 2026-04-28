@@ -170,7 +170,15 @@ checkfilesys(char *filesys, const struct fsck_runtime_options *opts)
 
 	fsck_ctx_init_from_runtime(&ctx, opts);
 	fsck_ctx_set_current(&ctx);
+	ctx.ctx_abort_active = 1;
+	status = setjmp(ctx.ctx_abort);
+	if (status != 0) {
+		fsck_source_cleanup();
+		fsck_ctx_set_current(NULL);
+		return status;
+	}
 	checkfilesys_active(filesys);
+	ctx.ctx_abort_active = 0;
 	fsck_source_cleanup();
 	status = ctx.ctx_exitstat;
 	fsck_ctx_set_current(NULL);
