@@ -25,7 +25,7 @@ usage(FILE *out)
 	fprintf(out, "  mount    mount a source image with FUSE\n");
 	fprintf(out, "  mkfile   apply offline file/directory mutations\n");
 	fprintf(out, "  mkimg    create raw or labeled UFS images\n");
-	fprintf(out, "  resize   analyze or grow images offline\n");
+	fprintf(out, "  resize   grow images offline\n");
 	fprintf(out, "  stress   run mutation stress tests\n");
 	fprintf(out, "\n");
 	fprintf(out, "Run 'nextufs <command> --help' for command-specific usage.\n");
@@ -51,7 +51,7 @@ command_usage(FILE *out, const char *cmd)
 		return;
 	}
 	if (strcmp(cmd, "inspect") == 0) {
-		fprintf(out, "usage: nextufs inspect <source> [path]\n");
+		fprintf(out, "usage: nextufs inspect [--json] <source> [path]\n");
 		return;
 	}
 	if (strcmp(cmd, "mount") == 0) {
@@ -72,9 +72,8 @@ command_usage(FILE *out, const char *cmd)
 		return;
 	}
 	if (strcmp(cmd, "resize") == 0) {
-		fprintf(out, "usage: nextufs resize analyze <source>\n");
 		fprintf(out,
-		    "       nextufs resize grow [--force-size] <source> <size>\n");
+		    "usage: nextufs resize grow [--force-size] <source> <size>\n");
 		return;
 	}
 	if (strcmp(cmd, "stress") == 0) {

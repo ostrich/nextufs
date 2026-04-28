@@ -1,5 +1,4 @@
 #include "../nextufs/nextufs.h"
-#include "../nextufs/nextufs_inspect.h"
 #include "../nextufs/nextufs_internal.h"
 #include "../nextufs/nextufs_label.h"
 #include "../nextufs/nextufs_size.h"
@@ -46,8 +45,7 @@ static int write_csum_entry(struct nextufs_image *img, uint32_t cg,
 static void
 usage(FILE *out, const char *argv0)
 {
-	fprintf(out, "usage: %s analyze <source>\n", argv0);
-	fprintf(out, "       %s grow [--force-size] <source> <size-1k-sectors>\n", argv0);
+	fprintf(out, "usage: %s grow [--force-size] <source> <size-1k-sectors>\n", argv0);
 	fprintf(out, "\n");
 	fprintf(out, "For labeled disk images, grow size is the final image size.\n");
 	fprintf(out, "For raw filesystem images, grow size is the filesystem size.\n");
@@ -752,60 +750,6 @@ patch_and_write_superblocks(struct nextufs_image *img, const uint8_t *old_sb,
 	return 0;
 }
 
-static void
-print_size_line(const char *label, uint64_t bytes)
-{
-	printf("%-30s %" PRIu64 " bytes (%" PRIu64 " 1K sectors)\n",
-	    label, bytes, bytes / 1024U);
-}
-
-static int
-cmd_analyze(const char *path)
-{
-	struct image_open_result opened;
-	struct nextufs_image *img;
-	struct nextufs_inspect_info info;
-	int rc;
-
-	rc = open_supported_image(&opened, path, 0);
-	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: cannot open '%s': %d\n", path, rc);
-		return 1;
-	}
-	img = &opened.img;
-	nextufs_inspect_collect(img, opened.backing_size, &info);
-
-	printf("source: %s\n", path);
-	printf("source kind:                   %s\n",
-	    nextufs_inspect_source_kind(&info));
-	print_size_line("backing file size:", info.backing_bytes);
-	if (info.used_disk_label) {
-		print_size_line("slice base:", info.slice_base);
-		print_size_line("slice size:", info.slice_bytes);
-		printf("root partition:               %c\n", info.rootpartition);
-	}
-	print_size_line("filesystem size:", info.filesystem_bytes);
-	print_size_line("trailing unused slice space:", info.trailing_slice_slack);
-	print_size_line("compatibility ceiling:", NEXTUFS_COMPAT_MAX_BYTES);
-	printf("block size:                   %" PRIu32 "\n", info.sb.block_size);
-	printf("fragment size:                %" PRIu32 "\n", info.sb.frag_size);
-	printf("fragments/block:              %" PRIu32 "\n", info.sb.frags_per_block);
-	printf("cylinder groups:              %" PRIu32 "\n", info.sb.cg_count);
-	printf("cylinder-summary capacity:    %" PRIu64 " groups\n",
-	    info.csum_capacity_groups);
-	printf("fragments/group:              %" PRIu32 "\n", info.sb.frags_per_group);
-	printf("inodes/group:                 %" PRIu32 "\n", info.sb.inodes_per_group);
-	printf("cylinders/group:              %" PRIu32 "\n", info.sb.cpg);
-	printf("cylinders:                    %" PRIu32 "\n", info.sb.ncyl);
-	printf("data fragments:               %" PRIu32 "\n", info.sb.data_frag_count);
-	printf("free blocks:                  %" PRIu32 "\n", info.sb.free_block_count);
-	printf("free fragments:               %" PRIu32 "\n", info.sb.free_frag_count);
-	printf("free inodes:                  %" PRIu32 "\n", info.sb.free_inode_count);
-
-	nextufs_image_close(img);
-	return 0;
-}
-
 static int
 cmd_grow(const char *path, const char *sectors_arg, int force)
 {
@@ -1098,16 +1042,14 @@ fail:
 int
 nextufs_resize_main(int argc, char **argv)
 {
-	if (argc < 3) {
+	if (argc < 2) {
 		usage(stderr, argv[0]);
 		return 2;
 	}
-	if (strcmp(argv[1], "analyze") == 0) {
-		if (argc != 3) {
-			usage(stderr, argv[0]);
-			return 2;
-		}
-		return cmd_analyze(argv[2]);
+	if (argc == 2 &&
+	    (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
+		usage(stdout, argv[0]);
+		return 0;
 	}
 	if (strcmp(argv[1], "grow") == 0) {
 		int force = 0;

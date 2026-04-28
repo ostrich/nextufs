@@ -1,6 +1,6 @@
 # nextufs.resize
 
-`nextufs.resize` analyzes and grows NEXTSTEP/OPENSTEP UFS images offline.
+`nextufs.resize` grows NEXTSTEP/OPENSTEP UFS images offline.
 
 It is intentionally conservative. It supports grow-only resizing for raw UFS
 images and for labeled NeXT disk images that contain a single root UFS slice.
@@ -11,13 +11,13 @@ images and for labeled NeXT disk images that contain a single root UFS slice.
 make -C nextufs.resize -f Makefile.linux
 ```
 
-## Analyze
+## Inspect Before Growth
 
 ```sh
-./nextufs.resize/nextufs.resize analyze /path/to/source
+./nextufs/nextufs inspect /path/to/source
 ```
 
-`analyze` reports:
+`nextufs inspect` reports the layout details relevant to resizing:
 
 - whether the source is raw or labeled
 - backing-file size
@@ -67,7 +67,7 @@ Work on a disposable copy, not the only copy of a VM disk:
 ```sh
 cp disk.img disk-grow-test.img
 ./nextufs.fsck/nextufs.fsck -n disk-grow-test.img
-./nextufs.resize/nextufs.resize analyze disk-grow-test.img
+./nextufs/nextufs inspect disk-grow-test.img
 ./nextufs.resize/nextufs.resize grow disk-grow-test.img 2097152
 ./nextufs.fsck/nextufs.fsck -n disk-grow-test.img
 ```

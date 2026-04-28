@@ -16,7 +16,7 @@ FUSE_CFLAGS != pkg-config --cflags fuse3
 FUSE_LIBS != pkg-config --libs fuse3
 LIB_SRCS = nextufs_image.c nextufs_directory.c nextufs_path.c nextufs_node.c \
 	nextufs_layout.c nextufs_alloc.c nextufs_label.c nextufs_size.c \
-	nextufs_inspect.c
+	nextufs_inspect.c nextufs_report.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 LIB = libnextufs.a
 WRITE_SRCS = nextufs_dir_mutate.c nextufs_mutate.c
@@ -104,7 +104,6 @@ test: all
 	./nextufs --help >/dev/null
 	./nextufs inspect $(TEST_IMAGE) >/dev/null
 	./nextufs fsck -n $(TEST_IMAGE) >/dev/null
-	./nextufs resize analyze $(TEST_IMAGE) >/dev/null
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	./test_fuse.sh $(TEST_IMAGE)

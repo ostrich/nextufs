@@ -27,8 +27,9 @@ and writable VDI chains. `nextufs.fsck` checks and repairs raw sources,
 standalone VDIs, and VDI differencing chains directly through the shared
 `nextufs` source backend. `nextufs.mkimg` creates labeled disk images that
 NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs.mkimg --raw`
-creates raw filesystem images. `nextufs.resize` analyzes and grows raw UFS
-images and supported single-slice labeled disk images.
+creates raw filesystem images. `nextufs inspect` reports image layout and
+growability details. `nextufs.resize` grows raw UFS images and supported
+single-slice labeled disk images.
 
 ## Build
 
@@ -54,16 +55,16 @@ DESTDIR=/tmp/pkgroot make install
 Inspect a source:
 
 ```sh
-./nextufs/nextufs_probe /path/to/source
-./nextufs/nextufs_probe /path/to/source /etc/passwd
+./nextufs/nextufs inspect /path/to/source
+./nextufs/nextufs inspect /path/to/source /etc/passwd
 ```
 
 Mount through FUSE:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
-./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -f -s
-./nextufs/nextufs /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
+./nextufs/nextufs mount /path/to/source /tmp/nextufs-mnt -f -s
+./nextufs/nextufs mount /path/to/source /tmp/nextufs-mnt -o rw,mode=su -f -s
 ```
 
 Check a filesystem:
@@ -85,10 +86,10 @@ Create a raw filesystem:
 ./nextufs.mkimg/nextufs.mkimg --raw /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
 ```
 
-Analyze or grow an image:
+Inspect or grow an image:
 
 ```sh
-./nextufs.resize/nextufs.resize analyze /path/to/source
+./nextufs/nextufs inspect /path/to/source
 ./nextufs.resize/nextufs.resize grow /path/to/source 2097152
 ```
 

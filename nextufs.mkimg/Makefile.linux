@@ -13,7 +13,7 @@ OBJS = nextufs_mkimg.o $(FORMAT_OBJS)
 NEXTUFS_LIB = ../nextufs/libnextufs.a
 SCRATCH_DIR = $(CURDIR)/.scratch
 
-.PHONY: all clean test scratch-dir fsck-tool probe-tool resize-tool
+.PHONY: all clean test scratch-dir fsck-tool nextufs-tool
 
 all: scratch-dir $(BIN)
 
@@ -23,13 +23,8 @@ scratch-dir:
 fsck-tool:
 	$(MAKE) -C ../nextufs.fsck -f Makefile.linux
 
-probe-tool:
-	$(MAKE) -C ../nextufs -f Makefile.linux nextufs_probe
-
-resize-tool:
-	$(MAKE) -C ../nextufs.resize -f Makefile.linux
-
-resize-tool: fsck-tool
+nextufs-tool:
+	$(MAKE) -C ../nextufs -f Makefile.linux nextufs
 
 $(BIN): $(OBJS) $(NEXTUFS_LIB)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(NEXTUFS_LIB)
@@ -45,7 +40,7 @@ $(NEXTUFS_LIB): ../nextufs/nextufs_label.c ../nextufs/nextufs_label.h \
 %.o: format/%.c format/format.h
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -c -o $@ $<
 
-test: all fsck-tool probe-tool resize-tool
+test: all fsck-tool nextufs-tool
 	rm -f $(SCRATCH_DIR)/mkimg-raw.img $(SCRATCH_DIR)/mkimg-labeled.img \
 		$(SCRATCH_DIR)/mkimg-raw-full.img \
 		$(SCRATCH_DIR)/mkimg-raw-a.img $(SCRATCH_DIR)/mkimg-raw-b.img \
@@ -60,7 +55,7 @@ test: all fsck-tool probe-tool resize-tool
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw.img >/dev/null
 	./$(BIN) $(SCRATCH_DIR)/mkimg-labeled.img 64M >/dev/null
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
-	../nextufs/nextufs_probe $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.probe
+	../nextufs/nextufs inspect $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.probe
 	grep -F 'disk label:' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
 	grep -F 'slice base:            0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
 	grep -F 'superblock base:       0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.probe >/dev/null
@@ -86,7 +81,7 @@ test: all fsck-tool probe-tool resize-tool
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-limit.raw >/dev/null
 	! ./$(BIN) --raw $(SCRATCH_DIR)/mkimg-too-large.raw 4194177 >/dev/null 2>$(SCRATCH_DIR)/mkimg-too-large.err
 	grep -F 'compatibility limit' $(SCRATCH_DIR)/mkimg-too-large.err >/dev/null
-	../nextufs.resize/nextufs.resize analyze $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
+	../nextufs/nextufs inspect --json $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
 
 clean:
 	rm -f *.o $(BIN)

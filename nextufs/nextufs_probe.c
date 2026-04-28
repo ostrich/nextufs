@@ -1,5 +1,6 @@
 #include "nextufs.h"
 #include "nextufs_inspect.h"
+#include "nextufs_report.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -8,33 +9,6 @@
 #include <string.h>
 
 #define PREVIEW_BYTES 256
-
-static void
-print_superblock(const struct nextufs_inspect_info *info)
-{
-	const struct nextufs_superblock *sb = &info->sb;
-
-	printf("image size:            %" PRIu64 " bytes\n", info->image_bytes);
-	printf("slice base:            0x%jx (%jd)\n",
-	    (uintmax_t)info->slice_base, (intmax_t)info->slice_base);
-	printf("superblock base:       0x%jx (%jd)\n",
-	    (uintmax_t)info->superblock_base, (intmax_t)info->superblock_base);
-	printf("superblock magic:      0x%08" PRIx32 "\n", sb->fs_magic);
-	printf("block size:            %" PRIu32 "\n", sb->block_size);
-	printf("fragment size:         %" PRIu32 "\n", sb->frag_size);
-	printf("frags/block:           %" PRIu32 "\n", sb->frags_per_block);
-	printf("frags total/data:      %" PRIu32 " / %" PRIu32 "\n",
-	    sb->frag_count, sb->data_frag_count);
-	printf("cylinder groups:       %" PRIu32 "\n", sb->cg_count);
-	printf("cylinders/group:       %" PRIu32 "\n", sb->cpg);
-	printf("inodes/group:          %" PRIu32 "\n", sb->inodes_per_group);
-	printf("frags/group:           %" PRIu32 "\n", sb->frags_per_group);
-	printf("inodes/block:          %" PRIu32 "\n", sb->inodes_per_block);
-	printf("fsbtodb shift:         %" PRIu32 "\n", sb->fsbtodb);
-	printf("nindir:                %" PRIu32 "\n", sb->nindir);
-	printf("optim/state:           %" PRIu32 " / %u\n",
-	    sb->optim, (unsigned)sb->state);
-}
 
 static void
 print_inode(const struct nextufs_inode *ino, off_t off, unsigned inode_no)
@@ -123,26 +97,35 @@ nextufs_probe_main(int argc, char **argv)
 	struct nextufs_image img;
 	struct nextufs_inspect_info info;
 	struct nextufs_node node;
+	int json = 0;
+	int argi = 1;
 	int rc;
 
-	if (argc != 2 && argc != 3) {
-		fprintf(stderr, "usage: %s <source> [path]\n", argv[0]);
+	if (argc > argi && strcmp(argv[argi], "--json") == 0) {
+		json = 1;
+		argi++;
+	}
+	if (argc != argi + 1 && argc != argi + 2) {
+		fprintf(stderr, "usage: %s [--json] <source> [path]\n", argv[0]);
 		return 1;
 	}
-	rc = nextufs_image_open(&img, argv[1]);
+	if (json && argc != argi + 1) {
+		fprintf(stderr, "%s: --json is only supported for image inspection\n",
+		    argv[0]);
+		return 1;
+	}
+	rc = nextufs_image_open(&img, argv[argi]);
 	if (rc < 0) {
-		fprintf(stderr, "failed to open source %s\n", argv[1]);
+		fprintf(stderr, "failed to open source %s\n", argv[argi]);
 		return 1;
 	}
-	printf("source: %s\n", argv[1]);
 	nextufs_inspect_collect(&img, 0, &info);
-	if (info.used_disk_label) {
-		printf("disk label:            version=0x%08x off=0x%jx secsize=%u front=%u root=%c\n",
-		    info.label_version, (uintmax_t)info.label_off,
-		    info.label_secsize, info.label_front,
-		    info.rootpartition ? info.rootpartition : '?');
+	if (json) {
+		nextufs_report_inspect_json(stdout, argv[argi], &info);
+		nextufs_image_close(&img);
+		return 0;
 	}
-	print_superblock(&info);
+	nextufs_report_inspect_text(stdout, argv[argi], &info);
 	rc = nextufs_node_get_root(&img, &node);
 	if (rc < 0) {
 		nextufs_image_close(&img);
@@ -150,14 +133,14 @@ nextufs_probe_main(int argc, char **argv)
 	}
 	print_inode(&node.inode, node.inode_off, node.inode_no);
 	dump_directory(&img, &node.inode, node.inode_no);
-	if (argc == 3) {
-		rc = nextufs_node_lookup(&img, argv[2], 1, &node);
+	if (argc == argi + 2) {
+		rc = nextufs_node_lookup(&img, argv[argi + 1], 1, &node);
 		if (rc == 0) {
 			uint8_t preview[PREVIEW_BYTES];
 			size_t got = 0;
 			char linkbuf[4096];
 
-			printf("lookup '%s': inode %u\n", argv[2], node.inode_no);
+			printf("lookup '%s': inode %u\n", argv[argi + 1], node.inode_no);
 			print_inode(&node.inode, node.inode_off, node.inode_no);
 			if ((node.inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFDIR) {
 				dump_directory(&img, &node.inode, node.inode_no);
@@ -171,7 +154,7 @@ nextufs_probe_main(int argc, char **argv)
 					print_data_preview(preview, got);
 			}
 		} else {
-			fprintf(stderr, "lookup '%s' failed\n", argv[2]);
+			fprintf(stderr, "lookup '%s' failed\n", argv[argi + 1]);
 		}
 	}
 	nextufs_image_close(&img);
