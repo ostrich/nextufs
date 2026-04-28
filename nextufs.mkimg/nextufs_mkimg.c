@@ -23,6 +23,7 @@ struct options {
 	int dry_run;
 	int force_size;
 	int force_overwrite;
+	int help;
 	const char *label;
 	const char *target;
 	uint64_t bytes;
@@ -92,8 +93,8 @@ parse_args(int argc, char **argv, struct options *opts)
 			opts->label = argv[i];
 		} else if (strcmp(argv[i], "-h") == 0 ||
 		    strcmp(argv[i], "--help") == 0) {
-			usage(stdout);
-			exit(0);
+			opts->help = 1;
+			return 0;
 		} else if (argv[i][0] == '-') {
 			return -1;
 		} else if (opts->target == NULL) {
@@ -226,7 +227,7 @@ format_options_from_cli(const struct options *opts, uint64_t fs_sectors,
 }
 
 int
-main(int argc, char **argv)
+nextufs_mkimg_main(int argc, char **argv)
 {
 	struct options opts;
 	struct nextufs_format_options fmt;
@@ -236,6 +237,10 @@ main(int argc, char **argv)
 	if (parse_args(argc, argv, &opts) < 0) {
 		usage(stderr);
 		return 2;
+	}
+	if (opts.help) {
+		usage(stdout);
+		return 0;
 	}
 	if (!opts.force_size && opts.bytes > NEXTUFS_COMPAT_MAX_BYTES) {
 		fprintf(stderr,
@@ -275,3 +280,11 @@ main(int argc, char **argv)
 
 	return nextufs_format(&fmt);
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_mkimg_main(argc, argv);
+}
+#endif

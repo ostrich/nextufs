@@ -1096,7 +1096,7 @@ fail:
 }
 
 int
-main(int argc, char **argv)
+nextufs_resize_main(int argc, char **argv)
 {
 	if (argc < 3) {
 		usage(stderr, argv[0]);
@@ -1126,3 +1126,11 @@ main(int argc, char **argv)
 	usage(stderr, argv[0]);
 	return 2;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char **argv)
+{
+	return nextufs_resize_main(argc, argv);
+}
+#endif

@@ -1,5 +1,7 @@
 CC = cc
 CFLAGS = -O2 -g -std=gnu99 -Wall -Wextra -Werror
+FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
+FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -I../nextufs.mkimg/include
 SCRATCH_DIR = $(CURDIR)/.scratch
 export TMPDIR = $(SCRATCH_DIR)
 TEST_IMAGE = openstep42-base.raw
@@ -35,10 +37,14 @@ nextufs_probe: nextufs_probe.o $(LIB)
 	$(CC) $(CFLAGS) -o $@ nextufs_probe.o $(LIB)
 
 nextufs: nextufs_cli.o nextufs_fuse_cli.o nextufs_probe_cli.o \
-	nextufs_mkfile_cli.o nextufs_stress_cli.o $(WRITE_OBJS) $(LIB)
+	nextufs_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
+	nextufs_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
+	mkimg_format_io.o $(WRITE_OBJS) $(LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ nextufs_cli.o \
 		nextufs_fuse_cli.o nextufs_probe_cli.o nextufs_mkfile_cli.o \
-		nextufs_stress_cli.o $(WRITE_OBJS) $(LIB) $(FUSE_LIBS)
+		nextufs_mkimg_cli.o nextufs_resize_cli.o nextufs_stress_cli.o \
+		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
+		$(WRITE_OBJS) $(LIB) $(FUSE_LIBS)
 
 nextufs_test: nextufs_test.o $(LIB)
 	$(CC) $(CFLAGS) -o $@ nextufs_test.o $(LIB)
@@ -61,10 +67,30 @@ nextufs_probe_cli.o: nextufs_probe.c
 nextufs_mkfile_cli.o: nextufs_mkfile.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_mkfile.c
 
+nextufs_mkimg_cli.o: ../nextufs.mkimg/nextufs_mkimg.c
+	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -DNEXTUFS_NO_STANDALONE \
+		-I../nextufs.mkimg/format -I. -c -o $@ ../nextufs.mkimg/nextufs_mkimg.c
+
+nextufs_resize_cli.o: ../nextufs.resize/nextufs_resize.c
+	$(CC) -I. $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ ../nextufs.resize/nextufs_resize.c
+
 nextufs_stress_cli.o: nextufs_stress.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ nextufs_stress.c
 
+mkimg_format.o: ../nextufs.mkimg/format/format.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+
+mkimg_format_fsinit.o: ../nextufs.mkimg/format/format_fsinit.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+
+mkimg_format_io.o: ../nextufs.mkimg/format/format_io.c
+	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
+
 test: all
+	./nextufs --help >/dev/null
+	./nextufs probe $(TEST_IMAGE) >/dev/null
+	./nextufs resize analyze $(TEST_IMAGE) >/dev/null
+	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	./test_fuse.sh $(TEST_IMAGE)
 
@@ -431,6 +457,8 @@ test-stress-fuse: all fsck-tool mkimg-tool
 clean:
 	rm -f nextufs_probe nextufs_probe.o nextufs nextufs_cli.o \
 		nextufs_fuse.o nextufs_fuse_cli.o nextufs_probe_cli.o \
-		nextufs_mkfile_cli.o nextufs_stress_cli.o \
+		nextufs_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
+		nextufs_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
+		mkimg_format_io.o \
 		nextufs_test nextufs_test.o nextufs_mkfile nextufs_mkfile.o \
 		nextufs_stress nextufs_stress.o $(LIB) $(LIB_OBJS) $(WRITE_OBJS)
