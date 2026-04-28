@@ -104,7 +104,7 @@ test: all test-mkimg test-resize
 	./nextufs info $(TEST_IMAGE) >/dev/null
 	./nextufs browse $(TEST_IMAGE) >/dev/null
 	./nextufs info --json $(TEST_IMAGE) >/dev/null
-	./nextufs --json info $(TEST_IMAGE) >/dev/null
+	if ./nextufs --json info $(TEST_IMAGE) >/dev/null 2>&1; then exit 1; fi
 	if ./nextufs --json fsck -n $(TEST_IMAGE) >/dev/null 2>&1; then exit 1; fi
 	./nextufs fsck -n $(TEST_IMAGE) >/dev/null
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null

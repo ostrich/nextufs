@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define NEXTUFS_VERSION "0.1.0-dev"
@@ -19,7 +18,6 @@ usage(FILE *out)
 	fprintf(out, "Global options:\n");
 	fprintf(out, "  -h, --help     show this help\n");
 	fprintf(out, "  --version      show version\n");
-	fprintf(out, "  --json         request JSON output from supported commands\n");
 	fprintf(out, "\n");
 	fprintf(out, "Commands:\n");
 	fprintf(out, "  browse   browse paths inside a filesystem\n");
@@ -131,36 +129,10 @@ dispatch_command(int argc, char **argv)
 	return 2;
 }
 
-static int
-dispatch_command_with_json(int argc, char **argv)
-{
-	char **json_argv;
-	int i;
-	int rc;
-
-	if (strcmp(argv[0], "info") != 0) {
-		fprintf(stderr, "nextufs: --json is only supported by info\n");
-		return 2;
-	}
-	json_argv = calloc((size_t)argc + 2U, sizeof(*json_argv));
-	if (json_argv == NULL) {
-		fprintf(stderr, "nextufs: out of memory\n");
-		return 1;
-	}
-	json_argv[0] = argv[0];
-	json_argv[1] = "--json";
-	for (i = 1; i < argc; i++)
-		json_argv[i + 1] = argv[i];
-	rc = dispatch_command(argc + 1, json_argv);
-	free(json_argv);
-	return rc;
-}
-
 int
 main(int argc, char **argv)
 {
 	int argi = 1;
-	int json = 0;
 
 	if (argc < 2) {
 		usage(argc < 2 ? stderr : stdout);
@@ -175,11 +147,6 @@ main(int argc, char **argv)
 			version(stdout);
 			return 0;
 		}
-		if (strcmp(argv[argi], "--json") == 0) {
-			json = 1;
-			argi++;
-			continue;
-		}
 		fprintf(stderr, "nextufs: unknown global option '%s'\n",
 		    argv[argi]);
 		usage(stderr);
@@ -189,7 +156,5 @@ main(int argc, char **argv)
 		usage(stderr);
 		return 2;
 	}
-	if (json)
-		return dispatch_command_with_json(argc - argi, argv + argi);
 	return dispatch_command(argc - argi, argv + argi);
 }
