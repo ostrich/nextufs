@@ -19,8 +19,8 @@ export TMPDIR = $(SCRATCH_DIR)
 TEST_IMAGE ?= .scratch/openstep42-base.raw
 FSCK_BIN = ./nextufs fsck
 MKIMG_BIN = ./nextufs mkimg
-FUSE_CFLAGS != pkg-config --cflags fuse3
-FUSE_LIBS != pkg-config --libs fuse3
+FUSE_CFLAGS := $(shell pkg-config --cflags fuse3)
+FUSE_LIBS := $(shell pkg-config --libs fuse3)
 LIB_SRCS = src/core/image.c src/core/directory.c src/core/path.c src/core/node.c \
 	src/core/layout.c src/core/alloc.c src/core/label.c src/core/size.c \
 	src/core/source.c src/core/info.c src/core/report.c
@@ -29,14 +29,10 @@ LIB = $(BUILD_DIR)/libnextufs.a
 WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c
 WRITE_OBJS = $(WRITE_SRCS:%.c=$(OBJ_DIR)/%.o)
 WRITE_LIB = $(BUILD_DIR)/libnextufs_mutate.a
-COMMAND_OBJS = $(OBJ_DIR)/src/commands/main.o \
-	$(OBJ_DIR)/src/commands/mount.o \
-	$(OBJ_DIR)/src/commands/info.o \
-	$(OBJ_DIR)/src/commands/browse.o \
-	$(OBJ_DIR)/src/commands/fsck.o \
-	$(OBJ_DIR)/src/commands/mkfile_cli.o \
-	$(OBJ_DIR)/src/commands/mkimg.o \
-	$(OBJ_DIR)/src/commands/resize.o
+COMMAND_SRCS = src/commands/main.c src/commands/mount.c \
+	src/commands/info.c src/commands/browse.c src/commands/fsck.c \
+	src/commands/mkfile.c src/commands/mkimg.c src/commands/resize.c
+COMMAND_OBJS = $(COMMAND_SRCS:%.c=$(OBJ_DIR)/%.o)
 STRESS_OBJ = $(OBJ_DIR)/src/commands/stress.o
 TEST_OBJ = $(OBJ_DIR)/tests/nextufs/nextufs_test.o
 FORMAT_OBJS = $(OBJ_DIR)/src/mkimg_format/format.o \
@@ -52,7 +48,17 @@ PUBLIC_HDRS = include/nextufs.h include/nextufs_image.h include/nextufs_node.h \
 	include/nextufs_report.h include/nextufs_size.h
 INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
 
-.PHONY: all clean install uninstall test test-nextufs test-cli-contract test-fsck test-mkimg test-resize test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse repair-tools repair-corpus repair-lab repair-smoke repair-repair-all scratch-dir
+BUILD_TARGETS = all scratch-dir clean install uninstall
+TEST_TARGETS = test test-nextufs test-cli-contract test-fsck test-mkimg \
+	test-resize test-write test-write-big test-write-grow test-unlink \
+	test-mkdir test-rewrite test-link-symlink test-rmdir test-meta \
+	test-rename test-truncate test-special test-fuse-write test-permissions \
+	test-failure test-stress test-stress-base test-stress-batch \
+	test-stress-fuse
+REPAIR_TARGETS = repair-tools repair-corpus repair-lab repair-smoke \
+	repair-repair-all
+
+.PHONY: $(BUILD_TARGETS) $(TEST_TARGETS) $(REPAIR_TARGETS)
 
 all: scratch-dir $(LIB) $(WRITE_LIB) nextufs nextufs_test
 
@@ -79,6 +85,7 @@ nextufs_stress: $(STRESS_OBJ) $(LIB) $(WRITE_LIB)
 
 $(LIB_OBJS): $(INTERNAL_HDRS)
 $(WRITE_OBJS): $(INTERNAL_HDRS)
+$(COMMAND_OBJS): $(PUBLIC_HDRS) src/commands/commands.h
 $(TEST_OBJ): tests/nextufs/nextufs_test.c $(PUBLIC_HDRS)
 $(STRESS_OBJ): src/commands/stress.c $(PUBLIC_HDRS)
 
@@ -86,40 +93,18 @@ $(OBJ_DIR)/src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
 
-$(OBJ_DIR)/src/commands/info.o: src/commands/info.c $(PUBLIC_HDRS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OBJ_DIR)/src/commands/browse.o: src/commands/browse.c $(PUBLIC_HDRS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OBJ_DIR)/src/commands/fsck.o: src/commands/fsck.c src/commands/commands.h include/nextufs_fsck.h
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OBJ_DIR)/src/commands/mkfile_cli.o: src/commands/mkfile.c $(PUBLIC_HDRS)
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
-
+$(OBJ_DIR)/src/commands/fsck.o: include/nextufs_fsck.h
 $(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
 		-Isrc/mkimg_format -Iinclude -c -o $@ $<
 
-$(OBJ_DIR)/src/commands/resize.o: src/commands/resize.c $(INTERNAL_HDRS)
+$(OBJ_DIR)/src/commands/resize.o: $(INTERNAL_HDRS)
+$(OBJ_DIR)/src/commands/%.o: src/commands/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OBJ_DIR)/src/mkimg_format/format.o: src/mkimg_format/format.c
-	@mkdir -p $(@D)
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
-
-$(OBJ_DIR)/src/mkimg_format/format_fsinit.o: src/mkimg_format/format_fsinit.c
-	@mkdir -p $(@D)
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
-
-$(OBJ_DIR)/src/mkimg_format/format_io.o: src/mkimg_format/format_io.c
+$(FORMAT_OBJS): $(OBJ_DIR)/src/mkimg_format/%.o: src/mkimg_format/%.c src/mkimg_format/format.h
 	@mkdir -p $(@D)
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
@@ -131,7 +116,7 @@ $(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-test: test-nextufs test-fsck
+test: test-nextufs repair-smoke
 
 test-nextufs: all test-mkimg test-resize test-cli-contract
 	./nextufs --help >/dev/null
@@ -153,7 +138,7 @@ test-nextufs: all test-mkimg test-resize test-cli-contract
 test-cli-contract: all
 	sh tests/nextufs/test_cli_contract.sh $(SCRATCH_DIR)
 
-test-fsck: test-nextufs repair-smoke
+test-fsck: repair-smoke
 
 test-mkimg: all
 	rm -f $(SCRATCH_DIR)/mkimg-raw.img $(SCRATCH_DIR)/mkimg-labeled.img \
