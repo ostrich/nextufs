@@ -103,6 +103,8 @@ assert labeled["slice_base"] == 163840
 assert labeled["slice_base"] == text_offset(labeled_text, "slice base")
 assert labeled["slice_bytes"] == text_value(labeled_text, "slice size")
 assert labeled["filesystem_bytes"] == text_value(labeled_text, "filesystem size")
+assert labeled["label"]["name"] == "contract"
+assert text_line(labeled_text, "name") == "contract"
 assert labeled["label"]["root_partition"] == "a"
 PY
 

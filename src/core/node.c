@@ -17,6 +17,7 @@ nextufs_image_info_get(const struct nextufs_image *img,
 	info->label_version = img->label_version;
 	info->label_secsize = img->label_secsize;
 	info->label_front = img->label_front;
+	memcpy(info->label_name, img->label_name, sizeof(info->label_name));
 	info->rootpartition = img->rootpartition;
 	info->used_disk_label = img->used_disk_label;
 	info->source_is_container = img->source_is_container;

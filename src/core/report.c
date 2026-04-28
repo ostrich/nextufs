@@ -135,6 +135,8 @@ nextufs_report_info_text(FILE *out, const char *source,
 		root[0] = info->rootpartition ? info->rootpartition : '?';
 		root[1] = '\0';
 		report_next_section(out, "Disk Label");
+		report_string_line(out, "name",
+		    info->label_name[0] != '\0' ? info->label_name : "(empty)");
 		report_hex32_line(out, "version", info->label_version);
 		report_offset_line(out, "offset", info->label_off);
 		report_u32_line(out, "sector size", info->label_secsize);
@@ -215,6 +217,9 @@ nextufs_report_info_json(FILE *out, const char *source,
 	fprintf(out, "  \"used_disk_label\": %s,\n",
 	    info->used_disk_label ? "true" : "false");
 	fprintf(out, "  \"label\": {\n");
+	fprintf(out, "    \"name\": ");
+	json_string(out, info->label_name);
+	fprintf(out, ",\n");
 	fprintf(out, "    \"version\": %" PRIu32 ",\n", info->label_version);
 	fprintf(out, "    \"offset\": %" PRIu64 ",\n", info->label_off);
 	fprintf(out, "    \"sector_size\": %" PRIu32 ",\n",

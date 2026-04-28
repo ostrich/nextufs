@@ -22,6 +22,7 @@ nextufs_info_collect(const struct nextufs_image *img, uint64_t backing_bytes,
 	info->label_off = (uint64_t)img->label_off;
 	info->label_secsize = img->label_secsize;
 	info->label_front = img->label_front;
+	memcpy(info->label_name, img->label_name, sizeof(info->label_name));
 	info->rootpartition = img->rootpartition;
 	info->sb = img->sb;
 	info->filesystem_bytes = (uint64_t)img->sb.frag_count *

@@ -20,6 +20,7 @@ struct nextufs_info {
 	uint64_t label_off;
 	uint32_t label_secsize;
 	uint16_t label_front;
+	char label_name[NEXTUFS_LABEL_NAME_LEN + 1U];
 	char rootpartition;
 	struct nextufs_superblock sb;
 };

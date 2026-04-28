@@ -11,6 +11,7 @@
 #define NEXTUFS_LABEL_SCAN_LIMIT (128U * 1024U)
 #define NEXTUFS_LABEL_DECODE_SIZE 0x1c5aU
 #define NEXTUFS_LABEL_PART_COUNT 8
+#define NEXTUFS_LABEL_NAME_LEN 24U
 #define NEXTUFS_LABEL_FSTYPE_LEN 8U
 
 struct nextufs_label_partition {
@@ -28,6 +29,7 @@ struct nextufs_disk_label {
 	uint32_t label_blkno;
 	uint32_t secsize;
 	uint16_t front;
+	char name[NEXTUFS_LABEL_NAME_LEN + 1U];
 	char rootpartition;
 	struct nextufs_label_partition part[NEXTUFS_LABEL_PART_COUNT];
 	uint16_t checksum;

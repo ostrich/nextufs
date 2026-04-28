@@ -149,6 +149,8 @@ nextufs_label_decode(struct nextufs_disk_label *dl, const uint8_t *buf,
 		return -1;
 	dl->label_off = off;
 	dl->label_blkno = nextufs__read_be32(buf + 0x04);
+	copy_cstr_field(dl->name, sizeof(dl->name), buf + 0x0c,
+	    NEXTUFS_LABEL_NAME_LEN);
 	dt = buf + DL_DISKTAB_OFF;
 	dl->secsize = nextufs__read_be16(dt + DT_SECSIZE_OFF);
 	dl->front = nextufs__read_be16(dt + DT_FRONT_OFF);

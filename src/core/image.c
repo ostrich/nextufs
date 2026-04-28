@@ -966,6 +966,7 @@ nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable
 		img->label_version = dl.version;
 		img->label_secsize = dl.secsize;
 		img->label_front = dl.front;
+		memcpy(img->label_name, dl.name, sizeof(img->label_name));
 		img->rootpartition = dl.rootpartition;
 		img->used_disk_label = 1;
 		free(scanbuf);

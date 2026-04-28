@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "nextufs_label.h"
+
 struct nextufs_superblock {
 	uint32_t sb_off;
 	uint32_t cg_off;
@@ -69,6 +71,7 @@ struct nextufs_image {
 	uint32_t label_version;
 	uint32_t label_secsize;
 	uint16_t label_front;
+	char label_name[NEXTUFS_LABEL_NAME_LEN + 1U];
 	char rootpartition;
 	int used_disk_label;
 	struct nextufs_superblock sb;
@@ -89,6 +92,7 @@ struct nextufs_image_info {
 	uint32_t label_version;
 	uint32_t label_secsize;
 	uint16_t label_front;
+	char label_name[NEXTUFS_LABEL_NAME_LEN + 1U];
 	char rootpartition;
 	int used_disk_label;
 	int source_is_container;
