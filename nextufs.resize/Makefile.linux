@@ -2,8 +2,7 @@ CC = cc
 CFLAGS = -O2 -g -std=gnu99 -Wall -Wextra -Werror
 CPPFLAGS = -I../nextufs
 BIN = nextufs.resize
-SRCS = nextufs_resize.c
-OBJS = $(SRCS:.c=.o)
+OBJS = nextufs_resize.o
 
 .PHONY: all clean test
 
@@ -12,7 +11,7 @@ all: $(BIN)
 $(BIN): $(OBJS) ../nextufs/libnextufs.a
 	$(CC) $(CFLAGS) -o $@ $(OBJS) ../nextufs/libnextufs.a
 
-nextufs_resize.o: nextufs_resize.c
+nextufs_resize.o: ../nextufs/commands/cmd_resize.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 ../nextufs/libnextufs.a:

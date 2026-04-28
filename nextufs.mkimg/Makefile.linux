@@ -29,9 +29,9 @@ nextufs-tool:
 $(BIN): $(OBJS) $(NEXTUFS_LIB)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(NEXTUFS_LIB)
 
-nextufs_mkimg.o: nextufs_mkimg.c format/format.h ../nextufs/nextufs_label.h \
+nextufs_mkimg.o: ../nextufs/commands/cmd_mkimg.c format/format.h ../nextufs/nextufs_label.h \
 	../nextufs/nextufs_size.h
-	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -I../nextufs -c -o $@ nextufs_mkimg.c
+	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -I../nextufs -c -o $@ $<
 
 $(NEXTUFS_LIB): ../nextufs/core/label.c ../nextufs/nextufs_label.h \
 	../nextufs/core/size.c ../nextufs/nextufs_size.h

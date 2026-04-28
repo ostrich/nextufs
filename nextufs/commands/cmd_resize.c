@@ -1,7 +1,7 @@
-#include "../nextufs/nextufs.h"
-#include "../nextufs/nextufs_internal.h"
-#include "../nextufs/nextufs_label.h"
-#include "../nextufs/nextufs_size.h"
+#include "nextufs.h"
+#include "nextufs_internal.h"
+#include "nextufs_label.h"
+#include "nextufs_size.h"
 
 #include <errno.h>
 #include <fcntl.h>

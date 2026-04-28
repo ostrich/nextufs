@@ -48,12 +48,12 @@ $(WRITE_LIB): $(WRITE_OBJS)
 	ar rcs $@ $(WRITE_OBJS)
 
 nextufs: commands/nextufs.o commands/cmd_mount.o commands/cmd_inspect.o \
-	commands/cmd_mkfile_cli.o nextufs_mkimg_cli.o nextufs_resize_cli.o \
+	commands/cmd_mkfile_cli.o commands/cmd_mkimg.o commands/cmd_resize.o \
 	commands/cmd_stress_cli.o mkimg_format.o mkimg_format_fsinit.o \
 	mkimg_format_io.o $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ commands/nextufs.o \
 		commands/cmd_mount.o commands/cmd_inspect.o commands/cmd_mkfile_cli.o \
-		nextufs_mkimg_cli.o nextufs_resize_cli.o commands/cmd_stress_cli.o \
+		commands/cmd_mkimg.o commands/cmd_resize.o commands/cmd_stress_cli.o \
 		mkimg_format.o mkimg_format_fsinit.o mkimg_format_io.o \
 		$(FSCK_OBJS) \
 		$(WRITE_LIB) $(LIB) $(FUSE_LIBS)
@@ -79,12 +79,12 @@ commands/cmd_mkfile_cli.o: commands/cmd_mkfile.c
 commands/cmd_stress_cli.o: commands/cmd_stress.c
 	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
-nextufs_mkimg_cli.o: ../nextufs.mkimg/nextufs_mkimg.c
+commands/cmd_mkimg.o: commands/cmd_mkimg.c
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -DNEXTUFS_NO_STANDALONE \
-		-I../nextufs.mkimg/format -I. -c -o $@ ../nextufs.mkimg/nextufs_mkimg.c
+		-I../nextufs.mkimg/format -I. -c -o $@ $<
 
-nextufs_resize_cli.o: ../nextufs.resize/nextufs_resize.c
-	$(CC) -I. $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ ../nextufs.resize/nextufs_resize.c
+commands/cmd_resize.o: commands/cmd_resize.c
+	$(CC) $(CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
 mkimg_format.o: ../nextufs.mkimg/format/format.c
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -I../nextufs.mkimg/format -c -o $@ $<
@@ -477,8 +477,8 @@ clean:
 	rm -f nextufs commands/nextufs.o \
 		commands/cmd_mount.o commands/cmd_inspect.o \
 		commands/cmd_mkfile.o commands/cmd_mkfile_cli.o \
+		commands/cmd_mkimg.o commands/cmd_resize.o \
 		commands/cmd_stress.o commands/cmd_stress_cli.o \
-		nextufs_mkimg_cli.o nextufs_resize_cli.o \
 		mkimg_format.o mkimg_format_fsinit.o \
 		mkimg_format_io.o $(FSCK_OBJS) \
 		nextufs_test nextufs_test.o nextufs_mkfile \
