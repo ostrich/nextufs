@@ -1,7 +1,7 @@
 #ifndef NEXTUFS_INFO_H
 #define NEXTUFS_INFO_H
 
-#include "nextufs.h"
+#include "nextufs_image.h"
 
 #include <stdint.h>
 

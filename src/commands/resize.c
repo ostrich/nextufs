@@ -1,4 +1,4 @@
-#include "nextufs.h"
+#include "nextufs_image.h"
 #include "nextufs_internal.h"
 #include "nextufs_label.h"
 #include "nextufs_report.h"

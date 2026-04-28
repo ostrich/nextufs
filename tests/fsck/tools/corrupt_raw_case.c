@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "nextufs.h"
+#include "nextufs_mutate.h"
 #ifndef MAXFRAG
 #define MAXFRAG 8
 #endif

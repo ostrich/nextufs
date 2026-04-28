@@ -1,7 +1,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "format.h"
-#include "nextufs.h"
+#include "nextufs_image.h"
 #include "nextufs_label.h"
 #include "nextufs_report.h"
 #include "nextufs_size.h"

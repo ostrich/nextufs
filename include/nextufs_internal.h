@@ -1,7 +1,7 @@
 #ifndef NEXTUFS_INTERNAL_H
 #define NEXTUFS_INTERNAL_H
 
-#include "nextufs.h"
+#include "nextufs_node.h"
 
 #include <stddef.h>
 #include <stdint.h>

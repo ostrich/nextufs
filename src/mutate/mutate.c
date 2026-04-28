@@ -1,4 +1,4 @@
-#include "nextufs.h"
+#include "nextufs_mutate.h"
 #include "nextufs_internal.h"
 
 #include <errno.h>

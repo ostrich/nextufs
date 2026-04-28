@@ -31,6 +31,10 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
+PUBLIC_HDRS = include/nextufs.h include/nextufs_image.h include/nextufs_node.h \
+	include/nextufs_mutate.h include/nextufs_info.h include/nextufs_label.h \
+	include/nextufs_report.h include/nextufs_size.h
+INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
 
 .PHONY: all clean install uninstall test test-nextufs test-cli-contract test-fsck test-mkimg test-resize test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse repair-tools repair-corpus repair-lab repair-smoke repair-repair-all scratch-dir
 
@@ -66,26 +70,31 @@ nextufs_test: tests/nextufs/nextufs_test.o $(LIB)
 nextufs_stress: src/commands/stress.o $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) -o $@ src/commands/stress.o $(WRITE_LIB) $(LIB)
 
-src/commands/mount.o: src/commands/mount.c
+$(LIB_OBJS): $(INTERNAL_HDRS)
+$(WRITE_OBJS): $(INTERNAL_HDRS)
+tests/nextufs/nextufs_test.o: $(PUBLIC_HDRS)
+src/commands/stress.o: src/commands/stress.c $(PUBLIC_HDRS)
+
+src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
 
-src/commands/info.o: src/commands/info.c
+src/commands/info.o: src/commands/info.c $(PUBLIC_HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/browse.o: src/commands/browse.c
+src/commands/browse.o: src/commands/browse.c $(PUBLIC_HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/fsck.o: src/commands/fsck.c src/commands/commands.h include/nextufs_fsck.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/mkfile_cli.o: src/commands/mkfile.c
+src/commands/mkfile_cli.o: src/commands/mkfile.c $(PUBLIC_HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/mkimg.o: src/commands/mkimg.c
+src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
 		-Isrc/mkimg_format -Iinclude -c -o $@ $<
 
-src/commands/resize.o: src/commands/resize.c
+src/commands/resize.o: src/commands/resize.c $(INTERNAL_HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 mkimg_format.o: src/mkimg_format/format.c
@@ -97,7 +106,7 @@ mkimg_format_fsinit.o: src/mkimg_format/format_fsinit.c
 mkimg_format_io.o: src/mkimg_format/format_io.c
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-fsck_%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs.h include/nextufs_fsck.h
+fsck_%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs_image.h include/nextufs_fsck.h
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
 
 test: test-nextufs test-fsck
@@ -533,7 +542,7 @@ test-stress-fuse: all nextufs_stress
 
 repair-tools: tests/fsck/tools/corrupt_raw_case
 
-tests/fsck/tools/corrupt_raw_case: tests/fsck/tools/corrupt_raw_case.c $(LIB) $(WRITE_LIB)
+tests/fsck/tools/corrupt_raw_case: tests/fsck/tools/corrupt_raw_case.c $(PUBLIC_HDRS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) -Isrc/fsck/include -o $@ $< $(WRITE_LIB) $(LIB)
 
 repair-corpus: all repair-tools

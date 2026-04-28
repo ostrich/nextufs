@@ -1,4 +1,4 @@
-#include "nextufs.h"
+#include "nextufs_node.h"
 #include "nextufs_report.h"
 
 #include <inttypes.h>

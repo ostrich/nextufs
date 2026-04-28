@@ -1,4 +1,4 @@
-#include "nextufs.h"
+#include "nextufs_image.h"
 
 #include <errno.h>
 #include <fcntl.h>

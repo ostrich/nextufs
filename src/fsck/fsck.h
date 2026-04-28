@@ -12,7 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/param.h>
-#include "nextufs.h"
+#include "nextufs_image.h"
 
 #define	MAXDUP		10
 #define	MAXBAD		10
