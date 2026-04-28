@@ -86,7 +86,7 @@ catchquit(int signo)
 	(void)signo;
 
 	printf("returning to single-user after filesystem check\n");
-	fsck_return_to_single_user = 1;
+	fsck_driver_request_single_user_return();
 	(void)signal(SIGQUIT, SIG_DFL);
 }
 

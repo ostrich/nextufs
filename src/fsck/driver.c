@@ -16,8 +16,6 @@
 #include "fsck.h"
 #include "nextufs_fsck.h"
 
-int	fsck_return_to_single_user;
-
 int
 nextufs_fsck_run(const struct nextufs_fsck_request *request)
 {
@@ -38,7 +36,7 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 	opts.opt_debug = request->options.opt_debug;
 
 	process_exitstat = 0;
-	fsck_return_to_single_user = 0;
+	fsck_driver_reset_signal_state();
 	sync();
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
 		(void)signal(SIGINT, catch);
@@ -121,7 +119,7 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 	} while (anygtr);
 	if (sumstatus)
 		return 8;
-	if (fsck_return_to_single_user)
+	if (fsck_driver_should_return_to_single_user())
 		return 2;
 	return process_exitstat;
 }

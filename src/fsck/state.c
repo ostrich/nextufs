@@ -13,6 +13,7 @@
 #include "fsck.h"
 
 static struct fsck_ctx *g_fsck_current_ctx;
+static volatile sig_atomic_t g_fsck_return_to_single_user;
 
 struct fsck_ctx *
 fsck_ctx_current(void)
@@ -24,6 +25,24 @@ void
 fsck_ctx_set_current(struct fsck_ctx *ctx)
 {
 	g_fsck_current_ctx = ctx;
+}
+
+void
+fsck_driver_reset_signal_state(void)
+{
+	g_fsck_return_to_single_user = 0;
+}
+
+void
+fsck_driver_request_single_user_return(void)
+{
+	g_fsck_return_to_single_user = 1;
+}
+
+int
+fsck_driver_should_return_to_single_user(void)
+{
+	return g_fsck_return_to_single_user != 0;
 }
 
 void

@@ -188,14 +188,15 @@ struct fsck_runtime_options {
 	char	opt_preen;
 };
 
-extern int fsck_return_to_single_user;
-
 struct fsck_ctx *fsck_ctx_current(void);
 void fsck_ctx_set_current(struct fsck_ctx *ctx);
 void fsck_ctx_init(struct fsck_ctx *ctx);
 void fsck_ctx_init_from_runtime(struct fsck_ctx *ctx,
     const struct fsck_runtime_options *opts);
 void fsck_abort(int status);
+void fsck_driver_reset_signal_state(void);
+void fsck_driver_request_single_user_return(void);
+int fsck_driver_should_return_to_single_user(void);
 
 #define	inoblk		(fsck_ctx_current()->ctx_inoblk)
 #define	fileblk		(fsck_ctx_current()->ctx_fileblk)
