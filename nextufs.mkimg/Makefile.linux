@@ -34,10 +34,12 @@ resize-tool: fsck-tool
 $(BIN): $(OBJS) $(NEXTUFS_LIB)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(NEXTUFS_LIB)
 
-nextufs_mkimg.o: nextufs_mkimg.c format/format.h ../nextufs/nextufs_label.h
+nextufs_mkimg.o: nextufs_mkimg.c format/format.h ../nextufs/nextufs_label.h \
+	../nextufs/nextufs_size.h
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) -Iformat -I../nextufs -c -o $@ nextufs_mkimg.c
 
-$(NEXTUFS_LIB): ../nextufs/nextufs_label.c ../nextufs/nextufs_label.h
+$(NEXTUFS_LIB): ../nextufs/nextufs_label.c ../nextufs/nextufs_label.h \
+	../nextufs/nextufs_size.c ../nextufs/nextufs_size.h
 	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a
 
 %.o: format/%.c format/format.h

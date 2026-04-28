@@ -2,6 +2,7 @@
 
 #include "format.h"
 #include "nextufs_label.h"
+#include "nextufs_size.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -15,7 +16,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define COMPAT_MAX_BYTES UINT64_C(4294836224)
 #define UFS_SECTOR_SIZE 1024U
 
 struct options {
@@ -41,45 +41,6 @@ usage(FILE *out)
 	fprintf(out, "  --force-size       allow sizes above the compatibility limit\n");
 	fprintf(out, "  --force-overwrite  replace an existing output file\n");
 	fprintf(out, "  -h, --help         show this help\n");
-}
-
-static int
-parse_size(const char *s, int raw_mode, uint64_t *bytes_out)
-{
-	char *end;
-	unsigned long long value;
-	uint64_t mult = 1;
-
-	errno = 0;
-	value = strtoull(s, &end, 10);
-	if (errno != 0 || end == s)
-		return -1;
-	if (*end == '\0' && raw_mode) {
-		mult = 1024ULL;
-	} else if (*end != '\0') {
-		if (end[1] != '\0')
-			return -1;
-		switch (*end) {
-		case 'k':
-		case 'K':
-			mult = 1024ULL;
-			break;
-		case 'm':
-		case 'M':
-			mult = 1024ULL * 1024ULL;
-			break;
-		case 'g':
-		case 'G':
-			mult = 1024ULL * 1024ULL * 1024ULL;
-			break;
-		default:
-			return -1;
-		}
-	}
-	if (value == 0 || (uint64_t)value > UINT64_MAX / mult)
-		return -1;
-	*bytes_out = (uint64_t)value * mult;
-	return 0;
 }
 
 static int
@@ -138,7 +99,9 @@ parse_args(int argc, char **argv, struct options *opts)
 		} else if (opts->target == NULL) {
 			opts->target = argv[i];
 		} else if (opts->bytes == 0) {
-			if (parse_size(argv[i], opts->raw, &opts->bytes) < 0)
+			if (nextufs_parse_size_bytes(argv[i],
+			    opts->raw ? NEXTUFS_BARE_SIZE_1K_SECTORS :
+			    NEXTUFS_BARE_SIZE_BYTES, &opts->bytes) < 0)
 				return -1;
 		} else if (opts->raw) {
 			opts->extra_argv = &argv[i];
@@ -274,7 +237,7 @@ main(int argc, char **argv)
 		usage(stderr);
 		return 2;
 	}
-	if (!opts.force_size && opts.bytes > COMPAT_MAX_BYTES) {
+	if (!opts.force_size && opts.bytes > NEXTUFS_COMPAT_MAX_BYTES) {
 		fprintf(stderr,
 		    "nextufs.mkimg: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
 		return 1;

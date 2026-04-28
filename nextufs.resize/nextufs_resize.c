@@ -1,6 +1,7 @@
 #include "../nextufs/nextufs.h"
 #include "../nextufs/nextufs_internal.h"
 #include "../nextufs/nextufs_label.h"
+#include "../nextufs/nextufs_size.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -13,7 +14,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define RESIZE_COMPAT_MAX_BYTES UINT64_C(4294836224)
 #define UFS_DISK_SECTOR_SIZE 512U
 #define CSUM_SIZE 16U
 #define SB_SIZE_OFF 0x24U
@@ -50,20 +50,6 @@ usage(FILE *out, const char *argv0)
 	fprintf(out, "\n");
 	fprintf(out, "For labeled disk images, grow size is the final image size.\n");
 	fprintf(out, "For raw filesystem images, grow size is the filesystem size.\n");
-}
-
-static int
-parse_u64(const char *s, uint64_t *out)
-{
-	char *end;
-	unsigned long long v;
-
-	errno = 0;
-	v = strtoull(s, &end, 10);
-	if (errno != 0 || end == s || *end != '\0')
-		return -1;
-	*out = (uint64_t)v;
-	return 0;
 }
 
 static int
@@ -803,7 +789,7 @@ cmd_analyze(const char *path)
 	}
 	print_size_line("filesystem size:", fs_size);
 	print_size_line("trailing unused slice space:", slack);
-	print_size_line("compatibility ceiling:", RESIZE_COMPAT_MAX_BYTES);
+	print_size_line("compatibility ceiling:", NEXTUFS_COMPAT_MAX_BYTES);
 	printf("block size:                   %" PRIu32 "\n", img->sb.block_size);
 	printf("fragment size:                %" PRIu32 "\n", img->sb.frag_size);
 	printf("fragments/block:              %" PRIu32 "\n", img->sb.frags_per_block);
@@ -847,16 +833,17 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	int32_t add_nffree;
 	int rc;
 
-	if (parse_u64(sectors_arg, &sectors) < 0 || sectors == 0) {
+	if (nextufs_parse_size_bytes(sectors_arg, NEXTUFS_BARE_SIZE_1K_SECTORS,
+	    &target_backing_bytes) < 0) {
 		fprintf(stderr, "nextufs.resize: invalid size '%s'\n", sectors_arg);
 		return 1;
 	}
-	target_backing_bytes = sectors * 1024U;
-	if (target_backing_bytes / 1024U != sectors) {
-		fprintf(stderr, "nextufs.resize: requested size overflows\n");
+	if ((target_backing_bytes % NEXTUFS_KIB_BYTES) != 0) {
+		fprintf(stderr, "nextufs.resize: requested size must align to 1K sectors\n");
 		return 1;
 	}
-	if (!force && target_backing_bytes > RESIZE_COMPAT_MAX_BYTES) {
+	sectors = target_backing_bytes / NEXTUFS_KIB_BYTES;
+	if (!force && target_backing_bytes > NEXTUFS_COMPAT_MAX_BYTES) {
 		fprintf(stderr,
 		    "nextufs.resize: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
 		return 1;
