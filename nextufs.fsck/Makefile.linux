@@ -40,7 +40,7 @@ clean:
 test: repair-smoke
 
 repair-tools: scratch-dir
-	$(MAKE) -C ../nextufs -f Makefile.linux nextufs_mkfile
+	$(MAKE) -C ../nextufs -f Makefile.linux libnextufs.a libnextufs_mutate.a
 	$(CC) $(CFLAGS) -I../nextufs -o $(REPAIR_TOOL_BIN) \
 		$(TESTS_DIR)/tools/corrupt_raw_case.c \
 		../nextufs/libnextufs_mutate.a ../nextufs/libnextufs.a

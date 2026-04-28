@@ -3,7 +3,7 @@ bindir ?= $(prefix)/bin
 DESTDIR ?=
 INSTALL ?= install
 
-.PHONY: all clean test test-nextufs test-fsck test-mkimg test-resize fsck mkimg resize nextufs install uninstall
+.PHONY: all clean test test-nextufs test-fsck fsck nextufs install uninstall
 
 all: nextufs
 
@@ -13,15 +13,9 @@ nextufs:
 fsck:
 	$(MAKE) -C nextufs.fsck -f Makefile.linux
 
-mkimg:
-	$(MAKE) -C nextufs.mkimg -f Makefile.linux
+fsck: nextufs
 
-resize:
-	$(MAKE) -C nextufs.resize -f Makefile.linux
-
-fsck resize: nextufs
-
-test: test-nextufs test-fsck test-mkimg test-resize
+test: test-nextufs test-fsck
 
 test-nextufs:
 	$(MAKE) -C nextufs -f Makefile.linux test
@@ -29,21 +23,11 @@ test-nextufs:
 test-fsck:
 	$(MAKE) -C nextufs.fsck -f Makefile.linux repair-smoke
 
-test-mkimg:
-	$(MAKE) -C nextufs.mkimg -f Makefile.linux test
-
-test-resize:
-	$(MAKE) -C nextufs.resize -f Makefile.linux test
-
 test-fsck: test-nextufs
-test-mkimg: test-fsck
-test-resize: test-mkimg
 
 clean:
 	$(MAKE) -C nextufs -f Makefile.linux clean
 	$(MAKE) -C nextufs.fsck -f Makefile.linux clean
-	$(MAKE) -C nextufs.mkimg -f Makefile.linux clean
-	$(MAKE) -C nextufs.resize -f Makefile.linux clean
 
 install: nextufs
 	$(INSTALL) -d "$(DESTDIR)$(bindir)"
@@ -52,5 +36,3 @@ install: nextufs
 uninstall:
 	rm -f "$(DESTDIR)$(bindir)/nextufs"
 	rm -f "$(DESTDIR)$(bindir)/nextufs.fsck"
-	rm -f "$(DESTDIR)$(bindir)/nextufs.mkimg"
-	rm -f "$(DESTDIR)$(bindir)/nextufs.resize"

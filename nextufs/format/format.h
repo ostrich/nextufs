@@ -1,4 +1,4 @@
-/* Shared state and helpers for nextufs.mkimg raw UFS formatting. */
+/* Shared state and helpers for nextufs mkimg raw UFS formatting. */
 
 #ifndef NEXTUFS_MKIMG_FORMAT_H
 #define NEXTUFS_MKIMG_FORMAT_H

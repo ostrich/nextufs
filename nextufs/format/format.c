@@ -1,4 +1,4 @@
-/* Raw UFS formatter API used by nextufs.mkimg. */
+/* Raw UFS formatter API used by nextufs mkimg. */
 
 #include "format.h"
 
@@ -61,7 +61,7 @@ nextufs_format(const struct nextufs_format_options *opts)
 
 	if (opts->target == NULL || opts->size_1k_sectors == 0 ||
 	    opts->size_1k_sectors > LONG_MAX) {
-		fprintf(stderr, "nextufs.mkimg: invalid filesystem size\n");
+		fprintf(stderr, "nextufs mkimg: invalid filesystem size\n");
 		return 1;
 	}
 	fssize = (long)opts->size_1k_sectors;
@@ -301,7 +301,7 @@ next:
 	if (sblock.fs_ncyl % sblock.fs_cpg)
 		sblock.fs_ncg++;
 	if ((sblock.fs_spc * sblock.fs_cpg) % NSPF(&sblock)) {
-		fprintf(stderr, "nextufs.mkimg: nsect %d, ntrak %d, cpg %d is not tolerable\n",
+		fprintf(stderr, "nextufs mkimg: nsect %d, ntrak %d, cpg %d is not tolerable\n",
 		    sblock.fs_nsect, sblock.fs_ntrak, sblock.fs_cpg);
 		fprintf(stderr, "as this would would have cyl groups whose size\n");
 		fprintf(stderr, "is not a multiple of %d; choke!\n", sblock.fs_fsize);

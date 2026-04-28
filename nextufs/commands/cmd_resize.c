@@ -457,7 +457,7 @@ move_direct_fragment_run(struct nextufs_image *img, unsigned inode_no,
 	rc = nextufs__free_fragment_run(img, old_frag, frags);
 	if (rc < 0)
 		return rc;
-	printf("nextufs.resize: moved inode %u direct[%u] %" PRIu32
+	printf("nextufs resize: moved inode %u direct[%u] %" PRIu32
 	    "+%" PRIu32 " -> %" PRIu32 "\n",
 	    inode_no, slot, old_frag, frags, new_frag);
 	*moved_out = 1;
@@ -537,7 +537,7 @@ patch_label_partition_size(const struct nextufs_image *img, uint64_t slice_bytes
 	    slice_bytes, &patched);
 	if (rc < 0)
 		return rc;
-	printf("nextufs.resize: updated %d disk label copies\n", patched);
+	printf("nextufs resize: updated %d disk label copies\n", patched);
 	return 0;
 }
 
@@ -776,30 +776,30 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 
 	if (nextufs_parse_size_bytes(sectors_arg, NEXTUFS_BARE_SIZE_1K_SECTORS,
 	    &target_backing_bytes) < 0) {
-		fprintf(stderr, "nextufs.resize: invalid size '%s'\n", sectors_arg);
+		fprintf(stderr, "nextufs resize: invalid size '%s'\n", sectors_arg);
 		return 1;
 	}
 	if ((target_backing_bytes % NEXTUFS_KIB_BYTES) != 0) {
-		fprintf(stderr, "nextufs.resize: requested size must align to 1K sectors\n");
+		fprintf(stderr, "nextufs resize: requested size must align to 1K sectors\n");
 		return 1;
 	}
 	sectors = target_backing_bytes / NEXTUFS_KIB_BYTES;
 	if (!force && target_backing_bytes > NEXTUFS_COMPAT_MAX_BYTES) {
 		fprintf(stderr,
-		    "nextufs.resize: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
+		    "nextufs resize: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
 		return 1;
 	}
 
 	rc = open_supported_image(&opened, path, 1);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: cannot open '%s' writable: %d\n",
+		fprintf(stderr, "nextufs resize: cannot open '%s' writable: %d\n",
 		    path, rc);
 		return 1;
 	}
 	img = &opened.img;
 	if (opened.labeled) {
 		if (target_backing_bytes <= (uint64_t)img->slice_base) {
-			fprintf(stderr, "nextufs.resize: target image size is smaller than the slice base\n");
+			fprintf(stderr, "nextufs resize: target image size is smaller than the slice base\n");
 			nextufs_image_close(img);
 			return 1;
 		}
@@ -808,39 +808,39 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		target_slice_bytes = target_backing_bytes;
 	}
 	if (target_slice_bytes <= (uint64_t)img->slice_size) {
-		fprintf(stderr, "nextufs.resize: target size is not larger than filesystem\n");
+		fprintf(stderr, "nextufs resize: target size is not larger than filesystem\n");
 		nextufs_image_close(img);
 		return 1;
 	}
 	rc = validate_labeled_grow_layout(img);
 	if (rc < 0) {
 		fprintf(stderr,
-		    "nextufs.resize: unsupported labeled image layout: %d\n", rc);
+		    "nextufs resize: unsupported labeled image layout: %d\n", rc);
 		nextufs_image_close(img);
 		return 1;
 	}
 	if ((target_slice_bytes % img->sb.frag_size) != 0) {
-		fprintf(stderr, "nextufs.resize: target size is not fragment-aligned\n");
+		fprintf(stderr, "nextufs resize: target size is not fragment-aligned\n");
 		nextufs_image_close(img);
 		return 1;
 	}
 	target_frags = target_slice_bytes / img->sb.frag_size;
 	if ((target_frags % img->sb.frags_per_group) != 0) {
 		fprintf(stderr,
-		    "nextufs.resize: initial grow support requires whole cylinder groups\n");
+		    "nextufs resize: initial grow support requires whole cylinder groups\n");
 		nextufs_image_close(img);
 		return 1;
 	}
 	new_ncg64 = target_frags / img->sb.frags_per_group;
 	if (new_ncg64 <= img->sb.cg_count || new_ncg64 > UINT32_MAX) {
-		fprintf(stderr, "nextufs.resize: invalid target cylinder-group count\n");
+		fprintf(stderr, "nextufs resize: invalid target cylinder-group count\n");
 		nextufs_image_close(img);
 		return 1;
 	}
 	new_cssize64 = ((new_ncg64 * CSUM_SIZE) + img->sb.frag_size - 1U) /
 	    img->sb.frag_size * img->sb.frag_size;
 	if (new_cssize64 > UINT32_MAX) {
-		fprintf(stderr, "nextufs.resize: cylinder-summary area is too large\n");
+		fprintf(stderr, "nextufs resize: cylinder-summary area is too large\n");
 		nextufs_image_close(img);
 		return 1;
 	}
@@ -855,7 +855,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		rc = evacuate_summary_extension_range(img, new_cssize, &moves);
 		if (rc < 0) {
 			fprintf(stderr,
-			    "nextufs.resize: failed to evacuate summary extension range: %d\n",
+			    "nextufs resize: failed to evacuate summary extension range: %d\n",
 			    rc);
 			nextufs_image_close(img);
 			return 1;
@@ -863,22 +863,22 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		if (moves != 0) {
 			rc = nextufs_image_fsync(img);
 			if (rc < 0) {
-				fprintf(stderr, "nextufs.resize: fsync failed after evacuation: %d\n",
+				fprintf(stderr, "nextufs resize: fsync failed after evacuation: %d\n",
 				    rc);
 				nextufs_image_close(img);
 				return 1;
 			}
-			printf("nextufs.resize: evacuated %u data runs; restarting grow\n",
+			printf("nextufs resize: evacuated %u data runs; restarting grow\n",
 			    moves);
 			nextufs_image_close(img);
 			return cmd_grow(path, sectors_arg, force);
 		}
-		printf("nextufs.resize: summary extension range is clear\n");
+		printf("nextufs resize: summary extension range is clear\n");
 	}
 	if (new_cssize > img->sb.csum_size &&
 	    img->sb.cyl_summary_addr + (new_cssize / img->sb.frag_size) >
 	    img->sb.frags_per_group) {
-		fprintf(stderr, "nextufs.resize: enlarged summary does not fit in cg0\n");
+		fprintf(stderr, "nextufs resize: enlarged summary does not fit in cg0\n");
 		nextufs_image_close(img);
 		return 1;
 	}
@@ -889,7 +889,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	old_sb = malloc(img->sb.super_size);
 	cg_buf = malloc(img->sb.cg_size);
 	if (old_sb == NULL || cg_buf == NULL) {
-		fprintf(stderr, "nextufs.resize: out of memory\n");
+		fprintf(stderr, "nextufs resize: out of memory\n");
 		free(old_sb);
 		free(cg_buf);
 		nextufs_image_close(img);
@@ -898,14 +898,14 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	rc = nextufs_image_pread(img, old_sb, img->sb.super_size,
 	    superblock_offset(img, 0));
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: failed to read superblock: %d\n", rc);
+		fprintf(stderr, "nextufs resize: failed to read superblock: %d\n", rc);
 		free(old_sb);
 		free(cg_buf);
 		nextufs_image_close(img);
 		return 1;
 	}
 	if (ftruncate(img->fd, (off_t)target_backing_bytes) < 0) {
-		fprintf(stderr, "nextufs.resize: ftruncate failed: %s\n", strerror(errno));
+		fprintf(stderr, "nextufs resize: ftruncate failed: %s\n", strerror(errno));
 		free(old_sb);
 		free(cg_buf);
 		nextufs_image_close(img);
@@ -913,7 +913,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	}
 	rc = patch_label_partition_size(img, target_slice_bytes);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: failed to update disk label: %d\n", rc);
+		fprintf(stderr, "nextufs resize: failed to update disk label: %d\n", rc);
 		goto fail;
 	}
 	{
@@ -928,7 +928,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		}
 	}
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: failed to update old last cg: %d\n", rc);
+		fprintf(stderr, "nextufs resize: failed to update old last cg: %d\n", rc);
 		goto fail;
 	}
 	if (new_cssize > img->sb.csum_size) {
@@ -945,7 +945,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		    &reserve_nffree);
 		if (rc < 0) {
 			fprintf(stderr,
-			    "nextufs.resize: failed to reserve summary extension: %d\n",
+			    "nextufs resize: failed to reserve summary extension: %d\n",
 			    rc);
 			goto fail;
 		}
@@ -955,7 +955,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		    (uint64_t)new_cssize - img->sb.csum_size);
 		if (rc < 0) {
 			fprintf(stderr,
-			    "nextufs.resize: failed to clear summary extension: %d\n", rc);
+			    "nextufs resize: failed to clear summary extension: %d\n", rc);
 			goto fail;
 		}
 		add_nbfree += reserve_nbfree;
@@ -974,7 +974,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		rc = build_new_cg(img, cg, cg_ncyl, 0, 0,
 		    cg_buf, &cg_nbfree, &cg_nifree, &cg_nffree);
 		if (rc < 0) {
-			fprintf(stderr, "nextufs.resize: failed to build cg %u: %d\n",
+			fprintf(stderr, "nextufs resize: failed to build cg %u: %d\n",
 			    cg, rc);
 			goto fail;
 		}
@@ -982,14 +982,14 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		    (off_t)(cgimin(img, cg) * img->sb.frag_size),
 		    (uint64_t)img->sb.inodes_per_group * 128U);
 		if (rc < 0) {
-			fprintf(stderr, "nextufs.resize: failed to zero cg %u inodes: %d\n",
+			fprintf(stderr, "nextufs resize: failed to zero cg %u inodes: %d\n",
 			    cg, rc);
 			goto fail;
 		}
 		rc = nextufs_image_pwrite(img, cg_buf, img->sb.cg_size,
 		    (off_t)(cgtod(img, cg) * img->sb.frag_size));
 		if (rc < 0) {
-			fprintf(stderr, "nextufs.resize: failed to write cg %u: %d\n",
+			fprintf(stderr, "nextufs resize: failed to write cg %u: %d\n",
 			    cg, rc);
 			goto fail;
 		}
@@ -997,7 +997,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 		    cg_nffree);
 		if (rc < 0) {
 			fprintf(stderr,
-			    "nextufs.resize: failed to write cg %u summary: %d\n",
+			    "nextufs resize: failed to write cg %u summary: %d\n",
 			    cg, rc);
 			goto fail;
 		}
@@ -1015,16 +1015,16 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	    (uint32_t)target_frags, new_dsize, new_csum_addr, new_cssize,
 	    add_nbfree, add_nifree, add_nffree);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: failed to write superblocks: %d\n", rc);
+		fprintf(stderr, "nextufs resize: failed to write superblocks: %d\n", rc);
 		goto fail;
 	}
 	rc = nextufs_image_fsync(img);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.resize: fsync failed: %d\n", rc);
+		fprintf(stderr, "nextufs resize: fsync failed: %d\n", rc);
 		goto fail;
 	}
 
-	printf("nextufs.resize: grew %s to %" PRIu64 " 1K sectors (%u cylinder groups)\n",
+	printf("nextufs resize: grew %s to %" PRIu64 " 1K sectors (%u cylinder groups)\n",
 	    path, sectors, new_ncg);
 	free(old_sb);
 	free(cg_buf);
@@ -1032,7 +1032,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 	return 0;
 
 fail:
-	fprintf(stderr, "nextufs.resize: grow failed: %d\n", rc);
+	fprintf(stderr, "nextufs resize: grow failed: %d\n", rc);
 	free(old_sb);
 	free(cg_buf);
 	nextufs_image_close(img);

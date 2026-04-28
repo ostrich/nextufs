@@ -7,6 +7,8 @@ library, FUSE frontend, and offline mutation utilities.
 
 - `nextufs inspect`: inspect a filesystem source and resolve paths
 - `nextufs mount`: mount a source through FUSE
+- `nextufs mkimg`: create raw or labeled UFS images
+- `nextufs resize`: grow supported images offline
 - `nextufs mkfile`: offline mutation tool used by tests and development
 - `nextufs stress`: deterministic mutation stress harness
 - `nextufs_test`: library regression binary
@@ -46,6 +48,18 @@ Mount a source read-write:
 
 ```sh
 ./nextufs mount /path/to/source /tmp/nextufs-mnt -o rw -f -s
+```
+
+Create a labeled image:
+
+```sh
+./nextufs mkimg /tmp/nextufs.img 256M
+```
+
+Grow an image:
+
+```sh
+./nextufs resize grow /path/to/source 2097152
 ```
 
 ## FUSE Modes

@@ -20,7 +20,7 @@ Layout:
 - `work/`: ignored disposable working copies
 
 Current seed:
-- one small raw UFS image created with `nextufs.mkimg --raw`
+- one small raw UFS image created with `nextufs mkimg --raw`
 - populated deterministically with:
   - `/alpha`
   - `/dir`

@@ -32,7 +32,7 @@ struct options {
 static void
 usage(FILE *out)
 {
-	fprintf(out, "usage: nextufs.mkimg [options] <target> <size> [raw-geometry-args...]\n\n");
+	fprintf(out, "usage: nextufs mkimg [options] <target> <size> [raw-geometry-args...]\n\n");
 	fprintf(out, "Options:\n");
 	fprintf(out, "  --raw              create raw UFS at byte zero\n");
 	fprintf(out, "  --label NAME       set the NeXT disk label string\n");
@@ -113,11 +113,11 @@ parse_args(int argc, char **argv, struct options *opts)
 	if (opts->target == NULL || opts->bytes == 0)
 		return -1;
 	if (opts->raw && opts->label != NULL) {
-		fprintf(stderr, "nextufs.mkimg: --label is not valid with --raw\n");
+		fprintf(stderr, "nextufs mkimg: --label is not valid with --raw\n");
 		return -1;
 	}
 	if (!opts->raw && opts->extra_argc != 0) {
-		fprintf(stderr, "nextufs.mkimg: explicit geometry arguments are only valid with --raw\n");
+		fprintf(stderr, "nextufs mkimg: explicit geometry arguments are only valid with --raw\n");
 		return -1;
 	}
 	if (opts->label == NULL)
@@ -134,7 +134,7 @@ create_output(const struct options *opts)
 	    opts->force_overwrite ? NEXTUFS_TARGET_OVERWRITE :
 	    NEXTUFS_TARGET_CREATE_NEW, 0666, opts->bytes);
 	if (rc < 0) {
-		fprintf(stderr, "nextufs.mkimg: cannot create %s: %s\n",
+		fprintf(stderr, "nextufs mkimg: cannot create %s: %s\n",
 		    opts->target, strerror(-rc));
 		return -1;
 	}
@@ -181,7 +181,7 @@ format_options_from_cli(const struct options *opts, uint64_t fs_sectors,
 		return 0;
 	}
 	if (opts->extra_argc > 9) {
-		fprintf(stderr, "nextufs.mkimg: too many raw geometry arguments\n");
+		fprintf(stderr, "nextufs mkimg: too many raw geometry arguments\n");
 		return -1;
 	}
 	if (opts->extra_argc > 0 &&
@@ -235,15 +235,15 @@ nextufs_mkimg_main(int argc, char **argv)
 	}
 	if (!opts.force_size && opts.bytes > NEXTUFS_COMPAT_MAX_BYTES) {
 		fprintf(stderr,
-		    "nextufs.mkimg: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
+		    "nextufs mkimg: requested size exceeds the NEXTSTEP/OPENSTEP compatibility limit; use --force-size to override\n");
 		return 1;
 	}
 	if ((opts.bytes % UFS_SECTOR_SIZE) != 0) {
-		fprintf(stderr, "nextufs.mkimg: size must be a multiple of 1024 bytes\n");
+		fprintf(stderr, "nextufs mkimg: size must be a multiple of 1024 bytes\n");
 		return 1;
 	}
 	if (!opts.raw && opts.bytes <= NEXTUFS_LABEL_FRONT_PORCH_BYTES) {
-		fprintf(stderr, "nextufs.mkimg: labeled image is too small for the front porch\n");
+		fprintf(stderr, "nextufs mkimg: labeled image is too small for the front porch\n");
 		return 1;
 	}
 
@@ -251,11 +251,11 @@ nextufs_mkimg_main(int argc, char **argv)
 	    opts.bytes - NEXTUFS_LABEL_FRONT_PORCH_BYTES;
 	fs_sectors = slice_bytes / UFS_SECTOR_SIZE;
 	if (fs_sectors > LONG_MAX) {
-		fprintf(stderr, "nextufs.mkimg: filesystem is too large\n");
+		fprintf(stderr, "nextufs mkimg: filesystem is too large\n");
 		return 1;
 	}
 	if (format_options_from_cli(&opts, fs_sectors, &fmt) < 0) {
-		fprintf(stderr, "nextufs.mkimg: invalid raw geometry argument\n");
+		fprintf(stderr, "nextufs mkimg: invalid raw geometry argument\n");
 		return 1;
 	}
 	print_plan(&opts, slice_bytes);
@@ -265,7 +265,7 @@ nextufs_mkimg_main(int argc, char **argv)
 		return 1;
 	if (!opts.raw && nextufs_label_write_path(opts.target, opts.bytes,
 	    slice_bytes, opts.label) < 0) {
-		fprintf(stderr, "nextufs.mkimg: failed to write disk label\n");
+		fprintf(stderr, "nextufs mkimg: failed to write disk label\n");
 		return 1;
 	}
 

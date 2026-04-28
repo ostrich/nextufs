@@ -5,8 +5,6 @@ It includes:
 
 - `nextufs/`: unified CLI, shared library, writable FUSE frontend, and stress tools
 - `nextufs.fsck/`: filesystem checker and repair tool
-- `nextufs.mkimg/`: labeled disk-image creator
-- `nextufs.resize/`: offline grow-only image resizer
 
 ## Features
 
@@ -25,10 +23,10 @@ It includes:
 Writable support is available in `nextufs` for raw sources, standalone VDIs,
 and writable VDI chains. `nextufs.fsck` checks and repairs raw sources,
 standalone VDIs, and VDI differencing chains directly through the shared
-`nextufs` source backend. `nextufs.mkimg` creates labeled disk images that
-NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs.mkimg --raw`
+`nextufs` source backend. `nextufs mkimg` creates labeled disk images that
+NEXTSTEP/OPENSTEP can recognize as initialized, and `nextufs mkimg --raw`
 creates raw filesystem images. `nextufs inspect` reports image layout and
-growability details. `nextufs.resize` grows raw UFS images and supported
+growability details. `nextufs resize` grows raw UFS images and supported
 single-slice labeled disk images.
 
 ## Build
@@ -77,20 +75,20 @@ Check a filesystem:
 Create a labeled disk image:
 
 ```sh
-./nextufs.mkimg/nextufs.mkimg /tmp/nextufs.img 256M
+./nextufs/nextufs mkimg /tmp/nextufs.img 256M
 ```
 
 Create a raw filesystem:
 
 ```sh
-./nextufs.mkimg/nextufs.mkimg --raw /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
+./nextufs/nextufs mkimg --raw /tmp/nextufs.img 65536 63 16 8192 1024 16 10 60 2048 t
 ```
 
 Inspect or grow an image:
 
 ```sh
 ./nextufs/nextufs inspect /path/to/source
-./nextufs.resize/nextufs.resize grow /path/to/source 2097152
+./nextufs/nextufs resize grow /path/to/source 2097152
 ```
 
 ## Tests
@@ -106,13 +104,9 @@ Component-specific entrypoints:
 ```sh
 make test-nextufs
 make test-fsck
-make test-mkimg
-make test-resize
 ```
 
 Component-specific notes are in:
 
 - [nextufs/README.md](nextufs/README.md)
 - [nextufs.fsck/README.md](nextufs.fsck/README.md)
-- [nextufs.mkimg/README.md](nextufs.mkimg/README.md)
-- [nextufs.resize/README.md](nextufs.resize/README.md)

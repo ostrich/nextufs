@@ -1,7 +1,7 @@
 CC = cc
 CFLAGS = -I. -O2 -g -std=gnu99 -Wall -Wextra -Werror
 FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
-FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -I../nextufs.mkimg/include \
+FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Iformat/include \
 	-Disblock=mkimg_isblock -Dclrblock=mkimg_clrblock \
 	-Dsetblock=mkimg_setblock -Dswap_superblock=mkimg_swap_superblock
 FSCK_CFLAGS ?= -O2 -g -std=gnu99 -fcommon -Wall -Wextra
@@ -28,7 +28,7 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=fsck_%.o)
 
-.PHONY: all clean test test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse scratch-dir fsck-tool mkimg-tool
+.PHONY: all clean test test-mkimg test-resize test-write test-write-big test-write-grow test-unlink test-mkdir test-rewrite test-link-symlink test-rmdir test-meta test-rename test-truncate test-special test-fuse-write test-permissions test-failure test-stress test-stress-base test-stress-batch test-stress-fuse scratch-dir fsck-tool
 
 all: scratch-dir $(LIB) $(WRITE_LIB) nextufs nextufs_test nextufs_mkfile nextufs_stress
 
@@ -37,9 +37,6 @@ scratch-dir:
 
 fsck-tool:
 	$(MAKE) -C ../nextufs.fsck -f Makefile.linux
-
-mkimg-tool:
-	$(MAKE) -C ../nextufs.mkimg -f Makefile.linux
 
 $(LIB): $(LIB_OBJS)
 	ar rcs $@ $(LIB_OBJS)
@@ -98,7 +95,7 @@ mkimg_format_io.o: format/format_io.c
 fsck_%.o: ../nextufs.fsck/%.c
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -DNEXTUFS_NO_STANDALONE -c -o $@ $<
 
-test: all
+test: all test-mkimg test-resize
 	./nextufs --help >/dev/null
 	./nextufs --version >/dev/null
 	./nextufs inspect --help >/dev/null
@@ -112,6 +109,53 @@ test: all
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	./test_fuse.sh $(TEST_IMAGE)
+
+test-mkimg: all
+	rm -f $(SCRATCH_DIR)/mkimg-raw.img $(SCRATCH_DIR)/mkimg-labeled.img \
+		$(SCRATCH_DIR)/mkimg-raw-full.img \
+		$(SCRATCH_DIR)/mkimg-raw-a.img $(SCRATCH_DIR)/mkimg-raw-b.img \
+		$(SCRATCH_DIR)/mkimg-labeled-a.img $(SCRATCH_DIR)/mkimg-labeled-b.img \
+		$(SCRATCH_DIR)/mkimg-overwrite.img $(SCRATCH_DIR)/mkimg-dry-run.img \
+		$(SCRATCH_DIR)/mkimg-limit.raw $(SCRATCH_DIR)/mkimg-too-large.raw \
+		$(SCRATCH_DIR)/mkimg-invalid.raw \
+		$(SCRATCH_DIR)/mkimg-labeled.inspect $(SCRATCH_DIR)/mkimg-overwrite.err \
+		$(SCRATCH_DIR)/mkimg-raw-label.err $(SCRATCH_DIR)/mkimg-invalid.err \
+		$(SCRATCH_DIR)/mkimg-too-large.err
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw.img 64M >/dev/null
+	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw.img >/dev/null
+	./nextufs mkimg $(SCRATCH_DIR)/mkimg-labeled.img 64M >/dev/null
+	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
+	./nextufs inspect $(SCRATCH_DIR)/mkimg-labeled.img >$(SCRATCH_DIR)/mkimg-labeled.inspect
+	grep -F 'disk label:' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'slice base:            0x28000 (163840)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	grep -F 'superblock base:       0x2a000 (172032)' $(SCRATCH_DIR)/mkimg-labeled.inspect >/dev/null
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw-full.img 65536 63 16 8192 1024 16 10 60 2048 t >/dev/null
+	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-raw-full.img >/dev/null
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw-a.img 64M >/dev/null
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-raw-b.img 64M >/dev/null
+	cmp $(SCRATCH_DIR)/mkimg-raw-a.img $(SCRATCH_DIR)/mkimg-raw-b.img
+	./nextufs mkimg --label repro $(SCRATCH_DIR)/mkimg-labeled-a.img 64M >/dev/null
+	./nextufs mkimg --label repro $(SCRATCH_DIR)/mkimg-labeled-b.img 64M >/dev/null
+	cmp $(SCRATCH_DIR)/mkimg-labeled-a.img $(SCRATCH_DIR)/mkimg-labeled-b.img
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-overwrite.img 64M >/dev/null
+	! ./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-overwrite.img 64M >/dev/null 2>$(SCRATCH_DIR)/mkimg-overwrite.err
+	grep -F 'cannot create' $(SCRATCH_DIR)/mkimg-overwrite.err >/dev/null
+	./nextufs mkimg --force-overwrite --raw $(SCRATCH_DIR)/mkimg-overwrite.img 64M >/dev/null
+	./nextufs mkimg --dry-run $(SCRATCH_DIR)/mkimg-dry-run.img 64M >/dev/null
+	test ! -e $(SCRATCH_DIR)/mkimg-dry-run.img
+	! ./nextufs mkimg --raw --label bad $(SCRATCH_DIR)/mkimg-invalid.raw 64M >/dev/null 2>$(SCRATCH_DIR)/mkimg-raw-label.err
+	grep -F -- '--label is not valid with --raw' $(SCRATCH_DIR)/mkimg-raw-label.err >/dev/null
+	! ./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-invalid.raw 64M 0 16 8192 1024 16 10 60 2048 t >/dev/null 2>$(SCRATCH_DIR)/mkimg-invalid.err
+	grep -F 'preposterous nsect' $(SCRATCH_DIR)/mkimg-invalid.err >/dev/null
+	./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-limit.raw 4194176 >/dev/null
+	$(FSCK_BIN) -n $(SCRATCH_DIR)/mkimg-limit.raw >/dev/null
+	! ./nextufs mkimg --raw $(SCRATCH_DIR)/mkimg-too-large.raw 4194177 >/dev/null 2>$(SCRATCH_DIR)/mkimg-too-large.err
+	grep -F 'compatibility limit' $(SCRATCH_DIR)/mkimg-too-large.err >/dev/null
+	./nextufs inspect --json $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
+
+test-resize: all
+	./nextufs resize --help >/dev/null
+	./nextufs resize grow --help >/dev/null
 
 test-write: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-write-test.raw
