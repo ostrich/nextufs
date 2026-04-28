@@ -5,7 +5,8 @@ library, FUSE frontend, and offline mutation utilities.
 
 ## Programs
 
-- `nextufs inspect`: inspect a filesystem source and resolve paths
+- `nextufs info`: show source and filesystem information
+- `nextufs browse`: browse paths inside a filesystem
 - `nextufs mount`: mount a source through FUSE
 - `nextufs mkimg`: create raw or labeled UFS images
 - `nextufs resize`: grow supported images offline
@@ -29,11 +30,17 @@ make -f Makefile.linux
 
 ## Examples
 
-Inspect a source:
+Show image and filesystem information:
 
 ```sh
-./nextufs inspect /path/to/source
-./nextufs inspect /path/to/source /etc/passwd
+./nextufs info /path/to/source
+```
+
+Browse filesystem contents:
+
+```sh
+./nextufs browse /path/to/source
+./nextufs browse /path/to/source /etc/passwd
 ```
 
 Mount a source read-only:

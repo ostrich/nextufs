@@ -8,7 +8,8 @@ int nextufs_fsck_main(int argc, char **argv);
 int nextufs_mount_main(int argc, char **argv);
 int nextufs_mkfile_main(int argc, char **argv);
 int nextufs_mkimg_main(int argc, char **argv);
-int nextufs_inspect_main(int argc, char **argv);
+int nextufs_browse_main(int argc, char **argv);
+int nextufs_info_main(int argc, char **argv);
 int nextufs_resize_main(int argc, char **argv);
 
 static void
@@ -21,8 +22,9 @@ usage(FILE *out)
 	fprintf(out, "  --json         request JSON output from supported commands\n");
 	fprintf(out, "\n");
 	fprintf(out, "Commands:\n");
+	fprintf(out, "  browse   browse paths inside a filesystem\n");
 	fprintf(out, "  fsck     check and repair filesystems\n");
-	fprintf(out, "  inspect  inspect a source image or path inside it\n");
+	fprintf(out, "  info     show source and filesystem information\n");
 	fprintf(out, "  mount    mount a source image with FUSE\n");
 	fprintf(out, "  mkfile   apply offline file/directory mutations\n");
 	fprintf(out, "  mkimg    create raw or labeled UFS images\n");
@@ -43,15 +45,31 @@ is_help_arg(const char *arg)
 	return strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0;
 }
 
+static int
+is_command_name(const char *cmd)
+{
+	return strcmp(cmd, "browse") == 0 ||
+	    strcmp(cmd, "fsck") == 0 ||
+	    strcmp(cmd, "info") == 0 ||
+	    strcmp(cmd, "mount") == 0 ||
+	    strcmp(cmd, "mkfile") == 0 ||
+	    strcmp(cmd, "mkimg") == 0 ||
+	    strcmp(cmd, "resize") == 0;
+}
+
 static void
 command_usage(FILE *out, const char *cmd)
 {
+	if (strcmp(cmd, "browse") == 0) {
+		fprintf(out, "usage: nextufs browse <source> [path]\n");
+		return;
+	}
 	if (strcmp(cmd, "fsck") == 0) {
 		fprintf(out, "usage: nextufs fsck [-n|-y] <source> [...]\n");
 		return;
 	}
-	if (strcmp(cmd, "inspect") == 0) {
-		fprintf(out, "usage: nextufs inspect [--json] <source> [path]\n");
+	if (strcmp(cmd, "info") == 0) {
+		fprintf(out, "usage: nextufs info [--json] <source>\n");
 		return;
 	}
 	if (strcmp(cmd, "mount") == 0) {
@@ -86,15 +104,22 @@ dispatch_command(int argc, char **argv)
 	const char *cmd = argv[0];
 
 	if (argc >= 2 && is_help_arg(argv[1])) {
+		if (!is_command_name(cmd)) {
+			fprintf(stderr, "nextufs: unknown command '%s'\n", cmd);
+			usage(stderr);
+			return 2;
+		}
 		command_usage(stdout, cmd);
 		return 0;
 	}
+	if (strcmp(cmd, "browse") == 0)
+		return nextufs_browse_main(argc, argv);
 	if (strcmp(cmd, "mount") == 0)
 		return nextufs_mount_main(argc, argv);
 	if (strcmp(cmd, "fsck") == 0)
 		return nextufs_fsck_main(argc, argv);
-	if (strcmp(cmd, "inspect") == 0)
-		return nextufs_inspect_main(argc, argv);
+	if (strcmp(cmd, "info") == 0)
+		return nextufs_info_main(argc, argv);
 	if (strcmp(cmd, "mkfile") == 0)
 		return nextufs_mkfile_main(argc, argv);
 	if (strcmp(cmd, "mkimg") == 0)
@@ -113,8 +138,8 @@ dispatch_command_with_json(int argc, char **argv)
 	int i;
 	int rc;
 
-	if (strcmp(argv[0], "inspect") != 0) {
-		fprintf(stderr, "nextufs: --json is only supported by inspect\n");
+	if (strcmp(argv[0], "info") != 0) {
+		fprintf(stderr, "nextufs: --json is only supported by info\n");
 		return 2;
 	}
 	json_argv = calloc((size_t)argc + 2U, sizeof(*json_argv));
