@@ -872,15 +872,29 @@ nextufs_inode_readlink(const struct nextufs_image *img,
 }
 
 int
+nextufs_image_open_source(struct nextufs_image *img, const char *path,
+    enum nextufs_source_access access)
+{
+	switch (access) {
+	case NEXTUFS_SOURCE_READ_ONLY:
+		return nextufs_open_with_mode(img, path, 0);
+	case NEXTUFS_SOURCE_READ_WRITE:
+		return nextufs_open_with_mode(img, path, 1);
+	default:
+		return -EINVAL;
+	}
+}
+
+int
 nextufs_image_open(struct nextufs_image *img, const char *path)
 {
-	return nextufs_open_with_mode(img, path, 0);
+	return nextufs_image_open_source(img, path, NEXTUFS_SOURCE_READ_ONLY);
 }
 
 int
 nextufs_image_open_rw(struct nextufs_image *img, const char *path)
 {
-	return nextufs_open_with_mode(img, path, 1);
+	return nextufs_image_open_source(img, path, NEXTUFS_SOURCE_READ_WRITE);
 }
 
 static int
@@ -1008,7 +1022,8 @@ nextufs_source_extract_slice(const char *source_path, int out_fd)
 	size_t chunk_size;
 	int rc;
 
-	rc = nextufs_image_open(&img, source_path);
+	rc = nextufs_image_open_source(&img, source_path,
+	    NEXTUFS_SOURCE_READ_ONLY);
 	if (rc < 0)
 		return rc;
 	chunk_size = 1024U * 1024U;

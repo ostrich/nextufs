@@ -107,6 +107,16 @@ struct nextufs_node {
 	struct nextufs_inode inode;
 };
 
+enum nextufs_source_access {
+	NEXTUFS_SOURCE_READ_ONLY = 0,
+	NEXTUFS_SOURCE_READ_WRITE = 1,
+};
+
+enum nextufs_target_access {
+	NEXTUFS_TARGET_CREATE_NEW = 0,
+	NEXTUFS_TARGET_OVERWRITE = 1,
+};
+
 struct nextufs_probe_info {
 	off_t image_size;
 	off_t slice_base;
@@ -138,9 +148,15 @@ struct nextufs_write_ctx {
 	size_t group_count;
 };
 
+int nextufs_image_open_source(struct nextufs_image *img, const char *path,
+	enum nextufs_source_access access);
 int nextufs_image_open(struct nextufs_image *img, const char *path);
 int nextufs_image_open_rw(struct nextufs_image *img, const char *path);
 void nextufs_image_close(struct nextufs_image *img);
+int nextufs_target_open(const char *path, enum nextufs_target_access access,
+	mode_t mode, int *fd_out);
+int nextufs_target_create_sized(const char *path,
+	enum nextufs_target_access access, mode_t mode, uint64_t bytes);
 int nextufs_image_pread(const struct nextufs_image *img, void *buf, size_t size,
 	off_t offset);
 int nextufs_image_pwrite(const struct nextufs_image *img, const void *buf,

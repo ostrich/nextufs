@@ -1,11 +1,11 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "format.h"
+#include "nextufs.h"
 #include "nextufs_label.h"
 #include "nextufs_size.h"
 
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <libgen.h>
 #include <limits.h>
@@ -13,8 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #define UFS_SECTOR_SIZE 1024U
 
@@ -130,23 +128,16 @@ parse_args(int argc, char **argv, struct options *opts)
 static int
 create_output(const struct options *opts)
 {
-	int flags = O_RDWR | O_CREAT;
-	int fd;
+	int rc;
 
-	flags |= opts->force_overwrite ? O_TRUNC : O_EXCL;
-	fd = open(opts->target, flags, 0666);
-	if (fd < 0) {
+	rc = nextufs_target_create_sized(opts->target,
+	    opts->force_overwrite ? NEXTUFS_TARGET_OVERWRITE :
+	    NEXTUFS_TARGET_CREATE_NEW, 0666, opts->bytes);
+	if (rc < 0) {
 		fprintf(stderr, "nextufs.mkimg: cannot create %s: %s\n",
-		    opts->target, strerror(errno));
+		    opts->target, strerror(-rc));
 		return -1;
 	}
-	if (ftruncate(fd, (off_t)opts->bytes) < 0) {
-		fprintf(stderr, "nextufs.mkimg: cannot size %s: %s\n",
-		    opts->target, strerror(errno));
-		close(fd);
-		return -1;
-	}
-	close(fd);
 	return 0;
 }
 
