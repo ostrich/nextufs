@@ -654,7 +654,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 	char fuse_path[NEXTUFS_STRESS_MAX_PATH];
 	char scratch_path[NEXTUFS_STRESS_MAX_PATH];
 	char template[NEXTUFS_STRESS_MAX_PATH];
-	char *argv[8];
+	char *argv[9];
 	unsigned tries;
 
 	if (snprintf(fuse_path, sizeof(fuse_path), "%s/nextufs",
@@ -678,14 +678,15 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 		return -errno;
 	if (ctx->fuse_pid == 0) {
 		argv[0] = fuse_path;
-		argv[1] = (char *)ctx->image_path;
-		argv[2] = ctx->mountpoint;
-		argv[3] = "-f";
-		argv[4] = "-s";
-		argv[5] = "-o";
-		argv[6] = ctx->write_ctx.policy == NEXTUFS_WRITE_SU ?
+		argv[1] = "mount";
+		argv[2] = (char *)ctx->image_path;
+		argv[3] = ctx->mountpoint;
+		argv[4] = "-f";
+		argv[5] = "-s";
+		argv[6] = "-o";
+		argv[7] = ctx->write_ctx.policy == NEXTUFS_WRITE_SU ?
 		    "rw,mode=su" : "rw,mode=user";
-		argv[7] = NULL;
+		argv[8] = NULL;
 		execv(argv[0], argv);
 		_exit(127);
 	}

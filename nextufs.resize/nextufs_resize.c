@@ -1055,6 +1055,12 @@ nextufs_resize_main(int argc, char **argv)
 		int force = 0;
 		int argi = 2;
 
+		if (argc == 3 &&
+		    (strcmp(argv[argi], "-h") == 0 ||
+		    strcmp(argv[argi], "--help") == 0)) {
+			usage(stdout, argv[0]);
+			return 0;
+		}
 		if (argc > argi && strcmp(argv[argi], "--force-size") == 0) {
 			force = 1;
 			argi++;
