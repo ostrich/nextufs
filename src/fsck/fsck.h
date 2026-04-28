@@ -135,6 +135,8 @@ struct fsck_ctx {
 	char	ctx_source_path[PATH_MAX];
 	char	ctx_source_is_temp;
 	char	ctx_source_force_readonly;
+	char	ctx_setup_devstr[MAXPATHLEN];
+	char	ctx_rawname[MAXPATHLEN];
 #ifdef NeXT_MOD
 	char	ctx_Pflag;
 #endif
@@ -215,6 +217,8 @@ void fsck_abort(int status);
 #define	source_path	(fsck_ctx_current()->ctx_source_path)
 #define	source_is_temp	(fsck_ctx_current()->ctx_source_is_temp)
 #define	source_force_readonly (fsck_ctx_current()->ctx_source_force_readonly)
+#define	setup_devstr	(fsck_ctx_current()->ctx_setup_devstr)
+#define	rawnamebuf	(fsck_ctx_current()->ctx_rawname)
 #ifdef NeXT_MOD
 #define	Pflag		(fsck_ctx_current()->ctx_Pflag)
 #endif
@@ -287,8 +291,8 @@ void	pass3(void);
 void	pass4(void);
 void	pass5(void);
 int	checkfilesys(char *filesys, const struct fsck_runtime_options *opts);
-char	*blockcheck(char *name);
-char	*rawname(char *cp);
+char	*blockcheck(char *name, char *buf, size_t bufsize);
+char	*rawname(char *cp, char *buf, size_t bufsize);
 char	*unrawname(char *cp);
 DINODE	*ginode(ino_t inumber);
 int	ckinode(DINODE *dp, struct inodesc *idesc);

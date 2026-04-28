@@ -25,7 +25,7 @@ setup(char *dev)
 	int i, j;
 	long size;
 	BUFAREA asblk;
-	static char devstr[MAXPATHLEN];
+	char *devstr = setup_devstr;
 #	define altsblock asblk.b_unp->b_fs
 	strcpy(devstr, dev);
 restat:
@@ -112,7 +112,8 @@ restat:
 				strcpy(devstr, mnt->mnt_fsname);
 				if (rawflg) {
 					raw =
-					    rawname(unrawname(mnt->mnt_fsname));
+					    rawname(unrawname(mnt->mnt_fsname),
+						rawnamebuf, MAXPATHLEN);
 					strcpy(devstr, raw);
 				}
 				goto restat;

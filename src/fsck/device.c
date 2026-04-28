@@ -163,7 +163,7 @@ mounted(char *name)
 	struct mntent *mnt;
 	FILE *mnttab;
 	char *blkname;
-	static char buf[MAXPATHLEN];
+	char buf[MAXPATHLEN];
 
 	(void) strcpy(buf, name);
 	blkname = unrawname(buf);

@@ -186,12 +186,13 @@ checkfilesys(char *filesys, const struct fsck_runtime_options *opts)
 }
 
 char *
-blockcheck(char *name)
+blockcheck(char *name, char *nametmp, size_t nametmp_size)
 {
 	struct stat statb;
 	int looped = 0;
-	static char nametmp[MAXPATHLEN];
+	char *raw;
 
+	(void)nametmp_size;
 	strcpy(nametmp, name);
 	if (stat(nametmp, &statb) < 0) {
 		printf("Can't stat %s\n", nametmp);
@@ -203,7 +204,9 @@ retry:
 		return (nametmp);
 
 	case S_IFBLK:
-		strcpy(nametmp, rawname(name));
+		raw = rawname(name, nametmp, nametmp_size);
+		if (raw == NULL)
+			break;
 		if (looped++ == 0 && stat(nametmp, &statb) >= 0)
 			goto retry;
 		break;
@@ -234,11 +237,11 @@ unrawname(char *cp)
 }
 
 char *
-rawname(char *cp)
+rawname(char *cp, char *rawbuf, size_t rawbuf_size)
 {
-	static char rawbuf[MAXPATHLEN];
 	char *dp = rindex(cp, '/');
 
+	(void)rawbuf_size;
 	if (dp == 0)
 		return (0);
 	*dp = 0;

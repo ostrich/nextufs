@@ -76,7 +76,10 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 			mnt = mntdup(mnt);
 			if (opts.opt_preen == 0 ||
 			    (passno == 1 && mnt->mnt_passno == passno)) {
-				name = blockcheck(mnt->mnt_fsname);
+				char blockcheck_name[MAXPATHLEN];
+
+				name = blockcheck(mnt->mnt_fsname,
+				    blockcheck_name, sizeof(blockcheck_name));
 				if (name != NULL)
 					process_exitstat |= checkfilesys(name, &opts);
 				else if (opts.opt_preen)
@@ -90,8 +93,12 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 					exit(8);
 				}
 				if (pid == 0) {
+					char blockcheck_name[MAXPATHLEN];
+
 					(void)signal(SIGQUIT, voidquit);
-					name = blockcheck(mnt->mnt_fsname);
+					name = blockcheck(mnt->mnt_fsname,
+					    blockcheck_name,
+					    sizeof(blockcheck_name));
 					if (name == NULL)
 						exit(8);
 					process_exitstat |= checkfilesys(name,
