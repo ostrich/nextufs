@@ -143,6 +143,10 @@ grep -F 'use --force-size to override' "$limit_err" >/dev/null
 "$NEXTUFS" mkimg --dry-run --force-size --raw "$WORK/too-large.img" 4194177 >"$WORK/force-size.out"
 test ! -e "$WORK/too-large.img"
 
+"$NEXTUFS" mkimg --dry-run "$WORK/bare-labeled.img" 65536 >"$WORK/bare-labeled.out"
+grep -F 'image size: 67108864 bytes (65536 1K sectors)' "$WORK/bare-labeled.out" >/dev/null
+test ! -e "$WORK/bare-labeled.img"
+
 "$NEXTUFS" mkimg --force-overwrite --raw "$raw" 64M >"$WORK/overwrite-ok.out"
 "$NEXTUFS" fsck -n "$raw" >/dev/null
 

@@ -100,8 +100,7 @@ parse_args(int argc, char **argv, struct options *opts)
 			opts->target = argv[i];
 		} else if (opts->bytes == 0) {
 			if (nextufs_parse_size_bytes(argv[i],
-			    opts->raw ? NEXTUFS_BARE_SIZE_1K_SECTORS :
-			    NEXTUFS_BARE_SIZE_BYTES, &opts->bytes) < 0)
+			    NEXTUFS_BARE_SIZE_1K_SECTORS, &opts->bytes) < 0)
 				return -1;
 		} else if (opts->raw) {
 			opts->extra_argv = &argv[i];

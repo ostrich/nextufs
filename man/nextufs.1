@@ -182,13 +182,8 @@ Existing targets are not overwritten unless
 .Fl -force-overwrite
 is supplied.
 .Pp
-Bare numeric sizes are interpreted differently by mode:
-.Bl -bullet
-.It
-For labeled images, a bare number is bytes.
-.It
-For raw images, a bare number is 1 KiB sectors.
-.El
+Bare numeric sizes are interpreted as 1 KiB sectors in both labeled and raw
+modes.
 .Pp
 Sizes may also use
 .Cm K ,
@@ -393,13 +388,10 @@ and
 .Cm G
 mean KiB, MiB, and GiB byte quantities.
 .Pp
-The meaning of a bare number is command-specific:
+Bare numbers are command-specific:
 .Bl -bullet
 .It
 .Cm mkimg
-labeled mode: bytes.
-.It
-.Cm mkimg --raw :
 1 KiB sectors.
 .It
 .Cm resize grow :

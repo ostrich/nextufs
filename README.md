@@ -111,6 +111,10 @@ Create a raw UFS filesystem image:
 nextufs mkimg --raw /tmp/nextufs.raw 256M
 ```
 
+For `mkimg`, bare numeric sizes are interpreted as 1 KiB sectors in both
+labeled and raw modes. Suffixes such as `K`, `M`, and `G` specify byte-based
+KiB, MiB, and GiB quantities.
+
 Refuse-to-overwrite is the default. Use `--force-overwrite` only when replacing
 an existing target is intentional:
 
