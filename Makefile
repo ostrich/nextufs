@@ -75,7 +75,7 @@ src/commands/info.o: src/commands/info.c
 src/commands/browse.o: src/commands/browse.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-src/commands/fsck.o: src/commands/fsck.c
+src/commands/fsck.o: src/commands/fsck.c src/commands/commands.h include/nextufs_fsck.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 src/commands/mkfile_cli.o: src/commands/mkfile.c
@@ -97,7 +97,7 @@ mkimg_format_fsinit.o: src/mkimg_format/format_fsinit.c
 mkimg_format_io.o: src/mkimg_format/format_io.c
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-fsck_%.o: src/fsck/%.c
+fsck_%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs.h include/nextufs_fsck.h
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
 
 test: test-nextufs test-fsck
