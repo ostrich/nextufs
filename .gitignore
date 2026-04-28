@@ -2,28 +2,24 @@
 *.o
 *.a
 
-/nextufs/nextufs_probe
-/nextufs/nextufs
-/nextufs/nextufs_test
-/nextufs/nextufs_mkfile
-/nextufs/nextufs_stress
+/nextufs
+/nextufs_test
+/nextufs_stress
 /fsck.legacy
-/nextufs.fsck/nextufs.fsck
+/nextufs/
+/nextufs.fsck/
 
-/nextufs.fsck/.build-next/
-/nextufs.fsck/tests/cache/
-/nextufs.fsck/tests/work/
-/nextufs.fsck/tests/tools/corrupt_raw_case
+/tests/fsck/cache/
+/tests/fsck/work/
+/tests/fsck/tools/corrupt_raw_case
 
-/nextufs/openstep42-base.raw
-/nextufs/openstep42-base.vdi
 /CONTINUATION.md
 /CONSOLIDATION_PLAN.md
 /NOTES.md
 /TODO.md
 /PLAN.md
 /TRACKING.md
-/nextufs.fsck/tests/MATRIX.md
+/tests/fsck/MATRIX.md
 /third_party/
 
 /defrag.nextufs/

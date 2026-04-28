@@ -1,4 +1,4 @@
-/* Shared declarations for nextufs.fsck. */
+/* Shared declarations for the fsck implementation. */
 
 #include <signal.h>
 #include <stddef.h>
@@ -11,7 +11,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/param.h>
-#include "../nextufs/nextufs.h"
+#include "nextufs.h"
 
 #define	MAXDUP		10
 #define	MAXBAD		10

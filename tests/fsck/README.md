@@ -1,6 +1,6 @@
 # Repair Lab
 
-This directory contains the repair-development lab for `nextufs.fsck`.
+This directory contains the repair-development lab for `nextufs fsck`.
 
 Goals:
 - keep corruption fixtures pristine
@@ -95,14 +95,14 @@ Current corruption cases:
 Typical workflow:
 
 ```sh
-make -C nextufs.fsck -f Makefile.linux repair-lab
-make -C nextufs.fsck -f Makefile.linux repair-smoke
-make -C nextufs.fsck -f Makefile.linux repair-repair-all
-nextufs.fsck/tests/scripts/run_case.sh shipped -n bad-block-count
-FSCK_REFERENCE_BIN=/path/to/nextufs.fsck \
-  nextufs.fsck/tests/scripts/compare_case.sh -n bad-block-count
-FSCK_REFERENCE_BIN=/path/to/nextufs.fsck \
-  nextufs.fsck/tests/scripts/compare_all_cases.sh -n
+make repair-lab
+make repair-smoke
+make repair-repair-all
+tests/fsck/scripts/run_case.sh shipped -n bad-block-count
+FSCK_REFERENCE_BIN=/path/to/reference-fsck \
+  tests/fsck/scripts/compare_case.sh -n bad-block-count
+FSCK_REFERENCE_BIN=/path/to/reference-fsck \
+  tests/fsck/scripts/compare_all_cases.sh -n
 ```
 
 The scripts always:
@@ -117,10 +117,10 @@ Current limitations:
 - the `lostfound-*` fixtures are not yet clean single-purpose cases
   - they still trigger enough surrounding fallout that they do not yet isolate
     the exact `lost+found` create/reallocate repair paths cleanly
-- another `nextufs.fsck` binary can be used as a detection comparison target
+- another fsck binary can be used as a detection comparison target
   for the cached swapped-image corpus under `-n`
   - set `FSCK_REFERENCE_BIN` when running the comparison scripts
-- `nextufs.fsck` now supports swapped-image writeback and can be used for
+- `nextufs fsck` supports swapped-image writeback and can be used for
   real repair runs on the cached corpus
   - representative `-y` cases repair successfully
   - `repair-repair-all` runs the full corpus as `-y` followed by `-n` on the

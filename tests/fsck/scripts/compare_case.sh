@@ -10,7 +10,7 @@ MODE="$1"
 CASE_NAME="$2"
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/nextufs.fsck/tests"
+TEST_ROOT="$ROOT/tests/fsck"
 TMP_DIR="$TEST_ROOT/work/compare"
 REFERENCE_BIN="${FSCK_REFERENCE_BIN:-}"
 

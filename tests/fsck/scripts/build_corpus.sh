@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/nextufs.fsck/tests"
+TEST_ROOT="$ROOT/tests/fsck"
 CACHE_DIR="$TEST_ROOT/cache"
 CORRUPT_DIR="$CACHE_DIR/corrupt"
 SEED="$("$TEST_ROOT/scripts/build_seed.sh")"
-TOOL="$ROOT/nextufs.fsck/tests/tools/corrupt_raw_case"
+TOOL="$TEST_ROOT/tools/corrupt_raw_case"
 CASES=(
   bad-block-count
   bad-dot-inode
@@ -45,8 +45,7 @@ mkdir -p "$CORRUPT_DIR"
 
 (
   cd "$ROOT"
-  make -C nextufs -f Makefile.linux libnextufs.a >/dev/null
-  make -C nextufs.fsck -f Makefile.linux repair-tools >/dev/null
+  make repair-tools >/dev/null
 )
 
 for case_name in "${CASES[@]}"; do

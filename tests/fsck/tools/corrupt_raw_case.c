@@ -9,12 +9,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../../../nextufs/nextufs.h"
+#include "nextufs.h"
 #ifndef MAXFRAG
 #define MAXFRAG 8
 #endif
-#include "../../../nextufs.fsck/include/ufs/fs.h"
-#include "../../../nextufs.fsck/include/ufs/fsdir.h"
+#include "ufs/fs.h"
+#include "ufs/fsdir.h"
 
 #define UFS_DINODE_MODE_OFF 0
 #define UFS_DINODE_SIZE_HI_OFF 8

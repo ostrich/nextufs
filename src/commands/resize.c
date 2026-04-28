@@ -751,7 +751,7 @@ patch_and_write_superblocks(struct nextufs_image *img, const uint8_t *old_sb,
 }
 
 static int
-cmd_grow(const char *path, const char *sectors_arg, int force)
+resize_grow(const char *path, const char *sectors_arg, int force)
 {
 	struct image_open_result opened;
 	struct nextufs_image *img;
@@ -871,7 +871,7 @@ cmd_grow(const char *path, const char *sectors_arg, int force)
 			printf("nextufs resize: evacuated %u data runs; restarting grow\n",
 			    moves);
 			nextufs_image_close(img);
-			return cmd_grow(path, sectors_arg, force);
+			return resize_grow(path, sectors_arg, force);
 		}
 		printf("nextufs resize: summary extension range is clear\n");
 	}
@@ -1069,7 +1069,7 @@ nextufs_resize_main(int argc, char **argv)
 			usage(stderr, argv[0]);
 			return 2;
 		}
-		return cmd_grow(argv[argi], argv[argi + 1], force);
+		return resize_grow(argv[argi], argv[argi + 1], force);
 	}
 	usage(stderr, argv[0]);
 	return 2;

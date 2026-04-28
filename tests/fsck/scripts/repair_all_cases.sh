@@ -2,20 +2,20 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/nextufs.fsck/tests"
+TEST_ROOT="$ROOT/tests/fsck"
 CASES_DIR="$TEST_ROOT/cases"
 CORRUPT_DIR="$TEST_ROOT/cache/corrupt"
 WORK_DIR="$TEST_ROOT/work/repair-all"
-BIN="$ROOT/nextufs.fsck/nextufs.fsck"
+BIN="$ROOT/nextufs"
 
-"$ROOT/nextufs.fsck/tests/scripts/build_corpus.sh" >/dev/null
+"$TEST_ROOT/scripts/build_corpus.sh" >/dev/null
 mkdir -p "$WORK_DIR"
 
 check_clean() {
   local image="$1"
   local out
 
-  out="$("$BIN" -n "$image" 2>&1 || true)"
+  out="$("$BIN" fsck -n "$image" 2>&1 || true)"
   case "$out" in
     *"DIRECTORY CORRUPTED"*|*"MISSING "*|*"UNREF "*|*"DUP/BAD"*|\
     *"UNALLOCATED"*|*"I OUT OF RANGE"*|*"EXTRA "*|\
@@ -40,7 +40,7 @@ for case_file in "$CASES_DIR"/*.txt; do
   work="$WORK_DIR/$case_name.raw"
 
   cp "$fixture" "$work"
-  "$BIN" -y "$work" >/dev/null 2>&1 || true
+  "$BIN" fsck -y "$work" >/dev/null 2>&1 || true
   if check_clean "$work"; then
     printf 'OK   %s\n' "$case_name"
   else

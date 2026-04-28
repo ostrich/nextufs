@@ -11,7 +11,7 @@ MODE="$2"
 CASE_NAME="$3"
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-TEST_ROOT="$ROOT/nextufs.fsck/tests"
+TEST_ROOT="$ROOT/tests/fsck"
 CACHE_DIR="$TEST_ROOT/cache"
 WORK_DIR="$TEST_ROOT/work"
 EXPECT_DIR="$CACHE_DIR/expected"
@@ -35,7 +35,7 @@ case "$ENGINE" in
     fi
     ;;
   shipped)
-    BIN="$ROOT/nextufs.fsck/nextufs.fsck"
+    BIN="$ROOT/nextufs"
     ;;
   *)
     echo "unknown engine: $ENGINE" >&2
@@ -43,5 +43,9 @@ case "$ENGINE" in
     ;;
 esac
 
-"$BIN" "$MODE" "$WORK" >"$OUT" 2>&1 || true
+if [[ "$ENGINE" == "shipped" ]]; then
+  "$BIN" fsck "$MODE" "$WORK" >"$OUT" 2>&1 || true
+else
+  "$BIN" "$MODE" "$WORK" >"$OUT" 2>&1 || true
+fi
 cat "$OUT"
