@@ -19,69 +19,35 @@
 int	fsck_return_to_single_user;
 
 int
-nextufs_fsck_run(int argc, char **argv)
+nextufs_fsck_run(const struct nextufs_fsck_request *request)
 {
 	int pid, passno, anygtr, sumstatus;
 	int process_exitstat;
 	char *name;
 	struct fsck_runtime_options opts;
+	int i;
 
 	memset(&opts, 0, sizeof(opts));
+	opts.opt_preen = request->options.opt_preen;
+#if	NeXT
+	opts.opt_Pflag = request->options.opt_force_preen;
+#endif
+	opts.opt_nflag = request->options.opt_no;
+	opts.opt_yflag = request->options.opt_yes;
+	opts.opt_bflag = request->options.opt_alternate_superblock;
+	opts.opt_debug = request->options.opt_debug;
+
 	process_exitstat = 0;
 	fsck_return_to_single_user = 0;
 	sync();
-	while (--argc > 0 && **++argv == '-') {
-		switch (*++*argv) {
-		case 'p':
-			opts.opt_preen++;
-			break;
-#if	NeXT
-		case 'P':
-			opts.opt_Pflag++;
-			opts.opt_preen++;
-			break;
-#endif
-		case 'b':
-			if (argv[0][1] != '\0') {
-				opts.opt_bflag = atoi(argv[0]+1);
-			} else {
-				opts.opt_bflag = atoi(*++argv);
-				argc--;
-			}
-			printf("Alternate super block location: %d\n",
-			    opts.opt_bflag);
-			break;
-
-		case 'd':
-			opts.opt_debug++;
-			break;
-
-		case 'n':	/* default no answer flag */
-		case 'N':
-			opts.opt_nflag++;
-			opts.opt_yflag = 0;
-			break;
-
-		case 'y':	/* default yes answer flag */
-		case 'Y':
-			opts.opt_yflag++;
-			opts.opt_nflag = 0;
-			break;
-
-		default:
-			fprintf(stderr, "%c option?\n", **argv);
-			return 2;
-		}
-	}
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
 		(void)signal(SIGINT, catch);
 	if (opts.opt_preen)
 		(void)signal(SIGQUIT, catchquit);
-	if (argc) {
-		while (argc-- > 0) {
-			process_exitstat |= checkfilesys(*argv, &opts);
-			argv++;
-		}
+	if (request->source_count > 0) {
+		for (i = 0; i < request->source_count; i++)
+			process_exitstat |= checkfilesys(request->sources[i],
+			    &opts);
 		return process_exitstat;
 	}
 	sumstatus = 0;
