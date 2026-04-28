@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+int nextufs_fsck_main(int argc, char **argv);
 int nextufs_mount_main(int argc, char **argv);
 int nextufs_mkfile_main(int argc, char **argv);
 int nextufs_mkimg_main(int argc, char **argv);
@@ -13,6 +14,7 @@ usage(FILE *out)
 {
 	fprintf(out, "usage: nextufs <command> [args...]\n\n");
 	fprintf(out, "Commands:\n");
+	fprintf(out, "  fsck    check and repair filesystems\n");
 	fprintf(out, "  mount   mount a source image with FUSE\n");
 	fprintf(out, "  probe   inspect a source image or path inside it\n");
 	fprintf(out, "  mkfile  apply offline file/directory mutations\n");
@@ -33,6 +35,8 @@ main(int argc, char **argv)
 	}
 	if (strcmp(argv[1], "mount") == 0)
 		return nextufs_mount_main(argc - 1, argv + 1);
+	if (strcmp(argv[1], "fsck") == 0)
+		return nextufs_fsck_main(argc - 1, argv + 1);
 	if (strcmp(argv[1], "probe") == 0)
 		return nextufs_probe_main(argc - 1, argv + 1);
 	if (strcmp(argv[1], "mkfile") == 0)

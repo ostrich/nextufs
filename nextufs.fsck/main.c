@@ -18,10 +18,14 @@
 int	returntosingle;
 
 int
-main(int argc, char *argv[])
+nextufs_fsck_main(int argc, char *argv[])
 {
 	int pid, passno, anygtr, sumstatus;
 	char *name;
+
+	memset(&fsck_runtime_opts, 0, sizeof(fsck_runtime_opts));
+	fsck_process_exitstat = 0;
+	returntosingle = 0;
 	sync();
 	while (--argc > 0 && **++argv == '-') {
 		switch (*++*argv) {
@@ -74,7 +78,7 @@ main(int argc, char *argv[])
 			checkfilesys(*argv);
 			argv++;
 		}
-		exit(fsck_process_exitstat);
+		return fsck_process_exitstat;
 	}
 	sumstatus = 0;
 	passno = 1;
@@ -135,8 +139,16 @@ main(int argc, char *argv[])
 		passno++;
 	} while (anygtr);
 	if (sumstatus)
-		exit(8);
+		return 8;
 	if (returntosingle)
-		exit(2);
-	exit(fsck_process_exitstat);
+		return 2;
+	return fsck_process_exitstat;
 }
+
+#ifndef NEXTUFS_NO_STANDALONE
+int
+main(int argc, char *argv[])
+{
+	return nextufs_fsck_main(argc, argv);
+}
+#endif
