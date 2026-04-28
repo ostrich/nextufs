@@ -11,7 +11,7 @@ nextufs_report_size_line(FILE *out, const char *label, uint64_t bytes)
 }
 
 static void
-report_superblock_text(FILE *out, const struct nextufs_inspect_info *info)
+report_superblock_text(FILE *out, const struct nextufs_info *info)
 {
 	const struct nextufs_superblock *sb = &info->sb;
 
@@ -45,12 +45,12 @@ report_superblock_text(FILE *out, const struct nextufs_inspect_info *info)
 }
 
 void
-nextufs_report_inspect_text(FILE *out, const char *source,
-    const struct nextufs_inspect_info *info)
+nextufs_report_info_text(FILE *out, const char *source,
+    const struct nextufs_info *info)
 {
 	fprintf(out, "source: %s\n", source);
 	fprintf(out, "source kind:                   %s\n",
-	    nextufs_inspect_source_kind(info));
+	    nextufs_info_source_kind(info));
 	nextufs_report_size_line(out, "backing file size:",
 	    info->backing_bytes);
 	if (info->used_disk_label) {
@@ -125,15 +125,15 @@ json_string(FILE *out, const char *s)
 }
 
 void
-nextufs_report_inspect_json(FILE *out, const char *source,
-    const struct nextufs_inspect_info *info)
+nextufs_report_info_json(FILE *out, const char *source,
+    const struct nextufs_info *info)
 {
 	fprintf(out, "{\n");
 	fprintf(out, "  \"source\": ");
 	json_string(out, source);
 	fprintf(out, ",\n");
 	fprintf(out, "  \"source_kind\": ");
-	json_string(out, nextufs_inspect_source_kind(info));
+	json_string(out, nextufs_info_source_kind(info));
 	fprintf(out, ",\n");
 	fprintf(out, "  \"backing_bytes\": %" PRIu64 ",\n",
 	    info->backing_bytes);

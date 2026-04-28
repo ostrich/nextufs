@@ -1,4 +1,4 @@
-#include "nextufs_inspect.h"
+#include "nextufs_info.h"
 #include "nextufs_size.h"
 
 #include <string.h>
@@ -7,8 +7,8 @@
 #define UFS_SBLOCK_OFFSET 0x2000U
 
 void
-nextufs_inspect_collect(const struct nextufs_image *img, uint64_t backing_bytes,
-    struct nextufs_inspect_info *info)
+nextufs_info_collect(const struct nextufs_image *img, uint64_t backing_bytes,
+    struct nextufs_info *info)
 {
 	memset(info, 0, sizeof(*info));
 	info->backing_bytes = backing_bytes;
@@ -35,7 +35,7 @@ nextufs_inspect_collect(const struct nextufs_image *img, uint64_t backing_bytes,
 }
 
 const char *
-nextufs_inspect_source_kind(const struct nextufs_inspect_info *info)
+nextufs_info_source_kind(const struct nextufs_info *info)
 {
 	if (info->source_is_container)
 		return "container image";

@@ -1,11 +1,11 @@
-#ifndef NEXTUFS_INSPECT_H
-#define NEXTUFS_INSPECT_H
+#ifndef NEXTUFS_INFO_H
+#define NEXTUFS_INFO_H
 
 #include "nextufs.h"
 
 #include <stdint.h>
 
-struct nextufs_inspect_info {
+struct nextufs_info {
 	uint64_t backing_bytes;
 	uint64_t image_bytes;
 	uint64_t slice_base;
@@ -24,8 +24,8 @@ struct nextufs_inspect_info {
 	struct nextufs_superblock sb;
 };
 
-void nextufs_inspect_collect(const struct nextufs_image *img,
-	uint64_t backing_bytes, struct nextufs_inspect_info *info);
-const char *nextufs_inspect_source_kind(const struct nextufs_inspect_info *info);
+void nextufs_info_collect(const struct nextufs_image *img,
+	uint64_t backing_bytes, struct nextufs_info *info);
+const char *nextufs_info_source_kind(const struct nextufs_info *info);
 
 #endif

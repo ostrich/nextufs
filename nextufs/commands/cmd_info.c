@@ -1,5 +1,5 @@
 #include "nextufs.h"
-#include "nextufs_inspect.h"
+#include "nextufs_info.h"
 #include "nextufs_report.h"
 
 #include <stdio.h>
@@ -9,7 +9,7 @@ int
 nextufs_info_main(int argc, char **argv)
 {
 	struct nextufs_image img;
-	struct nextufs_inspect_info info;
+	struct nextufs_info info;
 	int json = 0;
 	int argi = 1;
 	int rc;
@@ -28,13 +28,13 @@ nextufs_info_main(int argc, char **argv)
 		fprintf(stderr, "failed to open source %s\n", argv[argi]);
 		return 1;
 	}
-	nextufs_inspect_collect(&img, 0, &info);
+	nextufs_info_collect(&img, 0, &info);
 	if (json) {
-		nextufs_report_inspect_json(stdout, argv[argi], &info);
+		nextufs_report_info_json(stdout, argv[argi], &info);
 		nextufs_image_close(&img);
 		return 0;
 	}
-	nextufs_report_inspect_text(stdout, argv[argi], &info);
+	nextufs_report_info_text(stdout, argv[argi], &info);
 	nextufs_image_close(&img);
 	return 0;
 }
