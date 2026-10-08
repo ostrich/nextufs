@@ -45,6 +45,8 @@ struct nextufs_dirent_view {
 	const char *name;
 };
 
+int nextufs__qcow2_open(struct nextufs_image *img, const char *path, int writable);
+
 struct nextufs_image_backend_ops {
 	int (*read)(void *ctx, void *buf, size_t size, off_t offset);
 	int (*write)(void *ctx, const void *buf, size_t size, off_t offset);

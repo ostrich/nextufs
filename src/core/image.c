@@ -595,6 +595,13 @@ nextufs_init_backend(struct nextufs_image *img, const char *path, int writable,
 		close(fd);
 		return -EIO;
 	}
+	if (nextufs__read_be32(hdr) == 0x514649fbU) {
+		close(fd);
+		rc = nextufs__qcow2_open(img, path, writable);
+		if (rc == 0 && source_size_out)
+			*source_size_out = st.st_size;
+		return rc;
+	}
 	if (sizeof(hdr) >= VDI_UUID_PARENT_OFF + 16 &&
 	    read_le32(hdr + VDI_SIG_OFF) == VDI_SIGNATURE) {
 		struct nextufs_vdi_backend *vdi;
@@ -665,6 +672,7 @@ nextufs_init_backend(struct nextufs_image *img, const char *path, int writable,
 		img->backend_ctx = vdi;
 		img->writable = writable;
 		img->source_is_container = 1;
+		img->source_format = NEXTUFS_SOURCE_VDI;
 		img->fd = fd;
 		img->image_size = (off_t)vdi->disk_size;
 		if (source_size_out != NULL)
@@ -1012,6 +1020,7 @@ nextufs_image_close(struct nextufs_image *img)
 	img->backend_ctx = NULL;
 	img->writable = 0;
 	img->source_is_container = 0;
+	img->source_format = NEXTUFS_SOURCE_RAW;
 }
 
 int

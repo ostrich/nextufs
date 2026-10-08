@@ -15,6 +15,7 @@ struct nextufs_info {
 	uint64_t trailing_slice_slack;
 	uint64_t csum_capacity_groups;
 	int source_is_container;
+	enum nextufs_source_format source_format;
 	int used_disk_label;
 	uint32_t label_version;
 	uint64_t label_off;
@@ -27,6 +28,7 @@ struct nextufs_info {
 
 void nextufs_info_collect(const struct nextufs_image *img,
 	uint64_t backing_bytes, struct nextufs_info *info);
+const char *nextufs_info_source_format(const struct nextufs_info *info);
 const char *nextufs_info_source_kind(const struct nextufs_info *info);
 
 #endif

@@ -21,6 +21,7 @@ nextufs_image_info_get(const struct nextufs_image *img,
 	info->rootpartition = img->rootpartition;
 	info->used_disk_label = img->used_disk_label;
 	info->source_is_container = img->source_is_container;
+	info->source_format = img->source_format;
 }
 
 int

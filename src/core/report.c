@@ -125,6 +125,7 @@ nextufs_report_info_text(FILE *out, const char *source,
 	report_section(out, "Source");
 	report_string_line(out, "path", source);
 	report_string_line(out, "kind", nextufs_info_source_kind(info));
+	report_string_line(out, "format", nextufs_info_source_format(info));
 	report_size_line(out, "backing file size",
 	    info->backing_bytes);
 	report_size_line(out, "image size", info->image_bytes);
@@ -201,6 +202,10 @@ nextufs_report_info_json(FILE *out, const char *source,
 	fprintf(out, "  \"source_kind\": ");
 	nextufs_report_json_string(out, nextufs_info_source_kind(info),
 	    strlen(nextufs_info_source_kind(info)));
+	fprintf(out, ",\n");
+	fprintf(out, "  \"source_format\": ");
+	nextufs_report_json_string(out, nextufs_info_source_format(info),
+	    strlen(nextufs_info_source_format(info)));
 	fprintf(out, ",\n");
 	fprintf(out, "  \"backing_bytes\": %" PRIu64 ",\n",
 	    info->backing_bytes);

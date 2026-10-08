@@ -17,6 +17,7 @@ nextufs_info_collect(const struct nextufs_image *img, uint64_t backing_bytes,
 	info->slice_bytes = (uint64_t)img->slice_size;
 	info->superblock_base = (uint64_t)img->slice_base + UFS_SBLOCK_OFFSET;
 	info->source_is_container = img->source_is_container;
+	info->source_format = img->source_format;
 	info->used_disk_label = img->used_disk_label;
 	info->label_version = img->label_version;
 	info->label_off = (uint64_t)img->label_off;
@@ -31,8 +32,11 @@ nextufs_info_collect(const struct nextufs_image *img, uint64_t backing_bytes,
 	    info->slice_bytes > info->filesystem_bytes ?
 	    info->slice_bytes - info->filesystem_bytes : 0;
 	info->csum_capacity_groups = img->sb.csum_size / CSUM_SIZE;
-	if (info->backing_bytes == 0)
-		info->backing_bytes = info->image_bytes;
+	if (info->backing_bytes == 0) {
+		struct stat st;
+		info->backing_bytes = fstat(img->fd, &st) == 0 ?
+		    (uint64_t)st.st_size : info->image_bytes;
+	}
 }
 
 const char *
@@ -43,4 +47,14 @@ nextufs_info_source_kind(const struct nextufs_info *info)
 	if (info->used_disk_label)
 		return "labeled disk image";
 	return "raw filesystem image";
+}
+
+const char *
+nextufs_info_source_format(const struct nextufs_info *info)
+{
+	switch (info->source_format) {
+	case NEXTUFS_SOURCE_VDI: return "vdi";
+	case NEXTUFS_SOURCE_QCOW2: return "qcow2";
+	default: return "raw";
+	}
 }

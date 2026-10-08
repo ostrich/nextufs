@@ -37,7 +37,7 @@ FUSE_TEST = sh tests/nextufs/test_offline.sh
 endif
 LIB_SRCS = src/core/image.c src/core/directory.c src/core/path.c src/core/node.c \
 	src/core/layout.c src/core/alloc.c src/core/label.c src/core/size.c \
-	src/core/source.c src/core/info.c src/core/report.c
+	src/core/source.c src/core/info.c src/core/report.c src/core/qcow2.c
 LIB_OBJS = $(LIB_SRCS:%.c=$(OBJ_DIR)/%.o)
 LIB = $(BUILD_DIR)/libnextufs.a
 WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c

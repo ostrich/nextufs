@@ -58,12 +58,19 @@ struct nextufs_superblock {
 	uint32_t fs_magic;
 };
 
+enum nextufs_source_format {
+	NEXTUFS_SOURCE_RAW = 0,
+	NEXTUFS_SOURCE_VDI = 1,
+	NEXTUFS_SOURCE_QCOW2 = 2,
+};
+
 struct nextufs_image {
 	int fd;
 	const void *backend_ops;
 	void *backend_ctx;
 	int writable;
 	int source_is_container;
+	enum nextufs_source_format source_format;
 	off_t image_size;
 	off_t slice_base;
 	off_t slice_size;
@@ -96,6 +103,7 @@ struct nextufs_image_info {
 	char rootpartition;
 	int used_disk_label;
 	int source_is_container;
+	enum nextufs_source_format source_format;
 };
 
 int nextufs_image_open_source(struct nextufs_image *img, const char *path,
