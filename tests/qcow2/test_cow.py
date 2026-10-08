@@ -69,4 +69,29 @@ for allocated in [False, True]:
     assert run(PROBE, 'read', image, 0, 4096) == expected
     assert raw.read_bytes() == b'\x5a' * 8192
     run('qemu-img', 'check', image)
+# Normal preallocated images remain writable and interoperable.
+for mode in ['metadata', 'full']:
+    image = WORK / f'preallocated-{mode}.qcow2'
+    run('qemu-img', 'create', '-f', 'qcow2', '-o', f'cluster_size=4096,preallocation={mode}', image, '8M')
+    run(PROBE, 'write', image, 4091, 8200)
+    assert run(PROBE, 'read', image, 4091, 8200) == bytes((i * 17 + 31) % 251 for i in range(8200))
+    run('qemu-img', 'check', image)
+# Explicit raw formats override magic probing; absent format extensions probe content.
+raw_magic = WORK / 'magic.raw'
+raw_magic.write_bytes(b'QFI\xfb' + b'\0' * (8192 - 4))
+image = WORK / 'explicit-raw.qcow2'
+run('qemu-img', 'create', '-f', 'qcow2', '-F', 'raw', '-b', raw_magic.name, image)
+assert run(PROBE, 'read', image, 0, 8192) == raw_magic.read_bytes()
+image = WORK / 'implicit-format.qcow2'
+run('qemu-img', 'create', '-f', 'qcow2', '-F', 'raw', '-b', raw.name, image)
+b = bytearray(image.read_bytes())
+pos = struct.unpack_from('>I', b, 100)[0]
+while struct.unpack_from('>I', b, pos)[0]:
+    kind, length = struct.unpack_from('>II', b, pos)
+    if kind == 0xe2792aca:
+        struct.pack_into('>I', b, pos, 0x1234abcd)
+        break
+    pos += 8 + ((length + 7) & ~7)
+image.write_bytes(b)
+assert run(PROBE, 'read', image, 0, 8192) == raw.read_bytes()
 print('QCOW2 COW and zero-cluster regressions passed')

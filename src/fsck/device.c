@@ -147,6 +147,7 @@ bwrite(struct filecntl *fcp, char *buf, ufs_daddr_t blk, int size)
 		fcp->mod = 1;
 		return;
 	}
+	exitstat = 8;
 	rwerr("WRITE", blk);
 	pfatal("THE FOLLOWING SECTORS COULD NOT BE WRITTEN:");
 	for (cp = buf, i = 0; i < size; i += DEV_BSIZE, cp += DEV_BSIZE)

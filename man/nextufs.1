@@ -32,7 +32,8 @@ for mount requests.
 .Pp
 .Nm
 understands raw UFS filesystem images, labeled NeXT disk images, standalone
-VirtualBox VDI images, and VirtualBox differencing VDI chains.
+VirtualBox VDI images, VirtualBox differencing VDI chains, and standard
+QCOW2 v2/v3 images with raw/QCOW2 external backing chains.
 For VDI chains, pass the current chain head to
 .Nm .
 Use
@@ -41,6 +42,28 @@ from the
 .Pa tools/
 directory to identify the base, intermediate, and head images in a VM
 directory.
+.Ss QCOW2 sources
+QCOW2 support is native, including in offline builds.
+Pass the current chain head to image commands. Only that head is modified;
+backing files are opened read-only. Relative backing paths resolve from the
+child image's directory. Explicit backing formats are honored; otherwise raw
+or QCOW2 is detected from contents. Chains are limited to 32 files.
+.Pp
+Supported images use standard L2 entries, 16-bit refcounts, and clusters from
+512 bytes through 2 MiB. Sparse, preallocated, and zero clusters are supported.
+Compressed clusters, encryption, internal snapshots, extended L2 entries,
+external data files, lazy refcounts, dirty/corrupt images, and unsupported
+feature flags are rejected before writes. Metadata limits are 32 MiB for L1
+tables, 8 MiB for refcount tables, and 16777216 physical clusters.
+.Pp
+Use images that are not in use by a VM or another writer. Interrupted v3 writes
+leave the container dirty; nextufs does not repair QCOW2 metadata.
+Version 2 has no dirty flag and needs a container check after interrupted writes.
+UFS mutations are not transactional. New allocations append; host free space
+is not reused or compacted. QCOW2 creation and resize are not supported.
+.Pp
+Info output adds source_format (raw, vdi, or qcow2), preserving source_kind,
+and distinguishes physical head file size from virtual disk size.
 .Sh GLOBAL OPTIONS
 .Bl -tag -width Ds
 .It Fl h , Fl -help

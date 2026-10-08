@@ -138,5 +138,9 @@ ckfini(void)
 	}
 	flush(&dfile, &inoblk);
 	flush(&dfile, &cgblk);
+	if (fsck_file_fsync(&dfile) < 0) {
+		fprintf(stderr, "nextufs fsck: failed to sync source\n");
+		exitstat = 8;
+	}
 	fsck_file_close(&dfile);
 }

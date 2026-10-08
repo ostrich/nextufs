@@ -1,4 +1,6 @@
-/* Native standard-L2 QCOW2 backend. Format: QEMU docs/interop/qcow2.txt. */
+/* Native standard-L2 QCOW2 backend.
+ * Format: https://www.qemu.org/docs/master/interop/qcow2.html
+ */
 #include "nextufs_internal.h"
 
 #include <errno.h>
@@ -849,8 +851,10 @@ qcow_sync(void *ctx)
 	if (!q->changed)
 		return 0;
 	rc = flush_refcounts(q);
-	if (rc < 0)
+	if (rc < 0) {
+		q->failed = 1;
 		return rc;
+	}
 	if (q->version == 3) {
 		rc = write_u64(q, 72, 0);
 		if (rc < 0 || (rc = sync_fd(q)) < 0) {

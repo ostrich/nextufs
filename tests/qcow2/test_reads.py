@@ -28,6 +28,7 @@ for compat in ['0.10', '1.1']:
             f'compat={compat},cluster_size={cluster}', raw, image)
         info = json.loads(run(TOOL, 'info', '--json', image))
         assert info['source_format'] == 'qcow2'
+        assert info['source_kind'] == 'container image'
         assert info['image_bytes'] == raw.stat().st_size
         assert info['backing_bytes'] == image.stat().st_size
         assert run(TOOL, 'browse', '--raw', image, '/payload') == payload
@@ -44,4 +45,28 @@ for i in range(3):
         '-b', parents[-1].name if i else raw.name, image)
     parents.append(image)
     assert run(TOOL, 'browse', '--raw', image, '/payload') == payload
+# Runtime commands use no QEMU programs, including writes to a backing chain.
+head = parents[-1]
+run(TOOL, 'info', head, env=dict(os.environ, PATH='/nonexistent'))
+assert run(TOOL, 'browse', '--raw', head, '/payload',
+           env=dict(os.environ, PATH='/nonexistent')) == payload
+run(TOOL, 'mkfile', head, '/native', 'no QEMU runtime', env=dict(os.environ, PATH='/nonexistent'))
+run(TOOL, 'fsck', '-n', head, env=dict(os.environ, PATH='/nonexistent'))
+run('qemu-img', 'check', head)
+before = head.read_bytes()
+result = subprocess.run([TOOL, 'resize', 'grow', str(head), '73728'], capture_output=True)
+assert result.returncode != 0
+assert head.read_bytes() == before
+# Existing VDI detection, size reporting, and writes remain compatible.
+vdi = WORK / 'regression.vdi'
+run('qemu-img', 'convert', '-f', 'raw', '-O', 'vdi', raw, vdi)
+info = json.loads(run(TOOL, 'info', '--json', vdi))
+assert info['source_format'] == 'vdi'
+assert info['source_kind'] == 'container image'
+assert info['backing_bytes'] == vdi.stat().st_size
+assert run(TOOL, 'browse', '--raw', vdi, '/payload') == payload
+run(TOOL, 'mkfile', vdi, '/vdi', 'VDI regression')
+run(TOOL, 'fsck', '-n', vdi)
+run('qemu-img', 'convert', '-f', 'vdi', '-O', 'raw', vdi, WORK / 'vdi-converted.raw')
+assert run(TOOL, 'browse', '--raw', WORK / 'vdi-converted.raw', '/vdi') == b'VDI regression'
 print('QCOW2 read regressions passed')

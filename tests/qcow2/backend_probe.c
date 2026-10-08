@@ -6,58 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
-ssize_t __real_pwrite(int, const void *, size_t, off_t);
-ssize_t __real_pread(int, void *, size_t, off_t);
-int __real_fsync(int);
-int __real_ftruncate(int, off_t);
-
-static int
-fail_call(const char *name, unsigned *calls)
-{
-	const char *value = getenv(name);
-	(*calls)++;
-	if (value && *calls == strtoul(value, NULL, 10)) {
-		errno = EIO;
-		return 1;
-	}
-	return 0;
-}
-
-ssize_t
-__wrap_pwrite(int fd, const void *buf, size_t size, off_t off)
-{
-	static unsigned calls;
-	if (fail_call("QCOW_FAIL_PWRITE", &calls))
-		return -1;
-	return __real_pwrite(fd, buf, size, off);
-}
-
-ssize_t
-__wrap_pread(int fd, void *buf, size_t size, off_t off)
-{
-	static unsigned calls;
-	if (fail_call("QCOW_FAIL_PREAD", &calls))
-		return -1;
-	return __real_pread(fd, buf, size, off);
-}
-
-int
-__wrap_fsync(int fd)
-{
-	static unsigned calls;
-	if (fail_call("QCOW_FAIL_FSYNC", &calls))
-		return -1;
-	return __real_fsync(fd);
-}
-
-int
-__wrap_ftruncate(int fd, off_t length)
-{
-	static unsigned calls;
-	if (fail_call("QCOW_FAIL_FTRUNCATE", &calls))
-		return -1;
-	return __real_ftruncate(fd, length);
-}
+extern int qcow_probe_opened;
 
 int
 main(int argc, char **argv)
@@ -78,6 +27,7 @@ main(int argc, char **argv)
 	rc = nextufs__qcow2_open(&img, argv[2], writing);
 	if (rc < 0)
 		goto out;
+	qcow_probe_opened = 1;
 	if (writing) {
 		for (i = 0; i < bytes; i++)
 			buf[i] = (uint8_t)((i * 17 + 31) % 251);

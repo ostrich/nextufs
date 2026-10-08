@@ -16,6 +16,7 @@ images.
 - Apply offline file and directory mutations for testing or recovery work.
 - Read and write raw images, standalone VirtualBox VDIs, and VDI chains through
   the shared source backend.
+- Read and write standard QCOW2 images and raw/QCOW2 backing chains natively.
 
 ## Supported Sources
 
@@ -24,6 +25,7 @@ images.
 - Standalone VirtualBox VDI images.
 - VirtualBox VDI chains. Point commands at the current chain head, not the
   base image.
+- QCOW2 v2/v3 images and external raw/QCOW2 backing chains.
 
 For VDI chains, use `tools/vdi_chain.py` to identify base, intermediate, and
 head images:
@@ -32,6 +34,47 @@ head images:
 tools/vdi_chain.py scan "/path/to/VirtualBox/VMs/OPENSTEP 4.2"
 tools/vdi_chain.py trace "/path/to/VM/Snapshots/{uuid}.vdi"
 ```
+
+## QCOW2 Sources
+
+Use existing image commands directly on a QCOW2 file or its current chain head:
+
+```sh
+nextufs info --json /path/to/head.qcow2
+nextufs browse --raw /path/to/head.qcow2 /etc/passwd > passwd
+nextufs fsck -n /path/to/head.qcow2
+nextufs mkfile /path/to/head.qcow2 /example "hello"
+```
+
+QCOW2 support is native and works in both FUSE and offline builds. QEMU is needed
+only to run the interoperability tests. Supported images use QCOW2 v2/v3,
+standard L2 tables, 512-byte through 2 MiB clusters, and 16-bit refcounts.
+Sparse, preallocated, zero-cluster, and external backing-chain images are
+supported. Backing files may be raw or QCOW2; relative names resolve from the
+child image's directory. Declared backing formats are honored, and otherwise
+the format is detected from contents. Chain depth is limited to 32 files.
+
+Writes affect only the selected head; parents remain read-only. Use images that
+are not in use by a running VM or another writer. Work on a copy when repairing
+or mutating an image that matters. New allocations append to the container;
+freed host clusters are not reused or compacted.
+
+Compressed clusters, encryption, internal snapshots, extended L2 tables,
+external data files, lazy refcounts, dirty/corrupt images, and unsupported
+feature flags are rejected. QCOW2 metadata repair is outside nextufs: UFS fsck
+repairs the guest filesystem only. Interrupted v3 updates remain marked dirty;
+container recovery requires a QCOW2-aware tool. Version 2 has no dirty flag, so
+check its container after interrupted writes. Mutations are not transactional.
+
+Metadata processing is bounded: L1 tables may occupy at most 32 MiB, refcount
+tables at most 8 MiB, and the physical file may cover at most 16,777,216 clusters.
+Unsupported or inconsistent images fail before mutation. `info` reports
+`source_format` (`raw`, `vdi`, or `qcow2`) separately from `source_kind`, and
+separates the head's physical file size from its virtual disk size.
+
+QCOW2 creation and resize are not supported. Use QEMU to create/convert a
+container; `mkimg` continues to create raw or labeled images, and `resize grow`
+rejects container sources.
 
 ## Build And Install
 
@@ -183,8 +226,14 @@ Useful entry points:
 make test
 make test-nextufs
 make test-fsck
+make test-qcow2
 make repair-repair-all
 ```
+
+`test-qcow2` compares native reads/writes with `qemu-img` and `qemu-io`, checks
+container refcounts, exercises backing chains and failure injection, and runs
+FUSE stress in the default build. It explicitly skips when QEMU test tools are
+unavailable; no QEMU programs are required at runtime.
 
 Additional fsck corpus notes are in [tests/fsck/README.md](tests/fsck/README.md).
 

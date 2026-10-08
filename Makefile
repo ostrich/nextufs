@@ -65,7 +65,7 @@ PUBLIC_HDRS = include/nextufs_image.h include/nextufs_node.h \
 INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
 
 BUILD_TARGETS = all scratch-dir clean install uninstall
-TEST_TARGETS = test test-nextufs test-cli-contract test-browse test-fragments test-fsck-images test-fsck test-mkimg \
+TEST_TARGETS = test test-nextufs test-cli-contract test-browse test-qcow2 test-fragments test-fsck-images test-fsck test-mkimg \
 	test-resize test-write test-write-big test-write-grow test-unlink \
 	test-mkdir test-rewrite test-link-symlink test-rmdir test-meta \
 	test-rename test-truncate test-special test-fuse-write test-permissions \
@@ -133,7 +133,7 @@ $(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-test: test-nextufs repair-smoke
+test: test-nextufs repair-smoke test-qcow2
 
 test-nextufs: all test-mkimg test-resize test-cli-contract test-browse test-fragments test-fsck-images
 	./nextufs --help >/dev/null
@@ -151,6 +151,26 @@ test-nextufs: all test-mkimg test-resize test-cli-contract test-browse test-frag
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	$(FUSE_TEST)
+
+QCOW2_PROBE = $(BUILD_DIR)/qcow2_probe
+QCOW2_FAULT_BIN = $(BUILD_DIR)/nextufs_qcow_fault
+QCOW2_WRAPS = -Wl,--wrap=pwrite,--wrap=pread,--wrap=fsync,--wrap=ftruncate
+
+$(QCOW2_PROBE): tests/qcow2/backend_probe.c tests/qcow2/io_faults.c $(INTERNAL_HDRS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ tests/qcow2/backend_probe.c tests/qcow2/io_faults.c $(LIB) $(QCOW2_WRAPS)
+
+$(QCOW2_FAULT_BIN): tests/qcow2/io_faults.c $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
+	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ tests/qcow2/io_faults.c $(COMMAND_OBJS) \
+		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS) $(QCOW2_WRAPS)
+
+test-qcow2: all repair-tools nextufs_stress $(QCOW2_PROBE) $(QCOW2_FAULT_BIN)
+	@if ! command -v qemu-img >/dev/null 2>&1 || ! command -v qemu-io >/dev/null 2>&1; then \
+		echo "test-qcow2: SKIP (qemu-img and qemu-io are required for interoperability tests)"; \
+	else \
+		NEXTUFS="$(CURDIR)/nextufs" QCOW2_PROBE="$(CURDIR)/$(QCOW2_PROBE)" \
+		QCOW2_FAULT_BIN="$(CURDIR)/$(QCOW2_FAULT_BIN)" WITH_FUSE="$(WITH_FUSE)" \
+		sh tests/qcow2/run_tests.sh "$(SCRATCH_DIR)/qcow2-tests"; \
+	fi
 
 test-browse: all
 	sh tests/nextufs/test_browse.sh "$(SCRATCH_DIR)"
