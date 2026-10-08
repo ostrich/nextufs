@@ -229,6 +229,79 @@ cg_offset(const struct nextufs_image *img, uint32_t cg)
 	    (off_t)((cg_base_frag(img, cg) + img->sb.cg_off) * img->sb.frag_size);
 }
 
+/* Convert a raw mkimg fixture from 1024-byte to 2048-byte device sectors,
+ * preserving byte offsets and rotational positions. Check mode is read-only. */
+static int
+cd_sector_geometry(const char *path, int convert)
+{
+	static const size_t fields[] = {
+		offsetof(struct fs, fs_fsbtodb), offsetof(struct fs, fs_nspf),
+		offsetof(struct fs, fs_nsect), offsetof(struct fs, fs_spc)
+	};
+	struct nextufs_image img;
+	uint32_t values[4];
+	unsigned cg, i;
+	int fd = -1;
+	int rc = 1;
+
+	if (open_image(path, &img) < 0)
+		return 1;
+	if (img.used_disk_label || img.source_is_container || img.slice_base != 0 ||
+	    img.sb.frag_size != 2048 || img.sb.fsbtodb != (convert ? 1U : 0U) ||
+	    img.sb.sectors_per_frag != (convert ? 2U : 1U))
+		goto out;
+	values[0] = 0;
+	values[1] = 1;
+	values[2] = img.sb.sectors_per_track;
+	values[3] = img.sb.sectors_per_cyl;
+	if (convert) {
+		if (values[2] % 2 != 0 || values[3] % 2 != 0)
+			goto out;
+		values[2] /= 2;
+		values[3] /= 2;
+		fd = open_rw(path);
+		if (fd < 0)
+			goto out;
+		for (cg = 0; cg < img.sb.cg_count; cg++) {
+			for (i = 0; i < img.sb.inodes_per_group; i++) {
+				struct nextufs_inode inode;
+				off_t offset;
+
+				if (nextufs_inode_read(&img, cg * img.sb.inodes_per_group + i,
+				    &inode, &offset) < 0 || inode.blocks % 2 != 0 ||
+				    write_be32(fd, offset + UFS_DINODE_BLOCKS_OFF, inode.blocks / 2) < 0)
+					goto out;
+			}
+		}
+	}
+	/* Include the primary superblock as well as every cylinder-group copy. */
+	for (cg = 0; cg <= img.sb.cg_count; cg++) {
+		off_t offset = cg == img.sb.cg_count ? super_offset(&img) :
+		    frag_to_offset(&img, cg_base_frag(&img, cg) + img.sb.sb_off);
+
+		for (i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+			uint32_t disk;
+
+			if (convert) {
+				if (write_be32(fd, offset + fields[i], values[i]) < 0)
+					goto out;
+			} else if (read_exact(img.fd, offset + fields[i], &disk, sizeof(disk)) < 0 ||
+			    be32(disk) != values[i]) {
+				goto out;
+			}
+		}
+	}
+	rc = 0;
+out:
+	if (fd >= 0)
+		close(fd);
+	nextufs_image_close(&img);
+	if (rc != 0)
+		fprintf(stderr, "corrupt_raw_case: CD sector geometry %s failed\n",
+		    convert ? "conversion" : "check");
+	return rc;
+}
+
 static int
 mutate_cg_byte(const struct nextufs_image *img, int fd, uint32_t cg,
     size_t byte_off, uint8_t set_mask, uint8_t clear_mask)
@@ -1279,6 +1352,7 @@ main(int argc, char **argv)
 		fprintf(stderr,
 		    "usage: %s <case> <raw-image>\n"
 		    "cases: bad-block-count bad-dot-inode bad-dotdot-inode bad-file-type "
+		    "cd-sectors check-cd-sectors "
 		    "cg-bitmap-bad cg-summary-bad dir-entry-fclear "
 		    "dir-entry-unallocated dup-block extra-dot extra-dotdot "
 		    "extraneous-dir-link invalid-dir-inode lostfound-missing "
@@ -1290,6 +1364,10 @@ main(int argc, char **argv)
 		    argv[0]);
 		return 2;
 	}
+	if (strcmp(argv[1], "cd-sectors") == 0)
+		return cd_sector_geometry(argv[2], 1);
+	if (strcmp(argv[1], "check-cd-sectors") == 0)
+		return cd_sector_geometry(argv[2], 0);
 	if (strcmp(argv[1], "bad-block-count") == 0)
 		return corrupt_bad_block_count(argv[2]);
 	if (strcmp(argv[1], "bad-dot-inode") == 0)

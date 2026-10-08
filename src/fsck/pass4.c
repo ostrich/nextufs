@@ -69,7 +69,7 @@ pass4check(struct inodesc *idesc)
 {
 	register struct dups *dlp;
 	int nfrags, res = KEEPON;
-	daddr_t blkno = idesc->id_blkno;
+	ufs_daddr_t blkno = idesc->id_blkno;
 
 	for (nfrags = idesc->id_numfrags; nfrags > 0; blkno++, nfrags--) {
 		if (outrange(blkno, 1)) {

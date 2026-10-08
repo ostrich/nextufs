@@ -47,7 +47,7 @@
 #define DEFAULTOPT	FS_OPTTIME
 #define ROTDELAY	4
 #define MAXCONTIG	1
-#define MAXBLKPG(fs)	((fs)->fs_fsize / sizeof(daddr_t))
+#define MAXBLKPG(fs)	((fs)->fs_fsize / sizeof(ufs_daddr_t))
 #define	NBPI		2048
 #define	DEFHZ		60
 #define FORMAT_COMPAT_MAX_BYTES	4294836224ULL
@@ -119,20 +119,20 @@ void format_abort(void);
 void initcg(int cylno);
 void fsinit(void);
 int makedir(struct direct *protodir, int entries);
-daddr_t alloc(int size, int mode);
+ufs_daddr_t alloc(int size, int mode);
 void iput(struct inode *ip);
-void rdfs(daddr_t bno, int size, char *bf);
-void wtfs(daddr_t bno, int size, char *bf);
+void rdfs(ufs_daddr_t bno, int size, char *bf);
+void wtfs(ufs_daddr_t bno, int size, char *bf);
 int isblock(struct fs *fs, unsigned char *cp, int h);
 void clrblock(struct fs *fs, unsigned char *cp, int h);
 void setblock(struct fs *fs, unsigned char *cp, int h);
-void write_superblock(daddr_t bno, const struct fs *fs);
-void write_csum_block(daddr_t bno, int size, const struct csum *cs);
-void write_cg_block(daddr_t bno, const struct cg *cg);
-void write_inode_block(daddr_t bno, int count, const struct dinode *dp);
-void write_dir_block(daddr_t bno, int size, char *buf);
-void read_cg_block(daddr_t bno, struct cg *cg);
-void read_inode_block(daddr_t bno, struct dinode *dp);
+void write_superblock(ufs_daddr_t bno, const struct fs *fs);
+void write_csum_block(ufs_daddr_t bno, int size, const struct csum *cs);
+void write_cg_block(ufs_daddr_t bno, const struct cg *cg);
+void write_inode_block(ufs_daddr_t bno, int count, const struct dinode *dp);
+void write_dir_block(ufs_daddr_t bno, int size, char *buf);
+void read_cg_block(ufs_daddr_t bno, struct cg *cg);
+void read_inode_block(ufs_daddr_t bno, struct dinode *dp);
 void swap_csum(struct csum *cs);
 void swap_superblock(struct fs *fs);
 void swap_cg(struct cg *cg);

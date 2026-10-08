@@ -164,14 +164,14 @@ nextufs_format(const struct nextufs_format_options *opts)
 		format_close(&ctx);
 		return 1;
 	}
-	sblock.fs_nindir = sblock.fs_bsize / sizeof(daddr_t);
+	sblock.fs_nindir = sblock.fs_bsize / sizeof(ufs_daddr_t);
 	sblock.fs_inopb = sblock.fs_bsize / sizeof(struct dinode);
 	sblock.fs_nspf = sblock.fs_fsize / DEV_BSIZE;
 	for (sblock.fs_fsbtodb = 0, i = sblock.fs_nspf; i > 1; i >>= 1)
 		sblock.fs_fsbtodb++;
 	sblock.fs_sblkno =
 	    roundup(howmany(BBSIZE + SBSIZE, sblock.fs_fsize), sblock.fs_frag);
-	sblock.fs_cblkno = (daddr_t)(sblock.fs_sblkno +
+	sblock.fs_cblkno = (ufs_daddr_t)(sblock.fs_sblkno +
 	    roundup(howmany(SBSIZE, sblock.fs_fsize), sblock.fs_frag));
 	sblock.fs_iblkno = sblock.fs_cblkno + sblock.fs_frag;
 	sblock.fs_cgoffset = roundup(

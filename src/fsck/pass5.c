@@ -16,7 +16,7 @@ void
 pass5(void)
 {
 	int c, blk, frags, sumsize, mapsize;
-	daddr_t dbase, dmax, d;
+	ufs_daddr_t dbase, dmax, d;
 	register long i, j;
 	struct csum *cs;
 	time_t now;

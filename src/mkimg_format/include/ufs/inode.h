@@ -3,10 +3,11 @@
 
 #include <sys/types.h>
 #include <stdint.h>
+#include "nextufs_ufs_types.h"
 
 #define NDADDR 12
 #define NIADDR 3
-#define MAX_FASTLINK_SIZE ((NDADDR + NIADDR) * sizeof(daddr_t))
+#define MAX_FASTLINK_SIZE ((NDADDR + NIADDR) * sizeof(ufs_daddr_t))
 
 #define IFMT 0170000
 #define IFDIR 0040000
@@ -33,8 +34,8 @@ struct icommon {
 	int32_t ic_ctspare;
 	union {
 		struct {
-			daddr_t Mb_db[NDADDR];
-			daddr_t Mb_ib[NIADDR];
+			ufs_daddr_t Mb_db[NDADDR];
+			ufs_daddr_t Mb_ib[NIADDR];
 		} ic_Mb;
 		char ic_Msymlink[MAX_FASTLINK_SIZE];
 	} ic_Mun;

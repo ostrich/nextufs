@@ -72,10 +72,10 @@ swap_csum_block(struct csum *cs, long size)
 }
 
 BUFAREA *
-getblk(BUFAREA *bp, daddr_t blk, long size)
+getblk(BUFAREA *bp, ufs_daddr_t blk, long size)
 {
 	register struct filecntl *fcp;
-	daddr_t dblk;
+	ufs_daddr_t dblk;
 
 	fcp = &dfile;
 	dblk = fsbtodb(&sblock, blk);

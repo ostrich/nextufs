@@ -12,7 +12,7 @@
 #include <mntent.h>
 #include "fsck.h"
 
-daddr_t
+ufs_daddr_t
 allocblk(int frags)
 {
 	register int i, j, k;
@@ -40,7 +40,7 @@ allocblk(int frags)
 }
 
 void
-freeblk(daddr_t blkno, int frags)
+freeblk(ufs_daddr_t blkno, int frags)
 {
 	struct inodesc idesc;
 

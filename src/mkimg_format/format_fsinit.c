@@ -21,7 +21,7 @@ static char buf[MAXBSIZE];
 void
 initcg(int cylno)
 {
-	daddr_t cbase, d, dlower, dupper, dmax;
+	ufs_daddr_t cbase, d, dlower, dupper, dmax;
 	long i, j;
 	register struct csum *cs;
 
@@ -174,11 +174,11 @@ makedir(struct direct *protodir, int entries)
 	return (DIRBLKSIZ);
 }
 
-daddr_t
+ufs_daddr_t
 alloc(int size, int mode)
 {
 	int i, frag;
-	daddr_t d;
+	ufs_daddr_t d;
 
 	read_cg_block(fsbtodb(&sblock, cgtod(&sblock, 0)), &acg);
 	if (acg.cg_magic != CG_MAGIC) {
@@ -223,7 +223,7 @@ void
 iput(struct inode *ip)
 {
 	struct dinode buf[MAXINOPB];
-	daddr_t d;
+	ufs_daddr_t d;
 
 	read_cg_block(fsbtodb(&sblock, cgtod(&sblock, 0)), &acg);
 	if (acg.cg_magic != CG_MAGIC) {

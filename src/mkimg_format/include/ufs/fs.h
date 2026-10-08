@@ -1,6 +1,7 @@
 /* Local filesystem-format definitions for NEXTSTEP/OPENSTEP UFS. */
 
 #include <stdint.h>
+#include "nextufs_ufs_types.h"
 
 /*
  * Each disk drive contains some number of file systems.
@@ -27,8 +28,8 @@
  */
 #define BBSIZE		8192
 #define SBSIZE		8192
-#define	BBLOCK		((daddr_t)(0))
-#define	SBLOCK		((daddr_t)(BBLOCK + BBSIZE / DEV_BSIZE))
+#define	BBLOCK		((ufs_daddr_t)(0))
+#define	SBLOCK		((ufs_daddr_t)(BBLOCK + BBSIZE / DEV_BSIZE))
 
 /*
  * Addresses stored in inodes are capable of addressing fragments
@@ -130,10 +131,10 @@ struct	fs
 {
 	int32_t	fs_link;		/* on-disk placeholder */
 	int32_t	fs_rlink;		/* on-disk placeholder */
-	daddr_t	fs_sblkno;		/* addr of super-block in filesys */
-	daddr_t	fs_cblkno;		/* offset of cyl-block in filesys */
-	daddr_t	fs_iblkno;		/* offset of inode-blocks in filesys */
-	daddr_t	fs_dblkno;		/* offset of first data after cg */
+	ufs_daddr_t	fs_sblkno;		/* addr of super-block in filesys */
+	ufs_daddr_t	fs_cblkno;		/* offset of cyl-block in filesys */
+	ufs_daddr_t	fs_iblkno;		/* offset of inode-blocks in filesys */
+	ufs_daddr_t	fs_dblkno;		/* offset of first data after cg */
 	int32_t	fs_cgoffset;		/* cylinder group offset in cylinder */
 	int32_t	fs_cgmask;		/* used to calc mod fs_ntrak */
 	int32_t fs_time;    		/* last time written */
@@ -185,7 +186,7 @@ struct	fs
 #define	fs_sparecon fs_spareun.sufs_sparecon
 /* END CS_RPAUSE */
 /* sizes determined by number of cylinder groups and their sizes */
-	daddr_t fs_csaddr;		/* blk addr of cyl grp summary area */
+	ufs_daddr_t fs_csaddr;		/* blk addr of cyl grp summary area */
 	int32_t	fs_cssize;		/* size of cyl grp summary area */
 	int32_t	fs_cgsize;		/* cylinder group size */
 /* these fields should be derived from the hardware */
@@ -307,7 +308,7 @@ struct	cg {
  * Cylinder group macros to locate things in cylinder groups.
  * They calc file system addresses of cylinder group data structures.
  */
-#define	cgbase(fs, c)	((daddr_t)((fs)->fs_fpg * (c)))
+#define	cgbase(fs, c)	((ufs_daddr_t)((fs)->fs_fpg * (c)))
 #define cgstart(fs, c) \
 	(cgbase(fs, c) + (fs)->fs_cgoffset * ((c) & ~((fs)->fs_cgmask)))
 #define	cgsblock(fs, c)	(cgstart(fs, c) + (fs)->fs_sblkno)	/* super blk */
@@ -324,7 +325,7 @@ struct	cg {
 #define	itoo(fs, x)	((x) % INOPB(fs))
 #define	itog(fs, x)	((x) / (fs)->fs_ipg)
 #define	itod(fs, x) \
-	((daddr_t)(cgimin(fs, itog(fs, x)) + \
+	((ufs_daddr_t)(cgimin(fs, itog(fs, x)) + \
 	(blkstofrags((fs), (((x) % (fs)->fs_ipg) / INOPB(fs))))))
 
 /*

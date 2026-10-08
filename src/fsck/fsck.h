@@ -12,6 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include <mntent.h>
 #include "nextufs_image.h"
 
 #define	MAXDUP		10
@@ -38,14 +39,14 @@ typedef struct direct	DIRECT;
 #define	SPECIAL(dip) \
 	(((dip)->di_mode & IFMT) == IFBLK || ((dip)->di_mode & IFMT) == IFCHR)
 
-#define	MAXNINDIR	(MAXBSIZE / sizeof (daddr_t))
+#define	MAXNINDIR	(MAXBSIZE / sizeof (ufs_daddr_t))
 #define	MAXINOPB	(MAXBSIZE / sizeof (struct dinode))
 #define	SPERB		(MAXBSIZE / sizeof(short))
 
 union buf_union {
 	char	b_buf[MAXBSIZE];
 	short	b_lnks[SPERB];
-	daddr_t	b_indir[MAXNINDIR];
+	ufs_daddr_t	b_indir[MAXNINDIR];
 	struct	fs b_fs;
 	struct	cg b_cg;
 	struct dinode b_dinode[MAXINOPB];
@@ -55,7 +56,7 @@ union buf_union {
 
 struct bufarea {
 	struct bufarea	*b_next;
-	daddr_t	b_bno;
+	ufs_daddr_t	b_bno;
 	int	b_size;
 	int	b_errs;
 	char	b_un_blk[sizeof(union buf_union) + RAW_IO_ALIGNMENT];
@@ -91,7 +92,7 @@ struct inodesc {
 	int (*id_func)(struct inodesc *);
 	ino_t id_number;
 	ino_t id_parent;
-	daddr_t id_blkno;
+	ufs_daddr_t id_blkno;
 	int id_numfrags;
 	long id_filesize;
 	int id_loc;
@@ -106,7 +107,7 @@ struct inodesc {
 
 struct dups {
 	struct dups *next;
-	daddr_t dup;
+	ufs_daddr_t dup;
 };
 
 struct zlncnt {
@@ -155,17 +156,17 @@ struct fsck_ctx {
 	char	*ctx_endpathname;
 	struct dirtemplate ctx_emptydir;
 	struct dirtemplate ctx_dirhead;
-	daddr_t	ctx_fs_maxblock;
+	ufs_daddr_t	ctx_fs_maxblock;
 	ino_t	ctx_imax;
 	ino_t	ctx_lastino;
 	ino_t	ctx_lfdir;
 	char	*ctx_lfname;
 	off_t	ctx_maxblk;
 	off_t	ctx_bmapsz;
-	daddr_t	ctx_n_blks;
-	daddr_t	ctx_n_files;
-	daddr_t	ctx_badblk;
-	daddr_t	ctx_dupblk;
+	ufs_daddr_t	ctx_n_blks;
+	ufs_daddr_t	ctx_n_files;
+	ufs_daddr_t	ctx_badblk;
+	ufs_daddr_t	ctx_dupblk;
 	struct dups *ctx_duphead;
 	ino_t	ctx_startinum;
 #if	NeXT_MOD
@@ -260,7 +261,7 @@ int fsck_driver_should_return_to_single_user(void);
 #define	initbarea(x)	(x)->b_dirty = 0;				\
 			(x)->b_swapped = 0;				\
 			(x)->b_type = BT_UNKNOWN;			\
-			(x)->b_bno = (daddr_t)-1;			\
+			(x)->b_bno = (ufs_daddr_t)-1;			\
 			(x)->b_unp = (union buf_union *)		\
 			   roundup((unsigned long)((x)->b_un_blk), RAW_IO_ALIGNMENT)
 
@@ -298,12 +299,12 @@ char	*unrawname(char *cp);
 DINODE	*ginode(ino_t inumber);
 int	ckinode(DINODE *dp, struct inodesc *idesc);
 int	iblock(struct inodesc *idesc, int ilevel, long isize);
-int	outrange(daddr_t blk, int cnt);
+int	outrange(ufs_daddr_t blk, int cnt);
 void	clri(struct inodesc *idesc, char *s, int flg);
 int	findname(struct inodesc *idesc);
 int	findino(struct inodesc *idesc);
 void	pinode(ino_t ino);
-void	blkerr(ino_t ino, char *s, daddr_t blk);
+void	blkerr(ino_t ino, char *s, ufs_daddr_t blk);
 ino_t	allocino(ino_t request, int type);
 void	freeino(ino_t ino);
 void	descend(struct inodesc *parentino, ino_t inumber);
@@ -323,30 +324,32 @@ int	lftempname(char *bufp, ino_t ino);
 char	*ftypeok(DINODE *dp);
 int	reply(char *s);
 int	fsck_getline(FILE *fp, char *loc, int maxlen);
-BUFAREA	*getblk(BUFAREA *bp, daddr_t blk, long size);
+BUFAREA	*getblk(BUFAREA *bp, ufs_daddr_t blk, long size);
 void	flush(struct filecntl *fcp, BUFAREA *bp);
-void	rwerr(char *s, daddr_t blk);
+void	rwerr(char *s, ufs_daddr_t blk);
 void	ckfini(void);
-int	bread(struct filecntl *fcp, char *buf, daddr_t blk, long size);
-void	bwrite(struct filecntl *fcp, char *buf, daddr_t blk, int size);
+int	bread(struct filecntl *fcp, char *buf, ufs_daddr_t blk, long size);
+void	bwrite(struct filecntl *fcp, char *buf, ufs_daddr_t blk, int size);
 int	fsck_file_is_writable(struct filecntl *fcp);
 int	fsck_file_fsync(struct filecntl *fcp);
 void	fsck_file_close(struct filecntl *fcp);
-daddr_t	allocblk(int frags);
-void	freeblk(daddr_t blkno, int frags);
+ufs_daddr_t	allocblk(int frags);
+void	freeblk(ufs_daddr_t blkno, int frags);
 void	getpathname(char *namebuf, ino_t curdir, ino_t ino);
 void	catch(int signo);
 void	catchquit(int signo);
 void	voidquit(int signo);
 int	dofix(struct inodesc *idesc, char *msg);
 void	panic(const char *s);
+#if NEXTUFS_FSCK_HOST_MOUNTS
 int	mounted(char *name);
 int	is_mounted_on(char *dir, char *dev);
+struct mntent *mntdup(struct mntent *mnt);
+#endif
 void	*xmalloc(unsigned long size);
 char	*setup(char *dev);
 int	fsck_source_use_image_backend(const char *path);
 void	fsck_source_cleanup(void);
-struct mntent *mntdup(struct mntent *mnt);
 int	pass1check(struct inodesc *idesc);
 int	pass2check(struct inodesc *idesc);
 int	pass4check(struct inodesc *idesc);
@@ -354,7 +357,7 @@ void	badsb(char *s);
 void	swap_superblock(struct fs *fs);
 void	swap_cgblock(struct cg *cg, struct fs *fs);
 void	swap_inode_block(struct dinode *dinodes, int count);
-void	swap_indir_block(daddr_t *indir, int count);
+void	swap_indir_block(ufs_daddr_t *indir, int count);
 void	swap_dirblock(char *buf, long size, int dir_write_pass);
 void	fragacct(struct fs *, int, int32_t [], int);
 void	errexit(char *, ...);

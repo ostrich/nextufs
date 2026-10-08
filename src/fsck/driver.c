@@ -19,9 +19,11 @@
 int
 nextufs_fsck_run(const struct nextufs_fsck_request *request)
 {
+#if NEXTUFS_FSCK_HOST_MOUNTS
 	int pid, passno, anygtr, sumstatus;
-	int process_exitstat;
 	char *name;
+#endif
+	int process_exitstat;
 	struct fsck_runtime_options opts;
 	int i;
 
@@ -37,7 +39,9 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 
 	process_exitstat = 0;
 	fsck_driver_reset_signal_state();
+#if NEXTUFS_FSCK_HOST_MOUNTS
 	sync();
+#endif
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
 		(void)signal(SIGINT, catch);
 	if (opts.opt_preen)
@@ -48,6 +52,7 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 			    &opts);
 		return process_exitstat;
 	}
+#if NEXTUFS_FSCK_HOST_MOUNTS
 	sumstatus = 0;
 	passno = 1;
 	do {
@@ -122,4 +127,8 @@ nextufs_fsck_run(const struct nextufs_fsck_request *request)
 	if (fsck_driver_should_return_to_single_user())
 		return 2;
 	return process_exitstat;
+#else
+	fprintf(stderr, "nextufs: fsck requires an image file on this platform\n");
+	return 2;
+#endif
 }

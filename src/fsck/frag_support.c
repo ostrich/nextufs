@@ -130,7 +130,7 @@ fragacct(struct fs *fs, int fragmap, int32_t fraglist[], int cnt)
 }
 
 int
-isblock(struct fs *fs, unsigned char *cp, daddr_t h)
+isblock(struct fs *fs, unsigned char *cp, ufs_daddr_t h)
 {
 	unsigned char mask;
 
@@ -153,7 +153,7 @@ isblock(struct fs *fs, unsigned char *cp, daddr_t h)
 }
 
 void
-clrblock(struct fs *fs, unsigned char *cp, daddr_t h)
+clrblock(struct fs *fs, unsigned char *cp, ufs_daddr_t h)
 {
 	switch ((int)fs->fs_frag) {
 	case 8:
@@ -174,7 +174,7 @@ clrblock(struct fs *fs, unsigned char *cp, daddr_t h)
 }
 
 void
-setblock(struct fs *fs, unsigned char *cp, daddr_t h)
+setblock(struct fs *fs, unsigned char *cp, ufs_daddr_t h)
 {
 	switch ((int)fs->fs_frag) {
 	case 8:

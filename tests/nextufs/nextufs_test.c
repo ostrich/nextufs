@@ -1,9 +1,10 @@
-#include "nextufs_node.h"
+#include "nextufs_mutate.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 struct expect_name_ctx {
@@ -22,6 +23,174 @@ fail(const char *msg)
 {
 	fprintf(stderr, "nextufs_test: %s\n", msg);
 	exit(1);
+}
+
+static const struct nextufs_write_ctx write_ctx = { .policy = NEXTUFS_WRITE_SU };
+
+static void
+check_result(int rc, const char *operation)
+{
+	if (rc < 0) {
+		fprintf(stderr, "nextufs_test: %s: %s\n", operation, strerror(-rc));
+		exit(1);
+	}
+}
+
+static struct nextufs_superblock
+read_superblock(const char *path)
+{
+	struct nextufs_image img;
+	struct nextufs_superblock sb;
+
+	check_result(nextufs_image_open(&img, path), "open test image");
+	sb = img.sb;
+	nextufs_image_close(&img);
+	return sb;
+}
+
+static uint64_t
+free_fragments(const struct nextufs_superblock *sb)
+{
+	return (uint64_t)sb->free_block_count * sb->frags_per_block + sb->free_frag_count;
+}
+
+static void
+check_fsck(const char *image)
+{
+	const char *tool = getenv("NEXTUFS");
+	pid_t child;
+	int status;
+
+	if (tool == NULL)
+		tool = "./nextufs";
+	fflush(stdout);
+	child = fork();
+	if (child < 0)
+		fail("fork fsck failed");
+	if (child == 0) {
+		execlp(tool, tool, "fsck", "-n", image, (char *)NULL);
+		_exit(127);
+	}
+	while (waitpid(child, &status, 0) < 0) {
+		if (errno != EINTR)
+			fail("wait for fsck failed");
+	}
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+		fail("fragment test image failed fsck");
+}
+
+static void
+check_file(const char *image, const char *path, size_t size)
+{
+	struct nextufs_image img;
+	struct nextufs_node node;
+	uint8_t *data = malloc(size);
+	size_t got;
+
+	if (data == NULL)
+		fail("allocate readback buffer failed");
+	check_result(nextufs_image_open(&img, image), "open for readback");
+	check_result(nextufs_node_lookup(&img, path, 1, &node), path);
+	if (node.inode.size != size)
+		fail("fragment test file size mismatch");
+	check_result(nextufs_path_read(&img, path, 0, data, size, &got), path);
+	if (got != size)
+		fail("short fragment test readback");
+	for (size_t i = 0; i < size; i++) {
+		if (data[i] != i % 251)
+			fail("fragment test file contents mismatch");
+	}
+	nextufs_image_close(&img);
+	free(data);
+}
+
+static void
+put_file(const char *image, const char *path, size_t size)
+{
+	uint8_t *data = malloc(size);
+
+	if (data == NULL)
+		fail("allocate test payload failed");
+	for (size_t i = 0; i < size; i++)
+		data[i] = i % 251;
+	check_result(nextufs_path_create_file(&write_ctx, image, path, data, size), path);
+	free(data);
+	check_file(image, path, size);
+}
+
+static void
+test_fragments(const char *scenario, const char *image)
+{
+	struct nextufs_superblock before = read_superblock(image);
+	struct nextufs_superblock after;
+	char path[32];
+	unsigned i;
+
+	if (strcmp(scenario, "pack") == 0) {
+		for (i = 0; i < 24; i++) {
+			snprintf(path, sizeof(path), "/tiny%u", i);
+			put_file(image, path, 1);
+		}
+		after = read_superblock(image);
+		if (before.free_block_count - after.free_block_count > 3 ||
+		    free_fragments(&before) - free_fragments(&after) != 24)
+			fail("small files do not share partial blocks");
+		check_fsck(image);
+		for (i = 0; i < 24; i++) {
+			snprintf(path, sizeof(path), "/tiny%u", i);
+			check_file(image, path, 1);
+			check_result(nextufs_path_unlink(&write_ctx, image, path), path);
+		}
+		after = read_superblock(image);
+		if (after.free_block_count != before.free_block_count ||
+		    after.free_frag_count != before.free_frag_count ||
+		    after.free_inode_count != before.free_inode_count)
+			fail("unlink did not restore free-space counts");
+	} else if (strcmp(scenario, "exhaust") == 0) {
+		uint32_t blocks;
+
+		put_file(image, "/seed", 1);
+		before = read_superblock(image);
+		blocks = before.free_block_count;
+		/* The 1 MiB fixture needs at most one indirect-pointer block. */
+		if (blocks == 0 || blocks > 12 + before.block_size / sizeof(uint32_t))
+			fail("unexpected exhaustion fixture geometry");
+		put_file(image, "/fill", (size_t)(blocks - (blocks > 12)) * before.block_size);
+		before = read_superblock(image);
+		if (before.free_block_count != 0 || before.free_frag_count == 0)
+			fail("expected free fragments but no free whole blocks");
+		put_file(image, "/tiny", 1);
+		after = read_superblock(image);
+		if (after.free_block_count != 0 || after.free_frag_count != before.free_frag_count - 1)
+			fail("failed to reuse fragments without free whole blocks");
+	} else if (strcmp(scenario, "runs") == 0) {
+		for (i = 1; i < before.frags_per_block; i++) {
+			snprintf(path, sizeof(path), "/run%u", i);
+			put_file(image, path, (size_t)i * before.frag_size - 7);
+			check_fsck(image);
+		}
+		for (i = 2; i < before.frags_per_block; i += 2) {
+			snprintf(path, sizeof(path), "/run%u", i);
+			check_result(nextufs_path_unlink(&write_ctx, image, path), path);
+		}
+		check_fsck(image);
+		for (i = before.frags_per_block - 2; i > 0; i -= 2) {
+			snprintf(path, sizeof(path), "/again%u", i);
+			put_file(image, path, (size_t)i * before.frag_size - 7);
+		}
+		for (i = 1; i < before.frags_per_block; i += 2) {
+			snprintf(path, sizeof(path), "/run%u", i);
+			check_file(image, path, (size_t)i * before.frag_size - 7);
+		}
+	} else if (strcmp(scenario, "geometry") == 0) {
+		put_file(image, "/first", 1);
+		put_file(image, "/second", before.frag_size + 1);
+		check_result(nextufs_path_mkdir(&write_ctx, image, "/directory", 0755), "mkdir");
+	} else {
+		fail("unknown fragment test scenario");
+	}
+	check_fsck(image);
+	printf("nextufs_test: fragments %s: ok\n", scenario);
 }
 
 static int
@@ -81,8 +250,14 @@ main(int argc, char **argv)
 	size_t got;
 	struct expect_node_ctx node_ctx;
 
+	if (argc == 4 && strcmp(argv[1], "--fragments") == 0) {
+		test_fragments(argv[2], argv[3]);
+		return 0;
+	}
 	if (argc != 2) {
-		fprintf(stderr, "usage: %s <source>\n", argv[0]);
+		fprintf(stderr, "usage: %s <source>\n"
+		    "       %s --fragments <pack|exhaust|runs|geometry> <scratch-image>\n",
+		    argv[0], argv[0]);
 		return 2;
 	}
 	if (nextufs_image_open(&img, argv[1]) < 0)

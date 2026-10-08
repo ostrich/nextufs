@@ -15,7 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define UFS_DISK_SECTOR_SIZE 512U
+#define UFS_SBLOCK_OFFSET 0x2000U
 #define CSUM_SIZE 16U
 #define SB_SIZE_OFF 0x24U
 #define SB_DSIZE_OFF 0x28U
@@ -109,13 +109,6 @@ static uint64_t
 cgsblock(const struct nextufs_image *img, uint32_t cg)
 {
 	return cgstart(img, cg) + img->sb.sb_off;
-}
-
-static off_t
-superblock_offset(const struct nextufs_image *img, uint32_t cg)
-{
-	return (off_t)(cgstart(img, cg) * img->sb.frag_size) +
-	    (off_t)((uint64_t)img->sb.sb_off * UFS_DISK_SECTOR_SIZE);
 }
 
 static uint64_t
@@ -735,7 +728,9 @@ patch_and_write_superblocks(struct nextufs_image *img, const uint8_t *old_sb,
 	    img->sb.free_frag_count + (uint32_t)add_nffree);
 	nextufs__write_be32(sb + SB_TOTAL_NDIR_OFF, img->sb.dir_count);
 
-	rc = nextufs_image_pwrite(img, sb, img->sb.super_size, superblock_offset(img, 0));
+	/* The primary is always at byte 8192, independent of fragment size.
+	 * fs_sblkno locates cylinder-group copies, not the primary in sectors. */
+	rc = nextufs_image_pwrite(img, sb, img->sb.super_size, UFS_SBLOCK_OFFSET);
 	if (rc < 0) {
 		free(sb);
 		return rc;
@@ -901,7 +896,7 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		return 1;
 	}
 	rc = nextufs_image_pread(img, old_sb, img->sb.super_size,
-	    superblock_offset(img, 0));
+	    UFS_SBLOCK_OFFSET);
 	if (rc < 0) {
 		fprintf(stderr, "nextufs resize: failed to read superblock: %d\n", rc);
 		free(old_sb);

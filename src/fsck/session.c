@@ -17,7 +17,7 @@
 static void
 checkfilesys_active(char *filesys)
 {
-	daddr_t n_ffree, n_bfree;
+	ufs_daddr_t n_ffree, n_bfree;
 	struct dups *dp;
 	struct zlncnt *zlnp;
 #if	NeXT
@@ -29,6 +29,7 @@ checkfilesys_active(char *filesys)
 	saved_yflag = yflag;
 
 	if ((devname = setup(filesys)) == 0) {
+		exitstat = 8;
 		if (preen)
 			pfatal("CAN'T CHECK FILE SYSTEM.");
 		return;

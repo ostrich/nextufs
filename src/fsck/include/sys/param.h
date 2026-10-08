@@ -41,10 +41,11 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
-#ifndef quad
+#ifdef quad
+#undef quad
+#endif
 typedef struct {
 	int val[2];
 } quad;
-#endif
 
 #endif

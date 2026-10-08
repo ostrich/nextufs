@@ -16,7 +16,7 @@
 int
 ckinode(DINODE *dp, struct inodesc *idesc)
 {
-	register daddr_t *ap;
+	register ufs_daddr_t *ap;
 	int ret, n, ndb, offset;
 	DINODE dino;
 
@@ -59,8 +59,8 @@ ckinode(DINODE *dp, struct inodesc *idesc)
 int
 iblock(struct inodesc *idesc, int ilevel, long isize)
 {
-	register daddr_t *ap;
-	register daddr_t *aplim;
+	register ufs_daddr_t *ap;
+	register ufs_daddr_t *aplim;
 	int i, n, nif, sizepb;
 	int (*func)(struct inodesc *);
 	BUFAREA ib;
@@ -114,7 +114,7 @@ iblock(struct inodesc *idesc, int ilevel, long isize)
 }
 
 int
-outrange(daddr_t blk, int cnt)
+outrange(ufs_daddr_t blk, int cnt)
 {
 	register int c;
 
@@ -148,7 +148,7 @@ outrange(daddr_t blk, int cnt)
 DINODE *
 ginode(ino_t inumber)
 {
-	daddr_t iblk;
+	ufs_daddr_t iblk;
 
 	if (inumber < ROOTINO || inumber > imax)
 		errexit("bad inode number %lu to ginode\n",

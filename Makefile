@@ -6,7 +6,7 @@ DESTDIR ?=
 INSTALL ?= install
 CFLAGS = -Iinclude -Isrc -O2 -g -std=gnu99 -Wall -Wextra -Werror
 FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
-FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Isrc/mkimg_format/include \
+FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Isrc/mkimg_format/include -Iinclude \
 	-Disblock=mkimg_isblock -Dclrblock=mkimg_clrblock \
 	-Dsetblock=mkimg_setblock -Dswap_superblock=mkimg_swap_superblock
 FSCK_CFLAGS ?= -O2 -g -std=gnu99 -fcommon -Wall -Wextra
@@ -43,13 +43,15 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=$(OBJ_DIR)/src/fsck/%.o)
+FSCK_HDRS = include/nextufs_ufs_types.h $(wildcard src/fsck/include/*.h src/fsck/include/sys/*.h src/fsck/include/ufs/*.h)
+FORMAT_HDRS = include/nextufs_ufs_types.h $(wildcard src/mkimg_format/include/sys/*.h src/mkimg_format/include/ufs/*.h)
 PUBLIC_HDRS = include/nextufs_image.h include/nextufs_node.h \
 	include/nextufs_mutate.h include/nextufs_info.h include/nextufs_label.h \
 	include/nextufs_report.h include/nextufs_size.h
 INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
 
 BUILD_TARGETS = all scratch-dir clean install uninstall
-TEST_TARGETS = test test-nextufs test-cli-contract test-fsck test-mkimg \
+TEST_TARGETS = test test-nextufs test-cli-contract test-fragments test-fsck-images test-fsck test-mkimg \
 	test-resize test-write test-write-big test-write-grow test-unlink \
 	test-mkdir test-rewrite test-link-symlink test-rmdir test-meta \
 	test-rename test-truncate test-special test-fuse-write test-permissions \
@@ -77,8 +79,8 @@ nextufs: $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ $(COMMAND_OBJS) \
 		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS)
 
-nextufs_test: $(TEST_OBJ) $(LIB)
-	$(CC) $(CFLAGS) -o $@ $(TEST_OBJ) $(LIB)
+nextufs_test: $(TEST_OBJ) $(WRITE_LIB) $(LIB)
+	$(CC) $(CFLAGS) -o $@ $(TEST_OBJ) $(WRITE_LIB) $(LIB)
 
 nextufs_stress: $(STRESS_OBJ) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) -o $@ $(STRESS_OBJ) $(WRITE_LIB) $(LIB)
@@ -94,7 +96,7 @@ $(OBJ_DIR)/src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
 	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/src/commands/fsck.o: include/nextufs_fsck.h
-$(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h
+$(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h $(FORMAT_HDRS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
 		-Isrc/mkimg_format -Iinclude -c -o $@ $<
@@ -104,11 +106,11 @@ $(OBJ_DIR)/src/commands/%.o: src/commands/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(FORMAT_OBJS): $(OBJ_DIR)/src/mkimg_format/%.o: src/mkimg_format/%.c src/mkimg_format/format.h
+$(FORMAT_OBJS): $(OBJ_DIR)/src/mkimg_format/%.o: src/mkimg_format/%.c src/mkimg_format/format.h $(FORMAT_HDRS)
 	@mkdir -p $(@D)
 	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
 
-$(OBJ_DIR)/src/fsck/%.o: src/fsck/%.c src/fsck/fsck.h include/nextufs_image.h include/nextufs_fsck.h
+$(OBJ_DIR)/src/fsck/%.o: src/fsck/%.c src/fsck/fsck.h $(FSCK_HDRS) include/nextufs_image.h include/nextufs_fsck.h
 	@mkdir -p $(@D)
 	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
 
@@ -118,7 +120,7 @@ $(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
 
 test: test-nextufs repair-smoke
 
-test-nextufs: all test-mkimg test-resize test-cli-contract
+test-nextufs: all test-mkimg test-resize test-cli-contract test-fragments test-fsck-images
 	./nextufs --help >/dev/null
 	./nextufs --version >/dev/null
 	./nextufs info --help >/dev/null
@@ -138,7 +140,13 @@ test-nextufs: all test-mkimg test-resize test-cli-contract
 test-cli-contract: all
 	sh tests/nextufs/test_cli_contract.sh $(SCRATCH_DIR)
 
-test-fsck: repair-smoke
+test-fragments: all
+	sh tests/nextufs/test_fragments.sh "$(SCRATCH_DIR)"
+
+test-fsck-images: all repair-tools
+	sh tests/fsck/scripts/test_images.sh "$(SCRATCH_DIR)"
+
+test-fsck: repair-smoke test-fsck-images
 
 test-mkimg: all
 	rm -f $(SCRATCH_DIR)/mkimg-raw.img $(SCRATCH_DIR)/mkimg-labeled.img \
@@ -184,8 +192,7 @@ test-mkimg: all
 	./nextufs info --json $(SCRATCH_DIR)/mkimg-labeled.img >/dev/null
 
 test-resize: all
-	./nextufs resize --help >/dev/null
-	./nextufs resize grow --help >/dev/null
+	sh tests/nextufs/test_resize.sh "$(SCRATCH_DIR)"
 
 test-write: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-write-test.raw
@@ -549,7 +556,7 @@ test-stress-fuse: all nextufs_stress
 
 repair-tools: tests/fsck/tools/corrupt_raw_case
 
-tests/fsck/tools/corrupt_raw_case: tests/fsck/tools/corrupt_raw_case.c $(PUBLIC_HDRS) $(LIB) $(WRITE_LIB)
+tests/fsck/tools/corrupt_raw_case: tests/fsck/tools/corrupt_raw_case.c $(PUBLIC_HDRS) $(FSCK_HDRS) $(LIB) $(WRITE_LIB)
 	$(CC) $(CFLAGS) -Isrc/fsck/include -o $@ $< $(WRITE_LIB) $(LIB)
 
 repair-corpus: all repair-tools

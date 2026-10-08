@@ -91,7 +91,7 @@ pinode(ino_t ino)
 }
 
 void
-blkerr(ino_t ino, char *s, daddr_t blk)
+blkerr(ino_t ino, char *s, ufs_daddr_t blk)
 {
 	pfatal("%ld %s I=%lu", (long)blk, s, (unsigned long)ino);
 	printf("\n");
@@ -146,7 +146,7 @@ allocino(ino_t request, int type)
 	dp->di_atime = (int32_t)time((time_t *)0);
 	dp->di_mtime = dp->di_ctime = dp->di_atime;
 	dp->di_size = sblock.fs_fsize;
-	dp->di_blocks = btodb(sblock.fs_fsize);
+	dp->di_blocks = NSPF(&sblock);
 	n_files++;
 	inodirty();
 	return (ino);

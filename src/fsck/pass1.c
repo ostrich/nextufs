@@ -73,9 +73,9 @@ pass1(void)
 #endif
 			if (!ALLOC(dp)) {
 				if (bcmp((char *)dp->di_db, (char *)zino.di_db,
-					NDADDR * sizeof(daddr_t)) ||
+					NDADDR * sizeof(ufs_daddr_t)) ||
 				    bcmp((char *)dp->di_ib, (char *)zino.di_ib,
-					NIADDR * sizeof(daddr_t)) ||
+					NIADDR * sizeof(ufs_daddr_t)) ||
 				    dp->di_mode || dp->di_size) {
 					pfatal("PARTIALLY ALLOCATED INODE I=%lu",
 						(unsigned long)inumber);
@@ -167,7 +167,7 @@ CheckType:
 			if (!(dp->di_icflags & IC_FASTLINK)) {
 #endif
 				(void)ckinode(dp, &idesc);
-				idesc.id_entryno *= btodb(sblock.fs_fsize);
+				idesc.id_entryno *= NSPF(&sblock);
 				if (dp->di_blocks != idesc.id_entryno) {
 					pwarn("INCORRECT BLOCK COUNT I=%lu "
 					    "(%ld should be %ld)",
@@ -208,7 +208,7 @@ pass1check(struct inodesc *idesc)
 {
 	int res = KEEPON;
 	int anyout, nfrags;
-	daddr_t blkno = idesc->id_blkno;
+	ufs_daddr_t blkno = idesc->id_blkno;
 	register struct dups *dlp;
 	struct dups *new;
 

@@ -61,6 +61,8 @@ nextufs__grow_directory_by_dirblk(const struct nextufs_image *img,
 		return -EFBIG;
 	inblock_old_size = (uint32_t)(old_size % img->sb.block_size);
 	if (inblock_old_size == 0) {
+		old_frags = 0;
+		new_frags = 1;
 		rc = nextufs__allocate_frags_anycg(img,
 		    dirnode->inode_no / img->sb.inodes_per_group, 1, &alloc_frag);
 		if (rc < 0)
@@ -74,19 +76,21 @@ nextufs__grow_directory_by_dirblk(const struct nextufs_image *img,
 		    img->sb.frag_size);
 		new_frags = (uint32_t)(((inblock_old_size + DIRBLKSIZ) +
 		    img->sb.frag_size - 1U) / img->sb.frag_size);
-		if (new_frags <= old_frags)
-			return -EINVAL;
 		alloc_frag = dirnode->inode.db[logical_block];
 		if (alloc_frag == 0)
 			return -EINVAL;
-		rc = nextufs__extend_fragment_run(img, alloc_frag, old_frags, new_frags);
-		if (rc == -ENOSPC) {
-			rc = nextufs__reallocate_fragment_run(img, alloc_frag, old_frags,
-			    new_frags, dirnode->inode_no / img->sb.inodes_per_group,
-			    &alloc_frag);
+		/* A 1024-byte directory block can fit in an already allocated
+		 * 2048-byte fragment. Allocate only when crossing its boundary. */
+		if (new_frags > old_frags) {
+			rc = nextufs__extend_fragment_run(img, alloc_frag, old_frags, new_frags);
+			if (rc == -ENOSPC) {
+				rc = nextufs__reallocate_fragment_run(img, alloc_frag, old_frags,
+				    new_frags, dirnode->inode_no / img->sb.inodes_per_group,
+				    &alloc_frag);
+			}
+			if (rc < 0)
+				return rc;
 		}
-		if (rc < 0)
-			return rc;
 		dirnode->inode.db[logical_block] = alloc_frag;
 		*new_block_frag_out = alloc_frag;
 		*new_block_off_out = img->slice_base +
@@ -94,7 +98,7 @@ nextufs__grow_directory_by_dirblk(const struct nextufs_image *img,
 		    (off_t)inblock_old_size;
 	}
 	dirnode->inode.size = new_size;
-	dirnode->inode.blocks += DIRBLKSIZ / DEV_BSIZE;
+	dirnode->inode.blocks += (new_frags - old_frags) * img->sb.sectors_per_frag;
 	return nextufs__update_node_times(img, dirnode, 1);
 }
 

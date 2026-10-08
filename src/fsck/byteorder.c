@@ -6,6 +6,11 @@
 #undef KERNEL
 #include "fsck.h"
 
+/* Disk layouts must not depend on the host's daddr_t size or alignment. */
+_Static_assert(sizeof(struct dinode) == 128, "UFS inode size");
+_Static_assert(offsetof(struct fs, fs_magic) == 1372, "UFS superblock layout");
+_Static_assert(offsetof(struct cg, cg_magic) == 980, "UFS cylinder group layout");
+
 static unsigned short
 swap16(x)
 	unsigned short x;
@@ -155,7 +160,7 @@ swap_inode_block(dp, count)
 
 void
 swap_indir_block(ap, count)
-	daddr_t *ap;
+	ufs_daddr_t *ap;
 	int count;
 {
 	int i;

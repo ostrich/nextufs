@@ -597,7 +597,7 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 	ino.mtime = now;
 	ino.ctime = now;
 	ino.db[0] = alloc_frag;
-	ino.blocks = DIRBLKSIZ / DEV_BSIZE;
+	ino.blocks = img.sb.sectors_per_frag;
 	rc = nextufs__write_inode_raw(&img, new_inode_no, &ino);
 	if (rc < 0) {
 		(void)nextufs__discard_new_inode(&img, new_inode_no, &ino);

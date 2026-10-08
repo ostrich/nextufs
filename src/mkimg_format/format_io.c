@@ -1,5 +1,9 @@
 #include "format.h"
 
+_Static_assert(sizeof(struct dinode) == 128, "UFS inode size");
+_Static_assert(offsetof(struct fs, fs_magic) == 1372, "UFS superblock layout");
+_Static_assert(offsetof(struct cg, cg_magic) == 980, "UFS cylinder group layout");
+
 static uint16_t
 swap16(uint16_t x)
 {
@@ -16,7 +20,7 @@ swap32(uint32_t x)
 }
 
 void
-rdfs(daddr_t bno, int size, char *bf)
+rdfs(ufs_daddr_t bno, int size, char *bf)
 {
 	int n;
 	off_t offset;
@@ -37,7 +41,7 @@ rdfs(daddr_t bno, int size, char *bf)
 }
 
 void
-wtfs(daddr_t bno, int size, char *bf)
+wtfs(ufs_daddr_t bno, int size, char *bf)
 {
 	int n;
 	off_t offset;
@@ -197,7 +201,7 @@ put_dirent(char *dst, uint32_t ino, uint16_t reclen, uint16_t namlen,
 }
 
 void
-write_superblock(daddr_t bno, const struct fs *fs)
+write_superblock(ufs_daddr_t bno, const struct fs *fs)
 {
 	char out[SBSIZE];
 
@@ -207,7 +211,7 @@ write_superblock(daddr_t bno, const struct fs *fs)
 }
 
 void
-write_csum_block(daddr_t bno, int size, const struct csum *cs)
+write_csum_block(ufs_daddr_t bno, int size, const struct csum *cs)
 {
 	char buf[MAXBSIZE];
 	int i;
@@ -222,7 +226,7 @@ write_csum_block(daddr_t bno, int size, const struct csum *cs)
 }
 
 void
-write_cg_block(daddr_t bno, const struct cg *cg)
+write_cg_block(ufs_daddr_t bno, const struct cg *cg)
 {
 	char out[MAXBSIZE];
 
@@ -232,7 +236,7 @@ write_cg_block(daddr_t bno, const struct cg *cg)
 }
 
 void
-write_inode_block(daddr_t bno, int count, const struct dinode *dp)
+write_inode_block(ufs_daddr_t bno, int count, const struct dinode *dp)
 {
 	char *buf;
 	size_t size;
@@ -252,20 +256,20 @@ write_inode_block(daddr_t bno, int count, const struct dinode *dp)
 }
 
 void
-write_dir_block(daddr_t bno, int size, char *buf)
+write_dir_block(ufs_daddr_t bno, int size, char *buf)
 {
 	wtfs(bno, size, buf);
 }
 
 void
-read_cg_block(daddr_t bno, struct cg *cg)
+read_cg_block(ufs_daddr_t bno, struct cg *cg)
 {
 	rdfs(bno, sblock.fs_cgsize, (char *)cg);
 	swap_cg(cg);
 }
 
 void
-read_inode_block(daddr_t bno, struct dinode *dp)
+read_inode_block(ufs_daddr_t bno, struct dinode *dp)
 {
 	rdfs(bno, sblock.fs_bsize, (char *)dp);
 	swap_inode_block_bytes(dp, sblock.fs_inopb);

@@ -21,18 +21,25 @@ char *
 setup(char *dev)
 {
 	struct stat statb;
-	daddr_t super = bflag ? bflag : SBLOCK;
+	ufs_daddr_t super = bflag ? bflag : SBLOCK;
 	int i, j;
 	long size;
 	BUFAREA asblk;
 	char *devstr = setup_devstr;
 #	define altsblock asblk.b_unp->b_fs
 	strcpy(devstr, dev);
+#if NEXTUFS_FSCK_HOST_MOUNTS
 restat:
+#endif
 	if (stat(devstr, &statb) < 0) {
 		printf("Can't stat %s\n", devstr);
 		return (0);
 	}
+#if !NEXTUFS_FSCK_HOST_MOUNTS
+	if (!S_ISREG(statb.st_mode))
+		errexit("%s: fsck supports only image files on this platform\n", devstr);
+	mountedfs = rootfs = readonlyfs = usingblkdev = 0;
+#else
 #if	NeXT
 	usingblkdev = 0;
 	switch (statb.st_mode & S_IFMT) {
@@ -126,6 +133,7 @@ restat:
 	}
 	if (mounted(devstr))
 		mountedfs++;
+#endif
 #endif
 	if (preen == 0)
 		printf("** %s", devstr);

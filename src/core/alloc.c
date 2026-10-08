@@ -15,7 +15,7 @@ static void nextufs__count_free_runs_in_block(const uint8_t *free_map,
 	uint32_t block_frag_base, uint32_t frags_per_block, uint32_t *counts);
 static void nextufs__apply_cg_frsum_delta(uint8_t *buf, const uint32_t *before,
 	const uint32_t *after, uint32_t frags_per_block);
-static int nextufs__allocate_frags_from_free_block_in_group(
+static int nextufs__allocate_frags_in_group(
 	const struct nextufs_image *img, unsigned cg, uint32_t frags_needed,
 	uint32_t *frag_out);
 
@@ -212,7 +212,7 @@ nextufs__apply_cg_frsum_delta(uint8_t *buf, const uint32_t *before,
 }
 
 static int
-nextufs__allocate_frags_from_free_block_in_group(const struct nextufs_image *img,
+nextufs__allocate_frags_in_group(const struct nextufs_image *img,
     unsigned cg, uint32_t frags_needed, uint32_t *frag_out)
 {
 	uint8_t *buf;
@@ -221,6 +221,7 @@ nextufs__allocate_frags_from_free_block_in_group(const struct nextufs_image *img
 	uint32_t local_frag;
 	uint32_t now;
 	uint32_t free_frags;
+	uint32_t limit;
 	int rc;
 
 	if (frags_needed == 0 || frags_needed > img->sb.frags_per_block)
@@ -239,12 +240,60 @@ nextufs__allocate_frags_from_free_block_in_group(const struct nextufs_image *img
 		free(buf);
 		return -EINVAL;
 	}
+	limit = nextufs__read_be32(buf + 20); /* cg_ndblk: actual fragments in this group */
+	if (limit > img->sb.frags_per_group ||
+	    (uint64_t)cg * img->sb.frags_per_group + limit > img->sb.frag_count ||
+	    CG_FREE_OFF + (limit + 7U) / 8U > img->sb.cg_size) {
+		free(buf);
+		return -EINVAL;
+	}
+	/* Reuse a partial block before splitting another whole block. This must
+	 * also work when cs_nbfree is zero but free fragments remain. */
+	if (frags_needed < img->sb.frags_per_block &&
+	    nextufs__read_be32(buf + CG_CS_NFFREE_OFF) >= frags_needed) {
+		for (local_frag = 0; local_frag < limit;
+		    local_frag += img->sb.frags_per_block) {
+			uint32_t end = local_frag + img->sb.frags_per_block;
+			uint32_t start;
+			uint32_t before[9], after[9];
+
+			if (end > limit)
+				end = limit;
+			if (end - local_frag == img->sb.frags_per_block &&
+			    nextufs__block_is_free(buf + CG_FREE_OFF, local_frag,
+			    img->sb.frags_per_block))
+				continue;
+			for (start = local_frag; start + frags_needed <= end; start++) {
+				if (!nextufs__set_run_bits(buf + CG_FREE_OFF, start, frags_needed))
+					continue;
+				nextufs__count_free_runs_in_block(buf + CG_FREE_OFF, local_frag,
+				    img->sb.frags_per_block, before);
+				nextufs__clear_block_bits(buf + CG_FREE_OFF, start, frags_needed);
+				nextufs__count_free_runs_in_block(buf + CG_FREE_OFF, local_frag,
+				    img->sb.frags_per_block, after);
+				nextufs__apply_cg_frsum_delta(buf, before, after, img->sb.frags_per_block);
+				nextufs__write_be32(buf + CG_CS_NFFREE_OFF,
+				    nextufs__read_be32(buf + CG_CS_NFFREE_OFF) - frags_needed);
+				nextufs__write_be32(buf + CG_TIME_OFF, (uint32_t)time(NULL));
+				rc = nextufs__write_exact(img, buf, img->sb.cg_size, cg_off);
+				free(buf);
+				if (rc < 0)
+					return rc;
+				rc = nextufs__update_summary_counts(img, cg, 0, 0, 0,
+				    -(int32_t)frags_needed);
+				if (rc < 0)
+					return rc;
+				*frag_out = cg * img->sb.frags_per_group + start;
+				return 0;
+			}
+		}
+	}
 	if (nextufs__read_be32(buf + CG_CS_NBFREE_OFF) == 0) {
 		free(buf);
 		return -ENOSPC;
 	}
-	for (local_frag = img->sb.data_off;
-	    local_frag + img->sb.frags_per_block <= img->sb.frags_per_group;
+	for (local_frag = 0;
+	    local_frag + img->sb.frags_per_block <= limit;
 	    local_frag += img->sb.frags_per_block) {
 		if (!nextufs__block_is_free(buf + CG_FREE_OFF, local_frag,
 		    img->sb.frags_per_block))
@@ -311,7 +360,7 @@ nextufs__allocate_frags_anycg(const struct nextufs_image *img, unsigned preferre
 
 	for (i = 0; i < img->sb.cg_count; i++) {
 		unsigned cg = (preferred_cg + i) % img->sb.cg_count;
-		int rc = nextufs__allocate_frags_from_free_block_in_group(img, cg,
+		int rc = nextufs__allocate_frags_in_group(img, cg,
 		    frags_needed, frag_out);
 		if (rc == 0)
 			return 0;
@@ -795,7 +844,7 @@ nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 		total_alloc_frags += frags_needed;
 		ino_out->size = ((uint64_t)logical_block * img->sb.block_size) +
 		    chunk_bytes;
-		ino_out->blocks = total_alloc_frags * (img->sb.frag_size / DEV_BSIZE);
+		ino_out->blocks = total_alloc_frags * img->sb.sectors_per_frag;
 		alloc_bytes = (size_t)frags_needed * img->sb.frag_size;
 		block = calloc(1, alloc_bytes);
 		if (block == NULL) {
@@ -812,7 +861,7 @@ nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 		remaining -= chunk_bytes;
 	}
 	ino_out->size = data_len;
-	ino_out->blocks = total_alloc_frags * (img->sb.frag_size / DEV_BSIZE);
+	ino_out->blocks = total_alloc_frags * img->sb.sectors_per_frag;
 	return 0;
 
 fail:

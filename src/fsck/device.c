@@ -99,17 +99,17 @@ fsck_file_close(struct filecntl *fcp)
 }
 
 void
-rwerr(char *s, daddr_t blk)
+rwerr(char *s, ufs_daddr_t blk)
 {
 	if (preen == 0)
 		printf("\n");
-	pfatal("CANNOT %s: BLK %ld", s, blk);
+	pfatal("CANNOT %s: BLK %ld", s, (long)blk);
 	if (reply("CONTINUE") == 0)
 		errexit("Program terminated\n");
 }
 
 int
-bread(struct filecntl *fcp, char *buf, daddr_t blk, long size)
+bread(struct filecntl *fcp, char *buf, ufs_daddr_t blk, long size)
 {
 	char *cp;
 	int i, errs;
@@ -134,7 +134,7 @@ bread(struct filecntl *fcp, char *buf, daddr_t blk, long size)
 }
 
 void
-bwrite(struct filecntl *fcp, char *buf, daddr_t blk, int size)
+bwrite(struct filecntl *fcp, char *buf, ufs_daddr_t blk, int size)
 {
 	int i;
 	char *cp;
@@ -156,6 +156,7 @@ bwrite(struct filecntl *fcp, char *buf, daddr_t blk, int size)
 	printf("\n");
 }
 
+#if NEXTUFS_FSCK_HOST_MOUNTS
 int
 mounted(char *name)
 {
@@ -211,6 +212,7 @@ is_mounted_on(char *dir, char *dev)
 		return (0);
 	return (device_stat.st_rdev == mount_stat.st_dev);
 }
+#endif
 
 void *
 xmalloc(unsigned long size)
@@ -222,6 +224,7 @@ xmalloc(unsigned long size)
 	return (ret);
 }
 
+#if NEXTUFS_FSCK_HOST_MOUNTS
 struct mntent *
 mntdup(struct mntent *mnt)
 {
@@ -245,3 +248,4 @@ mntdup(struct mntent *mnt)
 	new->mnt_passno = mnt->mnt_passno;
 	return (new);
 }
+#endif
