@@ -121,7 +121,9 @@ an existing target is intentional:
 nextufs mkimg --force-overwrite /tmp/nextufs.img 256M
 ```
 
-Grow a supported image offline. Bare numbers are interpreted as 1 KiB sectors:
+Grow a supported image offline, including partial cylinder groups. Targets must
+leave room for any new cylinder group metadata. Bare numbers are interpreted as
+1 KiB sectors:
 
 ```sh
 nextufs resize grow /path/to/source 2097152

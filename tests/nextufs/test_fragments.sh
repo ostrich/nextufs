@@ -16,6 +16,7 @@ done
 for fragment in 1024 2048 4096; do
 	image="$WORK/geometry-$fragment.raw"
 	"$NEXTUFS" mkimg --raw --force-overwrite "$image" 1M 32 4 8192 "$fragment" >/dev/null
+	"$NEXTUFS" resize grow "$image" "$((1024 + fragment / 1024))" >/dev/null
 	"$NEXTUFS_TEST" --fragments geometry "$image"
 done
 

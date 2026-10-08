@@ -129,6 +129,24 @@ cgdmin(const struct nextufs_image *img, uint32_t cg)
 	return cgstart(img, cg) + img->sb.data_off;
 }
 
+/* Callers only pass groups that intersect the target filesystem. */
+static uint32_t
+cg_frag_count(const struct nextufs_image *img, uint32_t cg, uint64_t fs_frags)
+{
+	uint64_t remaining = fs_frags - (uint64_t)cg * img->sb.frags_per_group;
+
+	return remaining < img->sb.frags_per_group ?
+	    (uint32_t)remaining : img->sb.frags_per_group;
+}
+
+static uint16_t
+cg_cylinder_count(const struct nextufs_image *img, uint32_t cg,
+    uint32_t ncg, uint32_t ncyl)
+{
+	/* The legacy formatter stores zero for a full final group. */
+	return (uint16_t)(cg == ncg - 1U ? ncyl % img->sb.cpg : img->sb.cpg);
+}
+
 static uint32_t
 cbtocylno(const struct nextufs_image *img, uint32_t cg_local_frag)
 {
@@ -210,37 +228,62 @@ count_free_bits(const uint8_t *free_map, uint32_t start, uint32_t count)
 	return total;
 }
 
-static void
-set_block_free(struct nextufs_image *img, uint8_t *cg_buf, uint32_t local_frag,
-    int32_t *nbfree)
-{
-	uint32_t bit;
-	uint32_t cylno;
-	uint32_t rotpos;
-	uint8_t *btotp;
-	uint8_t *bposp;
-
-	for (bit = 0; bit < img->sb.frags_per_block; bit++)
-		set_frag_bit(cg_buf + CG_FREE_OFF, local_frag + bit);
-	(*nbfree)++;
-	cylno = cbtocylno(img, local_frag);
-	rotpos = cbtorpos(img, local_frag);
-	if (cylno < 32U && rotpos < NRPOS) {
-		btotp = cg_buf + CG_BTOT_OFF + (cylno * 4U);
-		bposp = cg_buf + CG_BPOS_OFF + ((cylno * NRPOS + rotpos) * 2U);
-		nextufs__write_be32(btotp, nextufs__read_be32(btotp) + 1U);
-		nextufs__write_be16(bposp,
-		    (uint16_t)(nextufs__read_be16(bposp) + 1U));
-	}
-}
-
 static int
-ranges_overlap(uint32_t a_start, uint32_t a_len, uint32_t b_start, uint32_t b_len)
+add_free_frag_range(struct nextufs_image *img, uint8_t *cg_buf,
+    uint32_t start, uint32_t end, int32_t *d_nbfree_out,
+    int32_t *d_nffree_out)
 {
-	uint32_t a_end = a_start + a_len;
-	uint32_t b_end = b_start + b_len;
+	uint8_t *free_map = cg_buf + CG_FREE_OFF;
+	uint32_t frags = img->sb.frags_per_block;
+	int32_t d_nbfree = 0;
+	int32_t d_nffree = 0;
 
-	return a_start < b_end && b_start < a_end;
+	if (start > end || end > img->sb.frags_per_group)
+		return -EINVAL;
+	if (frags == 0 || frags > 8U)
+		return -ENOTSUP;
+
+	while (start < end) {
+		uint32_t block_base = start - (start % frags);
+		uint32_t block_end = block_base + frags;
+		uint32_t add_end = end < block_end ? end : block_end;
+		uint32_t before_runs[9];
+		uint32_t after_runs[9];
+		uint32_t i;
+
+		count_free_runs_in_block(free_map, block_base, frags, before_runs);
+		for (i = start; i < add_end; i++) {
+			if (frag_bit_is_set(free_map, i))
+				return -EINVAL;
+			set_frag_bit(free_map, i);
+		}
+		count_free_runs_in_block(free_map, block_base, frags, after_runs);
+		apply_frsum_delta(cg_buf, before_runs, after_runs, frags);
+
+		d_nffree += (int32_t)(add_end - start);
+		if (count_free_bits(free_map, block_base, frags) == frags) {
+			uint32_t cylno = cbtocylno(img, block_base);
+			uint32_t rotpos = cbtorpos(img, block_base);
+
+			/* Reclassify the completed block, including its old free fragments. */
+			d_nbfree++;
+			d_nffree -= (int32_t)frags;
+			if (cylno < 32U && rotpos < NRPOS) {
+				uint8_t *btotp = cg_buf + CG_BTOT_OFF + (cylno * 4U);
+				uint8_t *bposp = cg_buf + CG_BPOS_OFF +
+				    ((cylno * NRPOS + rotpos) * 2U);
+
+				nextufs__write_be32(btotp,
+				    nextufs__read_be32(btotp) + 1U);
+				nextufs__write_be16(bposp,
+				    (uint16_t)(nextufs__read_be16(bposp) + 1U));
+			}
+		}
+		start = add_end;
+	}
+	*d_nbfree_out = d_nbfree;
+	*d_nffree_out = d_nffree;
+	return 0;
 }
 
 static int
@@ -539,55 +582,44 @@ patch_label_partition_size(const struct nextufs_image *img, uint64_t slice_bytes
 
 static int
 build_new_cg(struct nextufs_image *img, uint32_t cg, uint16_t ncyl,
-    uint32_t reserved_start, uint32_t reserved_frags, uint8_t *cg_buf,
+    uint32_t ndblk, uint8_t *cg_buf,
     int32_t *nbfree_out, int32_t *nifree_out, int32_t *nffree_out)
 {
 	uint64_t cbase;
-	uint64_t dmax;
 	uint32_t dlower;
 	uint32_t dupper;
-	uint32_t d;
 	int32_t nbfree;
 	int32_t nffree;
+	int32_t range_nbfree;
+	int32_t range_nffree;
+	int rc;
 
 	memset(cg_buf, 0, img->sb.cg_size);
 	cbase = (uint64_t)img->sb.frags_per_group * cg;
-	dmax = cbase + img->sb.frags_per_group;
 	dlower = (uint32_t)(cgsblock(img, cg) - cbase);
 	dupper = (uint32_t)(cgdmin(img, cg) - cbase);
-	nbfree = 0;
-	nffree = 0;
+	if (ndblk > img->sb.frags_per_group || ndblk < dupper)
+		return -ENOSPC;
 
 	nextufs__write_be32(cg_buf + CG_TIME_OFF, (uint32_t)time(NULL));
 	nextufs__write_be32(cg_buf + CG_CGX_OFF, cg);
 	nextufs__write_be16(cg_buf + CG_NCYL_OFF, ncyl);
 	nextufs__write_be16(cg_buf + CG_NIBLK_OFF,
 	    (uint16_t)img->sb.inodes_per_group);
-	nextufs__write_be32(cg_buf + CG_NDBLK_OFF, (uint32_t)(dmax - cbase));
+	nextufs__write_be32(cg_buf + CG_NDBLK_OFF, ndblk);
 	nextufs__write_be32(cg_buf + CG_IROTOR_OFF, 0);
 	nextufs__write_be32(cg_buf + CG_MAGIC_OFF, CG_MAGIC);
 
-	for (d = 0; d < dlower; d += img->sb.frags_per_block)
-		set_block_free(img, cg_buf, d, &nbfree);
-	for (d = dupper; d + img->sb.frags_per_block <= img->sb.frags_per_group;
-	    d += img->sb.frags_per_block) {
-		if (reserved_frags != 0 && ranges_overlap(d,
-		    img->sb.frags_per_block, reserved_start, reserved_frags))
-			continue;
-		set_block_free(img, cg_buf, d, &nbfree);
-	}
-	if (d < img->sb.frags_per_group) {
-		uint32_t run = img->sb.frags_per_group - d;
-		uint32_t bit;
-
-		if (reserved_frags != 0 && ranges_overlap(d, run, reserved_start,
-		    reserved_frags))
-			return -ENOTSUP;
-		for (bit = 0; bit < run; bit++)
-			set_frag_bit(cg_buf + CG_FREE_OFF, d + bit);
-		nffree += (int32_t)run;
-		nextufs__write_be32(cg_buf + 52U + (run * 4U), 1U);
-	}
+	rc = add_free_frag_range(img, cg_buf, 0, dlower,
+	    &nbfree, &nffree);
+	if (rc < 0)
+		return rc;
+	rc = add_free_frag_range(img, cg_buf, dupper, ndblk,
+	    &range_nbfree, &range_nffree);
+	if (rc < 0)
+		return rc;
+	nbfree += range_nbfree;
+	nffree += range_nffree;
 
 	nextufs__write_be32(cg_buf + CG_CS_NBFREE_OFF, (uint32_t)nbfree);
 	nextufs__write_be32(cg_buf + CG_CS_NIFREE_OFF, img->sb.inodes_per_group);
@@ -599,64 +631,45 @@ build_new_cg(struct nextufs_image *img, uint32_t cg, uint16_t ncyl,
 }
 
 static int
-patch_cg_ncyl(struct nextufs_image *img, uint32_t cg, uint16_t ncyl)
+expand_old_last_cg(struct nextufs_image *img, uint32_t cg, uint64_t old_frags,
+    uint64_t target_frags, uint16_t ncyl, int32_t *nbfree_out,
+    int32_t *nffree_out, uint32_t *dsize_out)
 {
 	uint8_t *cg_buf;
+	uint64_t cbase;
+	uint32_t start;
+	uint32_t end;
+	int32_t nbfree;
+	int32_t nffree;
 	int rc;
 
+	cbase = (uint64_t)img->sb.frags_per_group * cg;
+	if (old_frags <= cbase || old_frags > cbase + img->sb.frags_per_group ||
+	    target_frags < old_frags) {
+		return -EINVAL;
+	}
+	start = (uint32_t)(old_frags - cbase);
+	end = cg_frag_count(img, cg, target_frags);
 	cg_buf = malloc(img->sb.cg_size);
 	if (cg_buf == NULL)
 		return -ENOMEM;
 	rc = nextufs_image_pread(img, cg_buf, img->sb.cg_size,
 	    (off_t)(cgtod(img, cg) * img->sb.frag_size));
+	if (rc < 0) {
+		free(cg_buf);
+		return rc;
+	}
+	rc = add_free_frag_range(img, cg_buf, start, end, &nbfree, &nffree);
 	if (rc < 0) {
 		free(cg_buf);
 		return rc;
 	}
 	nextufs__write_be16(cg_buf + CG_NCYL_OFF, ncyl);
-	rc = nextufs_image_pwrite(img, cg_buf, img->sb.cg_size,
-	    (off_t)(cgtod(img, cg) * img->sb.frag_size));
-	free(cg_buf);
-	return rc;
-}
-
-static int
-expand_old_last_cg(struct nextufs_image *img, uint32_t cg, uint64_t old_frags,
-    int32_t *nbfree_out, uint32_t *dsize_out)
-{
-	uint8_t *cg_buf;
-	uint64_t cbase;
-	uint32_t start;
-	uint32_t d;
-	int32_t nbfree;
-	int rc;
-
-	cbase = (uint64_t)img->sb.frags_per_group * cg;
-	if (old_frags <= cbase || old_frags >= cbase + img->sb.frags_per_group) {
-		*nbfree_out = 0;
-		*dsize_out = 0;
-		return patch_cg_ncyl(img, cg, (uint16_t)img->sb.cpg);
-	}
-	start = (uint32_t)(old_frags - cbase);
-	if ((start % img->sb.frags_per_block) != 0)
-		return -ENOTSUP;
-	cg_buf = malloc(img->sb.cg_size);
-	if (cg_buf == NULL)
-		return -ENOMEM;
-	rc = nextufs_image_pread(img, cg_buf, img->sb.cg_size,
-	    (off_t)(cgtod(img, cg) * img->sb.frag_size));
-	if (rc < 0) {
-		free(cg_buf);
-		return rc;
-	}
-	nbfree = 0;
-	nextufs__write_be16(cg_buf + CG_NCYL_OFF, (uint16_t)img->sb.cpg);
-	nextufs__write_be32(cg_buf + CG_NDBLK_OFF, img->sb.frags_per_group);
-	for (d = start; d + img->sb.frags_per_block <= img->sb.frags_per_group;
-	    d += img->sb.frags_per_block)
-		set_block_free(img, cg_buf, d, &nbfree);
+	nextufs__write_be32(cg_buf + CG_NDBLK_OFF, end);
 	nextufs__write_be32(cg_buf + CG_CS_NBFREE_OFF,
 	    nextufs__read_be32(cg_buf + CG_CS_NBFREE_OFF) + (uint32_t)nbfree);
+	nextufs__write_be32(cg_buf + CG_CS_NFFREE_OFF,
+	    nextufs__read_be32(cg_buf + CG_CS_NFFREE_OFF) + (uint32_t)nffree);
 	nextufs__write_be32(cg_buf + CG_TIME_OFF, (uint32_t)time(NULL));
 	rc = nextufs_image_pwrite(img, cg_buf, img->sb.cg_size,
 	    (off_t)(cgtod(img, cg) * img->sb.frag_size));
@@ -670,7 +683,8 @@ expand_old_last_cg(struct nextufs_image *img, uint32_t cg, uint64_t old_frags,
 	if (rc < 0)
 		return rc;
 	*nbfree_out = nbfree;
-	*dsize_out = img->sb.frags_per_group - start;
+	*nffree_out = nffree;
+	*dsize_out = end - start;
 	return 0;
 }
 
@@ -760,6 +774,7 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	uint64_t target_backing_bytes;
 	uint64_t target_frags;
 	uint64_t new_ncg64;
+	uint64_t new_ncyl64;
 	uint64_t new_cssize64;
 	uint32_t new_ncg;
 	uint32_t new_ncyl;
@@ -825,15 +840,22 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		return 1;
 	}
 	target_frags = target_slice_bytes / img->sb.frag_size;
-	if ((target_frags % img->sb.frags_per_group) != 0) {
-		fprintf(stderr,
-		    "nextufs resize: initial grow support requires whole cylinder groups\n");
+	if (target_frags > UINT32_MAX) {
+		fprintf(stderr, "nextufs resize: target filesystem is too large\n");
 		nextufs_image_close(img);
 		return 1;
 	}
-	new_ncg64 = target_frags / img->sb.frags_per_group;
-	if (new_ncg64 <= img->sb.cg_count || new_ncg64 > UINT32_MAX) {
+	new_ncg64 = (target_frags + img->sb.frags_per_group - 1U) /
+	    img->sb.frags_per_group;
+	if (new_ncg64 < img->sb.cg_count || new_ncg64 > UINT32_MAX) {
 		fprintf(stderr, "nextufs resize: invalid target cylinder-group count\n");
+		nextufs_image_close(img);
+		return 1;
+	}
+	new_ncyl64 = ((target_frags * img->sb.cpg) +
+	    img->sb.frags_per_group - 1U) / img->sb.frags_per_group;
+	if (new_ncyl64 == 0 || new_ncyl64 > UINT32_MAX) {
+		fprintf(stderr, "nextufs resize: invalid target cylinder count\n");
 		nextufs_image_close(img);
 		return 1;
 	}
@@ -846,7 +868,20 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	}
 
 	new_ncg = (uint32_t)new_ncg64;
-	new_ncyl = new_ncg * img->sb.cpg;
+	new_ncyl = (uint32_t)new_ncyl64;
+	for (cg = img->sb.cg_count; cg < new_ncg; cg++) {
+		uint64_t cg_base = (uint64_t)img->sb.frags_per_group * cg;
+		uint32_t cg_ndblk = cg_frag_count(img, cg, target_frags);
+		uint32_t cg_dupper = (uint32_t)(cgdmin(img, cg) - cg_base);
+
+		if (cg_ndblk < cg_dupper) {
+			fprintf(stderr,
+			    "nextufs resize: target ends before metadata for cylinder group %u\n",
+			    cg);
+			nextufs_image_close(img);
+			return 1;
+		}
+	}
 	new_cssize = (uint32_t)new_cssize64;
 	new_csum_addr = img->sb.cyl_summary_addr;
 	if (new_cssize > img->sb.csum_size) {
@@ -918,12 +953,19 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	}
 	{
 		int32_t old_tail_nbfree;
+		int32_t old_tail_nffree;
 		uint32_t old_tail_dsize;
+		uint32_t old_last_cg = img->sb.cg_count - 1U;
+		uint16_t old_last_ncyl;
 
-		rc = expand_old_last_cg(img, img->sb.cg_count - 1U,
-		    img->sb.frag_count, &old_tail_nbfree, &old_tail_dsize);
+		old_last_ncyl = cg_cylinder_count(img, old_last_cg, new_ncg, new_ncyl);
+
+		rc = expand_old_last_cg(img, old_last_cg,
+		    img->sb.frag_count, target_frags, old_last_ncyl,
+		    &old_tail_nbfree, &old_tail_nffree, &old_tail_dsize);
 		if (rc == 0) {
 			add_nbfree += old_tail_nbfree;
+			add_nffree += old_tail_nffree;
 			new_dsize += old_tail_dsize;
 		}
 	}
@@ -968,10 +1010,15 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		int32_t cg_nifree;
 		int32_t cg_nffree;
 		uint16_t cg_ncyl;
+		uint64_t cg_base;
+		uint32_t cg_ndblk;
+		uint32_t cg_dlower;
+		uint32_t cg_dupper;
 
-		cg_ncyl = cg == new_ncg - 1U ?
-		    (uint16_t)(new_ncyl % img->sb.cpg) : (uint16_t)img->sb.cpg;
-		rc = build_new_cg(img, cg, cg_ncyl, 0, 0,
+		cg_base = (uint64_t)img->sb.frags_per_group * cg;
+		cg_ndblk = cg_frag_count(img, cg, target_frags);
+		cg_ncyl = cg_cylinder_count(img, cg, new_ncg, new_ncyl);
+		rc = build_new_cg(img, cg, cg_ncyl, cg_ndblk,
 		    cg_buf, &cg_nbfree, &cg_nifree, &cg_nffree);
 		if (rc < 0) {
 			fprintf(stderr, "nextufs resize: failed to build cg %u: %d\n",
@@ -1001,11 +1048,9 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 			    cg, rc);
 			goto fail;
 		}
-		new_dsize += (uint32_t)(cgsblock(img, cg) -
-		    ((uint64_t)img->sb.frags_per_group * cg));
-		new_dsize += img->sb.frags_per_group -
-		    (uint32_t)(cgdmin(img, cg) -
-		    ((uint64_t)img->sb.frags_per_group * cg));
+		cg_dlower = (uint32_t)(cgsblock(img, cg) - cg_base);
+		cg_dupper = (uint32_t)(cgdmin(img, cg) - cg_base);
+		new_dsize += cg_dlower + (cg_ndblk - cg_dupper);
 		add_nbfree += cg_nbfree;
 		add_nifree += cg_nifree;
 		add_nffree += cg_nffree;

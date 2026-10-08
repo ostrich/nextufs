@@ -183,6 +183,8 @@ test_fragments(const char *scenario, const char *image)
 			check_file(image, path, (size_t)i * before.frag_size - 7);
 		}
 	} else if (strcmp(scenario, "geometry") == 0) {
+		if (before.frag_count % before.frags_per_block != 1)
+			fail("expected a partial final block after growth");
 		put_file(image, "/first", 1);
 		put_file(image, "/second", before.frag_size + 1);
 		check_result(nextufs_path_mkdir(&write_ctx, image, "/directory", 0755), "mkdir");
