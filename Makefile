@@ -1,3 +1,4 @@
+.DEFAULT_GOAL := all
 CC = cc
 prefix ?= /usr/local
 bindir ?= $(prefix)/bin
@@ -14,13 +15,26 @@ FSCK_CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 \
 	-Isrc/fsck/include -Iinclude
 SCRATCH_DIR = $(CURDIR)/.scratch
 BUILD_DIR = build
-OBJ_DIR = $(BUILD_DIR)/obj
+WITH_FUSE ?= 1
+ifeq ($(filter $(WITH_FUSE),0 1),)
+$(error WITH_FUSE must be 0 or 1)
+endif
+OBJ_DIR = $(BUILD_DIR)/obj/fuse-$(WITH_FUSE)
 export TMPDIR = $(SCRATCH_DIR)
 TEST_IMAGE ?= .scratch/openstep42-base.raw
 FSCK_BIN = ./nextufs fsck
 MKIMG_BIN = ./nextufs mkimg
+ifeq ($(WITH_FUSE),1)
 FUSE_CFLAGS := $(shell pkg-config --cflags fuse3)
 FUSE_LIBS := $(shell pkg-config --libs fuse3)
+MOUNT_SRC = src/commands/mount.c
+FUSE_TEST = ./tests/nextufs/test_fuse.sh $(TEST_IMAGE)
+else
+FUSE_CFLAGS =
+FUSE_LIBS =
+MOUNT_SRC = src/commands/mount_stub.c
+FUSE_TEST = sh tests/nextufs/test_offline.sh
+endif
 LIB_SRCS = src/core/image.c src/core/directory.c src/core/path.c src/core/node.c \
 	src/core/layout.c src/core/alloc.c src/core/label.c src/core/size.c \
 	src/core/source.c src/core/info.c src/core/report.c
@@ -29,7 +43,7 @@ LIB = $(BUILD_DIR)/libnextufs.a
 WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c
 WRITE_OBJS = $(WRITE_SRCS:%.c=$(OBJ_DIR)/%.o)
 WRITE_LIB = $(BUILD_DIR)/libnextufs_mutate.a
-COMMAND_SRCS = src/commands/main.c src/commands/mount.c \
+COMMAND_SRCS = src/commands/main.c $(MOUNT_SRC) \
 	src/commands/info.c src/commands/browse.c src/commands/fsck.c \
 	src/commands/mkfile.c src/commands/mkimg.c src/commands/resize.c
 COMMAND_OBJS = $(COMMAND_SRCS:%.c=$(OBJ_DIR)/%.o)
@@ -60,18 +74,19 @@ TEST_TARGETS = test test-nextufs test-cli-contract test-fragments test-fsck-imag
 REPAIR_TARGETS = repair-tools repair-corpus repair-lab repair-smoke \
 	repair-repair-all
 
-.PHONY: $(BUILD_TARGETS) $(TEST_TARGETS) $(REPAIR_TARGETS)
+.PHONY: $(BUILD_TARGETS) $(TEST_TARGETS) $(REPAIR_TARGETS) FORCE
+FORCE:
 
 all: scratch-dir $(LIB) $(WRITE_LIB) nextufs nextufs_test
 
 scratch-dir:
 	mkdir -p $(SCRATCH_DIR)
 
-$(LIB): $(LIB_OBJS)
+$(LIB): $(LIB_OBJS) FORCE
 	@mkdir -p $(@D)
 	ar rcs $@ $(LIB_OBJS)
 
-$(WRITE_LIB): $(WRITE_OBJS)
+$(WRITE_LIB): $(WRITE_OBJS) FORCE
 	@mkdir -p $(@D)
 	ar rcs $@ $(WRITE_OBJS)
 
@@ -135,7 +150,7 @@ test-nextufs: all test-mkimg test-resize test-cli-contract test-fragments test-f
 	./nextufs fsck -n $(TEST_IMAGE) >/dev/null
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
-	./tests/nextufs/test_fuse.sh $(TEST_IMAGE)
+	$(FUSE_TEST)
 
 test-cli-contract: all
 	sh tests/nextufs/test_cli_contract.sh $(SCRATCH_DIR)

@@ -41,6 +41,18 @@ Build the command:
 make
 ```
 
+Build without FUSE for offline image operations:
+
+```sh
+make WITH_FUSE=0
+make WITH_FUSE=0 test
+```
+
+The default `WITH_FUSE=1` build includes mounting. Offline builds keep all image
+commands, including fsck, but `mount` returns status 2. Switching modes rebuilds
+the selected libraries and command; no clean step is required. FUSE-specific test
+targets require `WITH_FUSE=1`.
+
 Run the main test suite:
 
 ```sh
