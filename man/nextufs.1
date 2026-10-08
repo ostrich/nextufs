@@ -9,7 +9,7 @@
 nextufs [-h|--help]
 nextufs --version
 nextufs info [--json] <source>
-nextufs browse <source> [path]
+nextufs browse [--raw|--json] <source> [path]
 nextufs mount <source> <mountpoint> [fuse options ...]
 nextufs fsck [-n|-N|-y|-Y] [-p] [-P] [-b block] [-d] <source> [...]
 nextufs mkimg [options] <target> <size> [raw-geometry-args...]
@@ -27,6 +27,8 @@ UFS filesystems.
 It uses a single public command with subcommands for source inspection,
 filesystem browsing, FUSE mounting, metadata checking and repair, image
 creation, offline growth, and offline file mutation.
+A build made with WITH_FUSE=0 retains image operations but returns status 2
+for mount requests.
 .Pp
 .Nm
 understands raw UFS filesystem images, labeled NeXT disk images, standalone
@@ -66,7 +68,7 @@ information as the text report.
 .El
 .Ss browse
 .Bd -literal -offset indent
-nextufs browse <source> [path]
+nextufs browse [--raw|--json] <source> [path]
 .Ed
 .Pp
 Browse a filesystem without mounting it.
@@ -78,6 +80,24 @@ With
 also resolves that path and prints inode information.
 Directory targets are listed, symbolic links show their target, and regular
 files include a short data preview.
+.Bl -tag -width Ds
+.It Fl -raw
+Emit only the contents of the regular file named by
+.Ar path .
+.It Fl -json
+Emit a JSON array of metadata objects with no headings or previews.
+Each object has the fields inode, mode (including file type), uid, gid,
+size (bytes), atime, mtime (Unix seconds), and name.
+All numeric fields, including mode, are decimal integers.
+Names use JSON string escaping and are expected to be UTF-8.
+The first object describes the requested path and uses the name
+.Sq . .
+For a directory, subsequent objects describe immediate children,
+excluding the dot and dot-dot entries.
+The final path component and child symbolic links are not followed.
+Intermediate path components are resolved normally.
+Diagnostics go to standard error; on nonzero exit, discard any partial output.
+.El
 .Ss mount
 .Bd -literal -offset indent
 nextufs mount <source> <mountpoint> [fuse options]

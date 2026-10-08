@@ -65,7 +65,7 @@ PUBLIC_HDRS = include/nextufs_image.h include/nextufs_node.h \
 INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
 
 BUILD_TARGETS = all scratch-dir clean install uninstall
-TEST_TARGETS = test test-nextufs test-cli-contract test-fragments test-fsck-images test-fsck test-mkimg \
+TEST_TARGETS = test test-nextufs test-cli-contract test-browse test-fragments test-fsck-images test-fsck test-mkimg \
 	test-resize test-write test-write-big test-write-grow test-unlink \
 	test-mkdir test-rewrite test-link-symlink test-rmdir test-meta \
 	test-rename test-truncate test-special test-fuse-write test-permissions \
@@ -135,7 +135,7 @@ $(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
 
 test: test-nextufs repair-smoke
 
-test-nextufs: all test-mkimg test-resize test-cli-contract test-fragments test-fsck-images
+test-nextufs: all test-mkimg test-resize test-cli-contract test-browse test-fragments test-fsck-images
 	./nextufs --help >/dev/null
 	./nextufs --version >/dev/null
 	./nextufs info --help >/dev/null
@@ -151,6 +151,9 @@ test-nextufs: all test-mkimg test-resize test-cli-contract test-fragments test-f
 	./nextufs mkimg --dry-run $(SCRATCH_DIR)/nextufs-cli-mkimg.img 64M >/dev/null
 	./nextufs_test $(TEST_IMAGE)
 	$(FUSE_TEST)
+
+test-browse: all
+	sh tests/nextufs/test_browse.sh "$(SCRATCH_DIR)"
 
 test-cli-contract: all
 	sh tests/nextufs/test_cli_contract.sh $(SCRATCH_DIR)
@@ -266,8 +269,8 @@ test-unlink: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-unlink.raw
 	./nextufs mkfile $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test 'unlink me'
 	./nextufs mkfile --unlink $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test
-	./nextufs browse $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_browse.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-unlink-test' failed" $(SCRATCH_DIR)/nextufs_unlink_browse.out
+	! ./nextufs browse $(SCRATCH_DIR)/nextufs-unlink.raw /private/tmp/nextufs-unlink-test >$(SCRATCH_DIR)/nextufs_unlink_browse.out 2>&1
+	grep -F "nextufs browse: lookup path /private/tmp/nextufs-unlink-test: No such file or directory" $(SCRATCH_DIR)/nextufs_unlink_browse.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-unlink-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-unlink.raw $(SCRATCH_DIR)/nextufs-unlink-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_unlink_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -349,8 +352,8 @@ test-rmdir: all
 	cp --reflink=auto $(TEST_IMAGE) $(SCRATCH_DIR)/nextufs-rmdir.raw
 	./nextufs mkfile --mkdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
 	./nextufs mkfile --rmdir $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test
-	./nextufs browse $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_browse.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-rmdir-test' failed" $(SCRATCH_DIR)/nextufs_rmdir_browse.out
+	! ./nextufs browse $(SCRATCH_DIR)/nextufs-rmdir.raw /private/tmp/nextufs-rmdir-test >$(SCRATCH_DIR)/nextufs_rmdir_browse.out 2>&1
+	grep -F "nextufs browse: lookup path /private/tmp/nextufs-rmdir-test: No such file or directory" $(SCRATCH_DIR)/nextufs_rmdir_browse.out
 	mkdir -p $(SCRATCH_DIR)/nextufs-rmdir-mnt
 	./nextufs mount $(SCRATCH_DIR)/nextufs-rmdir.raw $(SCRATCH_DIR)/nextufs-rmdir-mnt -o rw -f -s >$(SCRATCH_DIR)/nextufs_rmdir_fuse.log 2>&1 & \
 		pid=$$!; \
@@ -517,8 +520,8 @@ test-permissions: all
 	grep -F 'uid=1000 gid=333' $(SCRATCH_DIR)/nextufs_permissions_browse.out
 	./nextufs browse $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-sticky/victim >$(SCRATCH_DIR)/nextufs_permissions_victim_browse.out
 	grep -F "lookup '/private/tmp/nextufs-sticky/victim':" $(SCRATCH_DIR)/nextufs_permissions_victim_browse.out
-	./nextufs browse $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow >$(SCRATCH_DIR)/nextufs_permissions_overflow_browse.out 2>&1
-	grep -F "lookup '/private/tmp/nextufs-overflow' failed" $(SCRATCH_DIR)/nextufs_permissions_overflow_browse.out
+	! ./nextufs browse $(SCRATCH_DIR)/nextufs-permissions.raw /private/tmp/nextufs-overflow >$(SCRATCH_DIR)/nextufs_permissions_overflow_browse.out 2>&1
+	grep -F "nextufs browse: lookup path /private/tmp/nextufs-overflow: No such file or directory" $(SCRATCH_DIR)/nextufs_permissions_overflow_browse.out
 	dd if=$(SCRATCH_DIR)/nextufs-permissions.raw of=$(SCRATCH_DIR)/nextufs-permissions-a.raw bs=1024 skip=160 count=2096480 status=none
 	$(FSCK_BIN) -n $(SCRATCH_DIR)/nextufs-permissions-a.raw >$(SCRATCH_DIR)/nextufs_permissions_fsck.out
 	grep -F '** Phase 5 - Check Cyl groups' $(SCRATCH_DIR)/nextufs_permissions_fsck.out
@@ -529,8 +532,8 @@ test-failure: all
 	dd if=/dev/zero of=$(SCRATCH_DIR)/nextufs-too-big.bin bs=1000000 count=6 status=none
 	./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /seed $(SCRATCH_DIR)/nextufs-seed.bin
 	if ./nextufs mkfile --from-file $(SCRATCH_DIR)/nextufs-failure.raw /too-big $(SCRATCH_DIR)/nextufs-too-big.bin; then exit 1; fi
-	./nextufs browse $(SCRATCH_DIR)/nextufs-failure.raw /too-big >$(SCRATCH_DIR)/nextufs_failure_too_big_browse.out 2>&1
-	grep -F "lookup '/too-big' failed" $(SCRATCH_DIR)/nextufs_failure_too_big_browse.out
+	! ./nextufs browse $(SCRATCH_DIR)/nextufs-failure.raw /too-big >$(SCRATCH_DIR)/nextufs_failure_too_big_browse.out 2>&1
+	grep -F "nextufs browse: lookup path /too-big: No such file or directory" $(SCRATCH_DIR)/nextufs_failure_too_big_browse.out
 	./nextufs browse $(SCRATCH_DIR)/nextufs-failure.raw /seed >$(SCRATCH_DIR)/nextufs_failure_seed_browse_before.out
 	grep -F 'size=2' $(SCRATCH_DIR)/nextufs_failure_seed_browse_before.out
 	grep -F 'ok' $(SCRATCH_DIR)/nextufs_failure_seed_browse_before.out

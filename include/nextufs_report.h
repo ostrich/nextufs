@@ -15,5 +15,6 @@ void nextufs_report_info_text(FILE *out, const char *source,
 	const struct nextufs_info *info);
 void nextufs_report_info_json(FILE *out, const char *source,
 	const struct nextufs_info *info);
+void nextufs_report_json_string(FILE *out, const char *s, size_t len);
 
 #endif

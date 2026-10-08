@@ -54,8 +54,7 @@ for layout in raw labeled large-fragments cd; do
 	expect_status 0 "$NEXTUFS" fsck -y "$image"
 	grep -F 'FILE SYSTEM WAS MODIFIED' "$WORK/check.log" >/dev/null
 	expect_status 0 "$NEXTUFS" fsck -n "$image"
-	"$NEXTUFS" browse "$image" /alpha > "$WORK/alpha.log"
-	grep -F alpha "$WORK/alpha.log" >/dev/null
+	test "$("$NEXTUFS" browse --raw "$image" /alpha)" = alpha
 	if test "$layout" = cd; then
 		# Repair must not change the original on-disk sector geometry.
 		"$CORRUPT" check-cd-sectors "$image"

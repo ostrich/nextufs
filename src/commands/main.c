@@ -54,6 +54,7 @@ command_usage(FILE *out, const char *cmd)
 {
 	if (strcmp(cmd, "browse") == 0) {
 		fprintf(out, "usage: nextufs browse <source> [path]\n");
+		fprintf(out, "       nextufs browse [--raw|--json] <source> [path]\n");
 		return;
 	}
 	if (strcmp(cmd, "fsck") == 0) {

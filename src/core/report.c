@@ -165,12 +165,14 @@ nextufs_report_info_text(FILE *out, const char *source,
 	report_superblock_text(out, info);
 }
 
-static void
-json_string(FILE *out, const char *s)
+void
+nextufs_report_json_string(FILE *out, const char *s, size_t len)
 {
+	size_t i;
+
 	fputc('"', out);
-	for (; *s != '\0'; s++) {
-		unsigned char c = (unsigned char)*s;
+	for (i = 0; i < len; i++) {
+		unsigned char c = (unsigned char)s[i];
 
 		if (c == '"' || c == '\\')
 			fprintf(out, "\\%c", c);
@@ -194,10 +196,11 @@ nextufs_report_info_json(FILE *out, const char *source,
 {
 	fprintf(out, "{\n");
 	fprintf(out, "  \"source\": ");
-	json_string(out, source);
+	nextufs_report_json_string(out, source, strlen(source));
 	fprintf(out, ",\n");
 	fprintf(out, "  \"source_kind\": ");
-	json_string(out, nextufs_info_source_kind(info));
+	nextufs_report_json_string(out, nextufs_info_source_kind(info),
+	    strlen(nextufs_info_source_kind(info)));
 	fprintf(out, ",\n");
 	fprintf(out, "  \"backing_bytes\": %" PRIu64 ",\n",
 	    info->backing_bytes);
@@ -218,7 +221,7 @@ nextufs_report_info_json(FILE *out, const char *source,
 	    info->used_disk_label ? "true" : "false");
 	fprintf(out, "  \"label\": {\n");
 	fprintf(out, "    \"name\": ");
-	json_string(out, info->label_name);
+	nextufs_report_json_string(out, info->label_name, strlen(info->label_name));
 	fprintf(out, ",\n");
 	fprintf(out, "    \"version\": %" PRIu32 ",\n", info->label_version);
 	fprintf(out, "    \"offset\": %" PRIu64 ",\n", info->label_off);
@@ -228,7 +231,7 @@ nextufs_report_info_json(FILE *out, const char *source,
 	    info->label_front);
 	fprintf(out, "    \"root_partition\": ");
 	if (info->rootpartition)
-		json_string(out, (char []){ info->rootpartition, '\0' });
+		nextufs_report_json_string(out, &info->rootpartition, 1);
 	else
 		fprintf(out, "null");
 	fprintf(out, "\n  },\n");

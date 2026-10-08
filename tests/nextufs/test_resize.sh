@@ -34,8 +34,8 @@ for size in 66561 66562 66563 66564 66565 66566 66567 66568 66569; do
 done
 "$NEXTUFS" info "$WORK/partial.raw" > "$WORK/partial.info"
 grep -F 'filesystem size                68166656 bytes (66569 1K sectors)' "$WORK/partial.info" >/dev/null
-"$NEXTUFS" browse "$WORK/partial.raw" /payload > "$WORK/payload.after"
-grep -F "resize payload" "$WORK/payload.after" >/dev/null
+"$NEXTUFS" browse --raw "$WORK/partial.raw" /payload > "$WORK/payload.after"
+cmp "$WORK/payload" "$WORK/payload.after"
 
 "$NEXTUFS" mkimg --raw --force-overwrite "$WORK/base.raw" 64M >/dev/null
 

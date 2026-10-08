@@ -31,6 +31,7 @@ grep -E '^nextufs [0-9]+\.[0-9]+\.[0-9]+-' "$WORK/version.out" >/dev/null
 grep -F 'usage: nextufs info [--json] <source>' "$WORK/info-help.out" >/dev/null
 "$NEXTUFS" browse --help >"$WORK/browse-help.out"
 grep -F 'usage: nextufs browse <source> [path]' "$WORK/browse-help.out" >/dev/null
+grep -F 'nextufs browse [--raw|--json] <source> [path]' "$WORK/browse-help.out" >/dev/null
 "$NEXTUFS" fsck --help >"$WORK/fsck-help.out"
 grep -F 'usage: nextufs fsck [-n|-y] <source> [...]' "$WORK/fsck-help.out" >/dev/null
 "$NEXTUFS" mkimg --help >"$WORK/mkimg-help.out"
@@ -112,12 +113,27 @@ before="$(cksum "$raw")"
 "$NEXTUFS" info "$raw" >/dev/null
 "$NEXTUFS" info --json "$raw" >/dev/null
 "$NEXTUFS" browse "$raw" / >/dev/null
+"$NEXTUFS" browse --json "$raw" / >"$WORK/browse.json"
 "$NEXTUFS" fsck -n "$raw" >/dev/null
 after="$(cksum "$raw")"
 if [ "$before" != "$after" ]; then
 	echo "read-only command contract modified raw image" >&2
 	exit 1
 fi
+
+python3 - "$WORK/browse.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    entries = json.load(stream)
+assert entries[0]["name"] == "."
+assert entries[0]["inode"] == 2
+assert entries[0]["mode"] & 0o170000 == 0o040000
+assert all(set(entry) == {"inode", "mode", "uid", "gid", "size", "atime", "mtime", "name"}
+           for entry in entries)
+assert all(entry["name"] not in (".", "..") for entry in entries[1:])
+PY
 
 "$NEXTUFS" browse "$labeled" / >"$browse_out"
 grep -F "directory listing for inode 2:" "$browse_out" >/dev/null

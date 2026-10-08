@@ -88,6 +88,8 @@ Browse the filesystem without mounting:
 ```sh
 nextufs browse /path/to/source
 nextufs browse /path/to/source /etc/passwd
+nextufs browse --json /path/to/source /etc
+nextufs browse --raw /path/to/source /etc/passwd > passwd
 ```
 
 Mount through FUSE. Mounts are read-only by default:
