@@ -10,6 +10,28 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 WRAPS = '-Wl,--wrap=pwrite,--wrap=pread,--wrap=fsync,--wrap=ftruncate'
+SANITIZER_FLAGS = ['-O1', '-fsanitize=address,undefined',
+                   '-fno-sanitize-recover=undefined', '-fno-omit-frame-pointer']
+
+
+def check_sanitizer_gate(common, work):
+    """A recovering UBSan diagnostic must never count as a passing command."""
+    from support import run
+
+    source = work / 'sanitizer-gate.c'
+    source.write_text('#include <limits.h>\n'
+                      'int main(void) { volatile int n = INT_MAX; n += 1; return 0; }\n')
+    binary = work / 'sanitizer-gate'
+    subprocess.run([*common, *SANITIZER_FLAGS, source, '-o', binary], check=True)
+    result = subprocess.run([binary], capture_output=True)
+    (work / 'sanitizer-gate.log').write_bytes(result.stdout + result.stderr)
+    if result.returncode == 0 or b'runtime error:' not in result.stderr:
+        raise RuntimeError('deliberate undefined behavior did not fail with a UBSan diagnostic')
+    try:
+        run(binary)
+    except AssertionError:
+        return
+    raise RuntimeError('test command helper swallowed the sanitizer failure')
 
 
 def main():
@@ -26,7 +48,8 @@ def main():
               '-g', '-std=gnu99']
     sources = [ROOT / 'tests/qcow2/backend_probe.c', ROOT / 'tests/qcow2/io_faults.c']
     if args.mode == 'sanitize':
-        command = [*common, '-O1', '-fsanitize=address,undefined', '-fno-omit-frame-pointer',
+        check_sanitizer_gate(common, work)
+        command = [*common, *SANITIZER_FLAGS,
                    '-o', work / 'probe', *sources, *sorted((ROOT / 'src/core').glob('*.c')), WRAPS]
     else:
         subprocess.run([*common, '-O0', '--coverage', '-c', ROOT / 'src/core/qcow2.c',

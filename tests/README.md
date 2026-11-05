@@ -70,7 +70,10 @@ alone never establishes success. Optional reference-comparison tools live under
 
 Instrumentation runs keep their probe and reports under
 `.scratch/instrumentation/`. Sanitizers cover the probe and all `src/core/*.c`;
-the CLI/fsck subprocesses use the normal binary. Coverage instruments
+the CLI/fsck subprocesses use the normal binary. UBSan findings are fatal. Before
+running the suite, the sanitizer command verifies that an intentional overflow
+fails and that the command helper propagates that failure; its diagnostic is
+retained as `sanitizer-gate.log`. Coverage instruments
 `src/core/qcow2.c` in the probe, and writes `coverage.txt` and gcov output. Neither
 command replaces the normal binary. See the [QCOW2 coverage review](qcow2/README.md)
 for what these measurements establish and the remaining coverage gaps.
