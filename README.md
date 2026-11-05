@@ -46,6 +46,28 @@ nextufs fsck -n /path/to/head.qcow2
 nextufs mkfile /path/to/head.qcow2 /example "hello"
 ```
 
+Use the read-only chain helper to locate heads and inspect backing relationships:
+
+```sh
+tools/qcow2_chain.py scan /path/to/images
+tools/qcow2_chain.py trace /path/to/head.qcow2
+tools/qcow2_chain.py scan --json /path/to/images
+```
+
+The helper reads headers directly without QEMU. `scan` finds QCOW2 files by magic
+and reports malformed files with QCOW extensions; referenced parents outside the
+scanned directory are included. `trace` prints the chain from base to the selected
+file. Reports show bases, intermediates, heads, branches, sizes, backing formats,
+and header features rejected by nextufs. Roles describe discovered relationships;
+files outside the scan may contain additional children.
+
+JSON output contains `images`, `errors`, `scope`, and `validation`. Sizes are
+bytes; `physical_size` is the host file length, rather than allocated disk space.
+Missing parents,
+cycles, malformed headers, and chains exceeding 32 files produce status 1 with
+partial results. Unsupported header features are informational notes. This helper
+does not check mapping tables, compressed clusters, refcounts, or UFS integrity.
+
 QCOW2 support is native and works in both FUSE and offline builds. QEMU is needed
 only to run the interoperability tests. Supported images use QCOW2 v2/v3,
 standard L2 tables, 512-byte through 2 MiB clusters, and 16-bit refcounts.
@@ -227,6 +249,7 @@ make test
 make test-nextufs
 make test-fsck
 make test-qcow2
+make test-qcow2-chain
 make repair-repair-all
 ```
 

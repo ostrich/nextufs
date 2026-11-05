@@ -64,6 +64,19 @@ is not reused or compacted. QCOW2 creation and resize are not supported.
 .Pp
 Info output adds source_format (raw, vdi, or qcow2), preserving source_kind,
 and distinguishes physical head file size from virtual disk size.
+.Pp
+The source tree includes a read-only chain discovery helper:
+.Bd -literal -offset indent
+tools/qcow2_chain.py scan [--json] /path/to/images
+tools/qcow2_chain.py trace [--json] /path/to/head.qcow2
+.Ed
+It reports discovered bases, intermediates, heads, branches, sizes, and backing
+paths. Referenced parents outside the scanned directory are included; roles are
+relative to discovered files. Trace output runs from base to selected file.
+Header feature notes do not establish container or filesystem integrity.
+Missing parents, cycles, malformed headers, and excessive chain depth return
+status 1 with partial results. JSON output contains images, errors, scope, and
+validation. QEMU is not required.
 .Sh GLOBAL OPTIONS
 .Bl -tag -width Ds
 .It Fl h , Fl -help
