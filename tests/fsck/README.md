@@ -8,16 +8,19 @@ Goals:
 - use disposable working copies for any mutating `fsck` run
 - support optional comparison against a second checker build
 
+Run `make test-fsck` (also included in `make test`). The image tests cover raw,
+labeled, CD-sector and fragment layouts. `test_corpus.py` generates every case
+fresh, requires non-mutating detection with status 8, repair with status 0, and a
+clean recheck with status 0. No cached output or diagnostic blacklist is used to
+decide whether a test passed. See [the test guide](../README.md) for case selection
+and artifact handling.
+
 Layout:
-- `tools/`: small helper binaries used to generate corruption cases
-- `scripts/`: seed/corpus/workflow scripts
-- `cases/`: per-case notes
-- `MATRIX.md`: coverage matrix of implemented and missing corruption families
-- `cache/`: ignored generated assets
-  - `seeds/`: pristine clean seed images
-  - `corrupt/`: pristine corrupted fixtures
-  - `expected/`: captured checker output
-- `work/`: ignored disposable working copies
+- `tools/`: source for the corruption generator; its binary lives under `build/tests/`.
+- `test_images.sh`, `test_names.py`: image layout and filename regressions.
+- `test_corpus.py`: detection/repair/recheck assertions.
+- `cases/`: committed descriptions of each corruption family.
+- `lab/`: optional tools for comparison with a second checker build.
 
 Current seed:
 - one small raw UFS image created with `nextufs mkimg --raw`
@@ -92,38 +95,24 @@ Current corruption cases:
 - `zero-length-dir`
   - sets `/dir` size to zero
 
-Typical workflow:
+## Optional reference-comparison lab
 
 ```sh
-make repair-lab
-make repair-smoke
-make repair-repair-all
-tests/fsck/scripts/run_case.sh shipped -n bad-block-count
+make test-tools
+tests/fsck/lab/run_case.sh shipped -n bad-block-count
 FSCK_REFERENCE_BIN=/path/to/reference-fsck \
-  tests/fsck/scripts/compare_case.sh -n bad-block-count
+  tests/fsck/lab/compare_case.sh -n bad-block-count
 FSCK_REFERENCE_BIN=/path/to/reference-fsck \
-  tests/fsck/scripts/compare_all_cases.sh -n
+  tests/fsck/lab/compare_all_cases.sh -n
 ```
 
-The scripts always:
-1. ensure the clean seed exists
-2. ensure the pristine corrupted fixture exists
-3. copy the fixture into `work/`
-4. run the selected checker on the working copy
+`run_case.sh` returns the checker's actual status, so detecting corruption with
+`-n` normally returns 8. Comparison checks both status and normalized output.
+Each invocation creates a fresh `.scratch/fsck-lab/run-*/` directory and generates
+its fixtures there. Set `FSCK_LAB_DIR` only to intentionally share one investigation's
+artifacts. The scripts require already-built programs and never invoke Make.
+`CORRUPT` can select another built corruption generator.
 
-This keeps the corpus immutable while still allowing repair-mode runs.
-
-Current limitations:
-- the `lostfound-*` fixtures are not yet clean single-purpose cases
-  - they still trigger enough surrounding fallout that they do not yet isolate
-    the exact `lost+found` create/reallocate repair paths cleanly
-- another fsck binary can be used as a detection comparison target
-  for the cached swapped-image corpus under `-n`
-  - set `FSCK_REFERENCE_BIN` when running the comparison scripts
-- `nextufs fsck` supports swapped-image writeback and can be used for
-  real repair runs on the cached corpus
-  - representative `-y` cases repair successfully
-  - `repair-repair-all` runs the full corpus as `-y` followed by `-n` on the
-    same working image and is intended to catch swapped-write regressions
-  - comparison remains available when a second checker binary is
-    provided
+The `lostfound-*` fixtures exercise repair successfully but also trigger surrounding
+fallout; they do not isolate every `lost+found` create/reallocate path. Reference
+comparison remains an investigation aid, separate from regression assertions.

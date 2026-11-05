@@ -5,9 +5,10 @@ Reviewed 2026-11-05 against `src/core/qcow2.c` and the
 This covers nextufs's supported standard-L2 subset, not every QCOW2 feature.
 
 Run `make test-qcow2`. QEMU tools are independent test oracles, not runtime
-dependencies. The default build includes a real FUSE mount/stress/unmount test;
-`WITH_FUSE=0` omits that part. `make test-qcow2-chain` tests the separate discovery
-helper. Fixtures live under `.scratch/`; no installed binaries are changed.
+dependencies. A missing QEMU tool fails preflight. Mounted QCOW2 stress belongs
+to `make test-fuse` (`fuse/qcow2`), and the discovery helper's unit tests run in
+`make test`. All are included in `make test-all`. See [the test guide](../README.md)
+for selection and retained artifacts.
 
 | Area | Executable evidence |
 | --- | --- |
@@ -25,7 +26,7 @@ helper. Fixtures live under `.scratch/`; no installed binaries are changed.
 | Unsupported features and malformed extensions | `test_failures.py`: compression, encryption, snapshots, feature masks, refcount width, extension payloads |
 | Unknown extension preservation | `test_failures.py` |
 | Failed reads/writes/flushes/truncation and fsck repairs | `test_failures.py`; write failures checked for detectable v3 dirty state |
-| Filesystem operations over mounted QCOW2 | `run_tests.sh`: FUSE stress, then QEMU and UFS checks |
+| Filesystem operations over mounted QCOW2 | `fuse/qcow2` (`../stress/test_stress.py`): FUSE stress, then QEMU and UFS checks |
 
 The review found that unaligned v3 header lengths were accepted. A fixture with
 header length 105 reproduced this; the backend now enforces eight-byte alignment.
@@ -42,13 +43,10 @@ probe, measured 90.56% of 625 executable lines, 98.84% of 518 branches reached,
 cover the probe-driven COW, matrix, growth and failure tests, not CLI/FUSE paths.
 They are control-flow measurements, not proof of complete format coverage.
 
-To reproduce backend instrumentation, compile `src/core/qcow2.c` with
-`--coverage`, then link that object before `build/libnextufs.a` together with
-`backend_probe.c` and `io_faults.c`, retaining the same linker wrappers as
-`build/qcow2_probe`. Set `QCOW2_PROBE` to the resulting absolute path when running
-`tests/qcow2/run_tests.sh` directly; also set `NEXTUFS`, `QCOW2_FAULT_BIN` and
-`WITH_FUSE=0`. Use `gcov -b -c` on the instrumented object. `make test-qcow2`
-sets its own probe path, so an environment-only probe override does not apply.
+Reproduce backend instrumentation with `make test-qcow2-sanitize` and
+`make test-qcow2-coverage`. The runner accepts `--probe` for a custom build; both
+commands retain their artifacts under `.scratch/instrumentation/` without
+replacing the normal executable. See [the test guide](../README.md) for scope.
 
 ## Remaining limits
 

@@ -115,14 +115,20 @@ make WITH_FUSE=0 test
 
 The default `WITH_FUSE=1` build includes mounting. Offline builds keep all image
 commands, including fsck, but `mount` returns status 2. Switching modes rebuilds
-the selected libraries and command; no clean step is required. FUSE-specific test
+the selected libraries and command; no clean step is required. Build artifacts are
+separated by mode, and the root `nextufs` symlink selects the last built mode. FUSE-specific test
 targets require `WITH_FUSE=1`.
 
-Run the main test suite:
+Run the generated-fixture regression suite:
 
 ```sh
 make test
 ```
+
+It does not require an OPENSTEP installation image, mounting, or QEMU. Use
+`make test-all` for the full generated-fixture suite including QEMU and FUSE.
+See [tests/README.md](tests/README.md) for groups, individual cases, prerequisites,
+retained failure artifacts, sanitizer/coverage commands and supplied-image checks.
 
 Install the unified `nextufs` command:
 
@@ -246,21 +252,17 @@ Useful entry points:
 
 ```sh
 make test
-make test-nextufs
 make test-fsck
 make test-qcow2
-make test-qcow2-chain
-make repair-repair-all
+make test-fuse
+make test-stress
+make test-all
 ```
 
-`test-qcow2` compares native reads/writes with `qemu-img` and `qemu-io`, checks
-container refcounts, exercises backing chains and failure injection, and runs
-FUSE stress in the default build. It explicitly skips when QEMU test tools are
-unavailable; no QEMU programs are required at runtime.
+The [test guide](tests/README.md) defines these groups and their prerequisites.
 The [QCOW2 coverage review](tests/qcow2/README.md) maps tests to supported
-behavior and records the remaining limits.
-
-Additional fsck corpus notes are in [tests/fsck/README.md](tests/fsck/README.md).
+behavior and records the remaining limits. The optional fsck reference-comparison
+workflow is documented in [tests/fsck/README.md](tests/fsck/README.md).
 
 ## Layout
 
