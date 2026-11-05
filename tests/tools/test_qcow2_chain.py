@@ -140,6 +140,22 @@ class ChainTests(unittest.TestCase):
         child.write_bytes(b)
         self.assertIn('extension', ' '.join(self.invoke('trace', child, status=1)['errors']))
 
+    def test_header_length_alignment(self):
+        for length in [104, 105, 111, 112]:
+            with self.subTest(header_length=length):
+                image = qcow(self.root / 'alignment.qcow2')
+                data = bytearray(image.read_bytes())
+                struct.pack_into('>I', data, 100, length)
+                image.write_bytes(data)
+                valid = length % 8 == 0
+                for command in ['trace', 'scan']:
+                    report = self.invoke(command, image if command == 'trace' else self.root,
+                                         status=0 if valid else 1)
+                    self.assertEqual(bool(report['errors']), not valid)
+                    if not valid:
+                        self.assertIn('invalid header length', ' '.join(report['errors']))
+                self.assertEqual(image.read_bytes(), data)
+
     def test_regular_files_only_and_no_writes(self):
         image = qcow(self.root / 'image.qcow2')
         fifo = self.root / 'pipe.qcow2'

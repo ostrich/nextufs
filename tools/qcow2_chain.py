@@ -120,7 +120,7 @@ def inspect(path: Path, declared: str | None = None) -> Image:
             if not 9 <= bits <= 21:
                 raise ValueError(f"unsupported cluster size exponent: {bits}")
             image.cluster_size = 1 << bits
-            if not minimum <= header_length <= image.cluster_size:
+            if not minimum <= header_length <= image.cluster_size or header_length % 8:
                 raise ValueError("invalid header length")
             if backing_offset and (not 1 <= backing_length <= 1023 or
                                    backing_offset < header_length or
