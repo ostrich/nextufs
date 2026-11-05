@@ -61,6 +61,8 @@ for layout in raw labeled large-fragments cd; do
 	fi
 done
 
+NEXTUFS="$NEXTUFS" python3 -B tests/fsck/scripts/test_names.py "$WORK/names"
+
 # Setup failures must not be reported as successful checks.
 printf 'not a filesystem\n' > "$WORK/invalid.img"
 expect_status 8 "$NEXTUFS" fsck -n "$WORK/invalid.img"

@@ -173,8 +173,9 @@ dircheck(struct inodesc *idesc, DIRECT *dp)
 	    dp->d_namlen <= MAXNAMLEN) {
 		if (dp->d_ino == 0)
 			return (1);
+		/* Names are byte strings; only NUL and slash are forbidden. */
 		for (cp = dp->d_name, size = 0; size < dp->d_namlen; size++)
-			if (*cp == 0 || (*cp++ & 0200))
+			if (*cp == '\0' || *cp++ == '/')
 				return (0);
 		if (*cp == 0)
 			return (1);
