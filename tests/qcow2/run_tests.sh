@@ -4,6 +4,7 @@ WORK=${1:-.scratch/qcow2-tests}
 mkdir -p "$WORK"
 python3 -B tests/qcow2/test_reads.py "$WORK/reads"
 python3 -B tests/qcow2/test_cow.py "$WORK/cow"
+python3 -B tests/qcow2/test_matrix.py "$WORK/matrix"
 python3 -B tests/qcow2/test_writes.py "$WORK/writes"
 python3 -B tests/qcow2/test_failures.py "$WORK/failures"
 if test "${WITH_FUSE:-1}" = 1; then

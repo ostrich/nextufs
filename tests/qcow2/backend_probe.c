@@ -24,7 +24,8 @@ main(int argc, char **argv)
 	buf = malloc(bytes ? bytes : 1);
 	if (!buf)
 		return 2;
-	rc = nextufs__qcow2_open(&img, argv[2], writing);
+	rc = nextufs__qcow2_open(&img, argv[2],
+	    writing && strcmp(argv[1], "readonly-write") != 0);
 	if (rc < 0)
 		goto out;
 	qcow_probe_opened = 1;
@@ -32,7 +33,7 @@ main(int argc, char **argv)
 		for (i = 0; i < bytes; i++)
 			buf[i] = (uint8_t)((i * 17 + 31) % 251);
 		rc = nextufs_image_pwrite(&img, buf, bytes, off);
-		if (!rc)
+		if (!rc && strcmp(argv[1], "write-close") != 0)
 			rc = nextufs_image_fsync(&img);
 	} else {
 		rc = nextufs_image_pread(&img, buf, bytes, off);

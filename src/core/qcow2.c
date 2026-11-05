@@ -292,7 +292,8 @@ qcow_open(const char *path, int writable, int force_raw,
 	if (!q->size || q->size > INT64_MAX || !q->l1_size ||
 	    (uint64_t)q->l1_size * 8 > QCOW_MAX_L1_BYTES ||
 	    !q->ref_clusters || (uint64_t)q->ref_clusters * q->cluster_size > QCOW_MAX_REF_BYTES ||
-	    header_len < (q->version == 2 ? 72U : 104U) || header_len > q->cluster_size ||
+	    header_len < (q->version == 2 ? 72U : 104U) ||
+	    (header_len & 7U) || header_len > q->cluster_size ||
 	    !range_valid(q, 0, q->cluster_size) ||
 	    q->size / q->cluster_size + (q->size % q->cluster_size != 0) >
 	    (uint64_t)q->l1_size * (q->cluster_size / 8U) ||

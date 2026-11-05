@@ -45,6 +45,9 @@ patches = {
     'l1-outside': (40, '>Q', 1 << 63), 'l1-overlap-header': (40, '>Q', 0),
     'l1-misaligned': (40, '>Q', 4097), 'ref-outside': (48, '>Q', 1 << 63),
     'huge-reftable': (56, '>I', 1 << 30), 'bad-backing-offset': (8, '>Q', 1),
+    'zero-size': (24, '>Q', 0), 'signed-size': (24, '>Q', 1 << 63),
+    'zero-l1': (36, '>I', 0), 'zero-reftable': (56, '>I', 0),
+    'ref-misaligned': (48, '>Q', 4097),
 }
 for name, (offset, fmt, value) in patches.items():
     image = WORK / (name + '.qcow2')
@@ -52,6 +55,14 @@ for name, (offset, fmt, value) in patches.items():
     struct.pack_into(fmt, b, offset, value)
     image.write_bytes(b)
     rejected(image)
+
+# A v3 header length must be aligned to eight bytes, even without extensions.
+image = WORK / 'unaligned-header.qcow2'
+b = bytearray(original)
+b[104:4096] = b'\0' * (4096 - 104)
+struct.pack_into('>I', b, 100, 105)
+image.write_bytes(b)
+rejected(image)
 for length in [0, 4, 71, 103, len(original) - 1]:
     image = WORK / f'truncated-{length}.qcow2'
     image.write_bytes(original[:length])
@@ -77,7 +88,38 @@ for n in range(32):
     image = WORK / f'deep-{n}.qcow2'
     run('qemu-img', 'create', '-u', '-f', 'qcow2', '-F', 'qcow2', '-b', parent.name, image, '8M')
     parent = image
+    if n == 30:  # 32 total files, the largest supported chain.
+        assert run(PROBE, 'read', image, 0, 32) == b'\0' * 32
 rejected(parent)
+
+# Device/inode identity catches aliases, not just identical path spellings.
+image = WORK / 'hardlink-cycle.qcow2'
+alias = WORK / 'hardlink-alias.qcow2'
+run('qemu-img', 'create', '-u', '-f', 'qcow2', '-F', 'qcow2', '-b',
+    alias.name, image, '8M')
+if alias.exists():
+    alias.unlink()
+os.link(image, alias)
+rejected(image)
+
+# Reject malformed/unsupported extension payloads independently of feature bits.
+for label, kind, payload in [
+    ('bitmap-extension', 0x23852875, b''),
+    ('encryption-extension', 0x0537be77, b''),
+    ('external-extension', 0x44415441, b''),
+    ('empty-format', 0xe2792aca, b''),
+    ('long-format', 0xe2792aca, b'12345678'),
+    ('nul-format', 0xe2792aca, b'raw\0'),
+    ('unsupported-format', 0xe2792aca, b'vdi'),
+]:
+    image = WORK / (label + '.qcow2')
+    b = bytearray(original)
+    ext = struct.unpack_from('>I', b, 100)[0]
+    b[ext:4096] = b'\0' * (4096 - ext)
+    struct.pack_into('>II', b, ext, kind, len(payload))
+    b[ext + 8:ext + 8 + len(payload)] = payload
+    image.write_bytes(b)
+    rejected(image)
 
 # Unknown extensions survive successful modifications, without header rewriting.
 unknown = WORK / 'unknown-extension.qcow2'

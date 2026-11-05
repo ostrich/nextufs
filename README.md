@@ -257,6 +257,8 @@ make repair-repair-all
 container refcounts, exercises backing chains and failure injection, and runs
 FUSE stress in the default build. It explicitly skips when QEMU test tools are
 unavailable; no QEMU programs are required at runtime.
+The [QCOW2 coverage review](tests/qcow2/README.md) maps tests to supported
+behavior and records the remaining limits.
 
 Additional fsck corpus notes are in [tests/fsck/README.md](tests/fsck/README.md).
 
