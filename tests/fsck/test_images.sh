@@ -2,7 +2,7 @@
 set -eu
 
 NEXTUFS=${NEXTUFS:-./nextufs}
-CORRUPT=${CORRUPT:-./tests/fsck/tools/corrupt_raw_case}
+CORRUPT=${CORRUPT:-./build/tests/fuse-1/corrupt}
 WORK="${1:-.scratch}/fsck-images"
 mkdir -p "$WORK"
 
@@ -61,7 +61,7 @@ for layout in raw labeled large-fragments cd; do
 	fi
 done
 
-NEXTUFS="$NEXTUFS" python3 -B tests/fsck/scripts/test_names.py "$WORK/names"
+NEXTUFS="$NEXTUFS" python3 -B tests/fsck/test_names.py "$WORK/names"
 
 # Setup failures must not be reported as successful checks.
 printf 'not a filesystem\n' > "$WORK/invalid.img"

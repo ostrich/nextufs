@@ -9,9 +9,9 @@ fi
 MODE="$1"
 CASE_NAME="$2"
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+. "$(dirname "$0")/common.sh"
 TEST_ROOT="$ROOT/tests/fsck"
-TMP_DIR="$TEST_ROOT/work/compare"
+TMP_DIR="$FSCK_LAB_DIR/compare"
 REFERENCE_BIN="${FSCK_REFERENCE_BIN:-}"
 
 if [[ -z "$REFERENCE_BIN" ]]; then
@@ -28,8 +28,8 @@ SHIPPED_NORM="$TMP_DIR/$CASE_NAME-shipped-${MODE#-}.norm"
 
 reference_status=0
 shipped_status=0
-bash "$TEST_ROOT/scripts/run_case.sh" reference "$MODE" "$CASE_NAME" >"$REFERENCE_OUT" || reference_status=$?
-bash "$TEST_ROOT/scripts/run_case.sh" shipped "$MODE" "$CASE_NAME" >"$SHIPPED_OUT" || shipped_status=$?
+bash "$TEST_ROOT/lab/run_case.sh" reference "$MODE" "$CASE_NAME" >"$REFERENCE_OUT" || reference_status=$?
+bash "$TEST_ROOT/lab/run_case.sh" shipped "$MODE" "$CASE_NAME" >"$SHIPPED_OUT" || shipped_status=$?
 tail -n +2 "$REFERENCE_OUT" >"$REFERENCE_NORM"
 tail -n +2 "$SHIPPED_OUT" >"$SHIPPED_NORM"
 diff -u "$REFERENCE_NORM" "$SHIPPED_NORM"

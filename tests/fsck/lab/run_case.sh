@@ -10,15 +10,15 @@ ENGINE="$1"
 MODE="$2"
 CASE_NAME="$3"
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+. "$(dirname "$0")/common.sh"
 TEST_ROOT="$ROOT/tests/fsck"
-CACHE_DIR="$TEST_ROOT/cache"
-WORK_DIR="$TEST_ROOT/work"
+CACHE_DIR="$FSCK_LAB_DIR/cache"
+WORK_DIR="$FSCK_LAB_DIR/work"
 EXPECT_DIR="$CACHE_DIR/expected"
 CORRUPT_DIR="$CACHE_DIR/corrupt"
 
 mkdir -p "$WORK_DIR" "$EXPECT_DIR"
-"$TEST_ROOT/scripts/build_corpus.sh" >/dev/null
+"$TEST_ROOT/lab/build_corpus.sh" >/dev/null
 
 FIXTURE="$CORRUPT_DIR/$CASE_NAME.raw"
 WORK="$WORK_DIR/$CASE_NAME-${ENGINE}-${MODE#-}.raw"
@@ -35,7 +35,7 @@ case "$ENGINE" in
     fi
     ;;
   shipped)
-    BIN="$ROOT/nextufs"
+    BIN="${NEXTUFS:-$ROOT/nextufs}"
     ;;
   *)
     echo "unknown engine: $ENGINE" >&2

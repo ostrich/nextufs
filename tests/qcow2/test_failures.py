@@ -6,8 +6,8 @@ import struct
 import subprocess
 import sys
 
-PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/qcow2_probe')).resolve())
-FAULT_TOOL = str(Path(os.environ.get('QCOW2_FAULT_BIN', 'build/nextufs_qcow_fault')).resolve())
+PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/tests/fuse-1/qcow2-probe')).resolve())
+FAULT_TOOL = str(Path(os.environ.get('QCOW2_FAULT_BIN', 'build/tests/fuse-1/qcow2-fault')).resolve())
 TOOL = str(Path(os.environ.get('NEXTUFS', './nextufs')).resolve())
 WORK = Path(sys.argv[1] if len(sys.argv) > 1 else '.scratch/qcow2-failures').resolve()
 WORK.mkdir(parents=True, exist_ok=True)
@@ -216,7 +216,7 @@ assert allocated.read_bytes() == allocated_before
 seed = WORK / 'repair.raw'
 run(TOOL, 'mkimg', '--raw', '--force-overwrite', seed, '8M')
 run(TOOL, 'mkfile', seed, '/alpha', 'alpha')
-run(str(Path('tests/fsck/tools/corrupt_raw_case').resolve()), 'bad-block-count', seed)
+run(os.environ.get('CORRUPT', str(Path('build/tests/fuse-1/corrupt').resolve())), 'bad-block-count', seed)
 for variable in ['QCOW_FAIL_FSYNC', 'QCOW_FAIL_PWRITE']:
     image = WORK / (variable + '-repair.qcow2')
     run('qemu-img', 'convert', '-f', 'raw', '-O', 'qcow2', seed, image)

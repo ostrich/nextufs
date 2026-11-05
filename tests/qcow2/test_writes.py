@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 TOOL = str(Path(os.environ.get('NEXTUFS', './nextufs')).resolve())
-PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/qcow2_probe')).resolve())
+PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/tests/fuse-1/qcow2-probe')).resolve())
 WORK = Path(sys.argv[1] if len(sys.argv) > 1 else '.scratch/qcow2-writes').resolve()
 WORK.mkdir(parents=True, exist_ok=True)
 

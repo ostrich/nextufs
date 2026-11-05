@@ -46,6 +46,10 @@ if "$NEXTUFS" --json info "$raw" >"$WORK/bad-global.out" 2>"$global_err"; then
 	exit 1
 fi
 grep -F "unknown global option '--json'" "$global_err" >/dev/null
+if "$NEXTUFS" --json fsck -n "$raw" >"$WORK/bad-global-fsck.out" 2>&1; then
+    echo "nextufs --json fsck unexpectedly succeeded" >&2
+    exit 1
+fi
 
 "$NEXTUFS" mkimg --raw "$raw" 64M >"$WORK/raw.mkimg"
 "$NEXTUFS" mkimg --label contract "$labeled" 64M >"$WORK/labeled.mkimg"

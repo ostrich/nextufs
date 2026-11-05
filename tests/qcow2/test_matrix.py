@@ -8,7 +8,7 @@ import random
 import subprocess
 import sys
 
-PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/qcow2_probe')).resolve())
+PROBE = str(Path(os.environ.get('QCOW2_PROBE', 'build/tests/fuse-1/qcow2-probe')).resolve())
 WORK = Path(sys.argv[1]).resolve()
 WORK.mkdir(parents=True, exist_ok=True)
 

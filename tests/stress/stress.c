@@ -83,7 +83,7 @@ struct nextufs_stress_ctx {
 	char image_path_buf[NEXTUFS_STRESS_MAX_PATH];
 	const char *template_image_path;
 	char root_path[NEXTUFS_STRESS_MAX_PATH];
-	char exe_dir[NEXTUFS_STRESS_MAX_PATH];
+	char tool_path[NEXTUFS_STRESS_MAX_PATH];
 	char fail_dir[NEXTUFS_STRESS_MAX_PATH];
 	char mountpoint[NEXTUFS_STRESS_MAX_PATH];
 	char last_op[NEXTUFS_STRESS_MAX_OP_DESC];
@@ -630,43 +630,32 @@ nextufs_stress_resolve_existing_path(const char *path, char *out, size_t out_siz
 static int
 nextufs_stress_find_tools(struct nextufs_stress_ctx *ctx)
 {
-	ssize_t n;
-	char exe_path[NEXTUFS_STRESS_MAX_PATH];
-	char *slash;
+	const char *tool = getenv("NEXTUFS");
 
-	n = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-	if (n < 0)
-		return -errno;
-	exe_path[n] = '\0';
-	slash = strrchr(exe_path, '/');
-	if (slash == NULL)
-		return -EINVAL;
-	*slash = '\0';
-	if (strlen(exe_path) + 1 > sizeof(ctx->exe_dir))
-		return -ENAMETOOLONG;
-	memcpy(ctx->exe_dir, exe_path, strlen(exe_path) + 1);
-	return 0;
+	if (tool == NULL)
+		tool = "./nextufs";
+	return nextufs_stress_resolve_existing_path(tool, ctx->tool_path,
+	    sizeof(ctx->tool_path));
 }
 
 static int
 nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 {
-	char fuse_path[NEXTUFS_STRESS_MAX_PATH];
 	char scratch_path[NEXTUFS_STRESS_MAX_PATH];
 	char template[NEXTUFS_STRESS_MAX_PATH];
 	char *argv[9];
 	unsigned tries;
+	const char *tmpdir = getenv("TMPDIR");
 
-	if (snprintf(fuse_path, sizeof(fuse_path), "%s/nextufs",
-	    ctx->exe_dir) >= (int)sizeof(fuse_path))
-		return -ENAMETOOLONG;
-	if (snprintf(scratch_path, sizeof(scratch_path), "%s/.scratch",
-	    ctx->exe_dir) >= (int)sizeof(scratch_path))
+	if (tmpdir == NULL)
+		tmpdir = "/tmp";
+	if (snprintf(scratch_path, sizeof(scratch_path), "%s",
+	    tmpdir) >= (int)sizeof(scratch_path))
 		return -ENAMETOOLONG;
 	if (nextufs_stress_ensure_dir(scratch_path) < 0)
 		return -errno;
-	if (snprintf(template, sizeof(template), "%s/.scratch/stress-mnt-XXXXXX",
-	    ctx->exe_dir) >= (int)sizeof(template))
+	if (snprintf(template, sizeof(template), "%s/stress-mnt-XXXXXX",
+	    tmpdir) >= (int)sizeof(template))
 		return -ENAMETOOLONG;
 	if (mkdtemp(template) == NULL)
 		return -errno;
@@ -677,7 +666,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 	if (ctx->fuse_pid < 0)
 		return -errno;
 	if (ctx->fuse_pid == 0) {
-		argv[0] = fuse_path;
+		argv[0] = ctx->tool_path;
 		argv[1] = "mount";
 		argv[2] = (char *)ctx->image_path;
 		argv[3] = ctx->mountpoint;
@@ -1789,13 +1778,9 @@ static int
 nextufs_stress_run_fsck(struct nextufs_stress_ctx *ctx, const char *image_path,
     const char *log_path)
 {
-	char fsck_path[NEXTUFS_STRESS_MAX_PATH];
 	char *argv[5];
 
-	if (snprintf(fsck_path, sizeof(fsck_path), "%s/nextufs",
-	    ctx->exe_dir) >= (int)sizeof(fsck_path))
-		return -ENAMETOOLONG;
-	argv[0] = fsck_path;
+	argv[0] = ctx->tool_path;
 	argv[1] = "fsck";
 	argv[2] = "-n";
 	argv[3] = (char *)image_path;
@@ -2787,9 +2772,11 @@ static int
 nextufs_stress_prepare_fail_dir(struct nextufs_stress_ctx *ctx)
 {
 	if (ctx->fail_dir[0] == '\0') {
+		const char *tmpdir = getenv("TMPDIR");
+		if (tmpdir == NULL)
+			tmpdir = "/tmp";
 		if (snprintf(ctx->fail_dir, sizeof(ctx->fail_dir),
-		    "%s/.scratch/stress-failures",
-		    ctx->exe_dir) >= (int)sizeof(ctx->fail_dir))
+		    "%s/stress-failures", tmpdir) >= (int)sizeof(ctx->fail_dir))
 			return -ENAMETOOLONG;
 	}
 	return nextufs_stress_ensure_dir(ctx->fail_dir);

@@ -7,10 +7,10 @@ if [[ $# -ne 1 ]]; then
 fi
 
 MODE="$1"
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+. "$(dirname "$0")/common.sh"
 CASES_DIR="$ROOT/tests/fsck/cases"
 
 for case_file in "$CASES_DIR"/*.txt; do
   case_name="$(basename "$case_file" .txt)"
-  bash "$ROOT/tests/fsck/scripts/compare_case.sh" "$MODE" "$case_name" >/dev/null
+  bash "$ROOT/tests/fsck/lab/compare_case.sh" "$MODE" "$case_name" >/dev/null
 done
