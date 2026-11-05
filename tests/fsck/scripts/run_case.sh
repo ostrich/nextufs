@@ -43,9 +43,11 @@ case "$ENGINE" in
     ;;
 esac
 
+status=0
 if [[ "$ENGINE" == "shipped" ]]; then
-  "$BIN" fsck "$MODE" "$WORK" >"$OUT" 2>&1 || true
+  "$BIN" fsck "$MODE" "$WORK" >"$OUT" 2>&1 || status=$?
 else
-  "$BIN" "$MODE" "$WORK" >"$OUT" 2>&1 || true
+  "$BIN" "$MODE" "$WORK" >"$OUT" 2>&1 || status=$?
 fi
 cat "$OUT"
+exit "$status"

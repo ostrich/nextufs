@@ -26,8 +26,12 @@ SHIPPED_OUT="$TMP_DIR/$CASE_NAME-shipped-${MODE#-}.out"
 REFERENCE_NORM="$TMP_DIR/$CASE_NAME-reference-${MODE#-}.norm"
 SHIPPED_NORM="$TMP_DIR/$CASE_NAME-shipped-${MODE#-}.norm"
 
-bash "$TEST_ROOT/scripts/run_case.sh" reference "$MODE" "$CASE_NAME" >"$REFERENCE_OUT"
-bash "$TEST_ROOT/scripts/run_case.sh" shipped "$MODE" "$CASE_NAME" >"$SHIPPED_OUT"
+reference_status=0
+shipped_status=0
+bash "$TEST_ROOT/scripts/run_case.sh" reference "$MODE" "$CASE_NAME" >"$REFERENCE_OUT" || reference_status=$?
+bash "$TEST_ROOT/scripts/run_case.sh" shipped "$MODE" "$CASE_NAME" >"$SHIPPED_OUT" || shipped_status=$?
 tail -n +2 "$REFERENCE_OUT" >"$REFERENCE_NORM"
 tail -n +2 "$SHIPPED_OUT" >"$SHIPPED_NORM"
 diff -u "$REFERENCE_NORM" "$SHIPPED_NORM"
+
+test "$reference_status" -eq "$shipped_status"

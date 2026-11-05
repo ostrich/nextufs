@@ -1,4 +1,6 @@
 .DEFAULT_GOAL := all
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
 CC = cc
 prefix ?= /usr/local
 bindir ?= $(prefix)/bin
@@ -606,7 +608,7 @@ repair-corpus: all repair-tools
 repair-lab: repair-corpus
 
 repair-smoke: all repair-tools
-	tests/fsck/scripts/run_case.sh shipped -n bad-block-count >/dev/null
+	status=0; tests/fsck/scripts/run_case.sh shipped -n bad-block-count >/dev/null || status=$$?; test "$$status" -eq 8
 	tests/fsck/scripts/run_case.sh shipped -y bad-block-count >/dev/null
 
 repair-repair-all: all repair-tools
