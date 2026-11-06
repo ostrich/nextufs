@@ -10,11 +10,60 @@
 #include <time.h>
 #include <unistd.h>
 
-static int
-nextufs__open_image_rw(const char *image_path, struct nextufs_image *img)
+int
+nextufs_write_session_open(struct nextufs_write_session *session,
+			   const char *path)
 {
-	return nextufs_image_open_source(img, image_path,
-	    NEXTUFS_OPEN_READ_WRITE);
+	memset(session, 0, sizeof(*session));
+	return nextufs_image_open_rw(&session->image, path);
+}
+
+void
+nextufs_write_session_close(struct nextufs_write_session *session)
+{
+	nextufs_image_close(&session->image);
+	session->failed = 1;
+}
+
+static int
+nextufs__open_image_rw(const struct nextufs_write_ctx *ctx,
+		       const char *image_path, struct nextufs_image *img)
+{
+	int rc;
+	if (ctx->session) {
+		struct stat a, b;
+		if (ctx->session->failed)
+			return -EIO;
+		if (stat(image_path, &a) || fstat(ctx->session->image.fd, &b))
+			return -errno;
+		if (a.st_dev != b.st_dev || a.st_ino != b.st_ino)
+			return -ESTALE;
+		*img = ctx->session->image;
+	} else {
+		rc = nextufs_image_open_rw(img, image_path);
+		if (rc < 0)
+			return rc;
+	}
+	rc = nextufs__transaction_begin(img);
+	if (rc < 0 && !ctx->session)
+		nextufs_image_close(img);
+	return rc;
+}
+
+static int
+finish_mutation(const struct nextufs_write_ctx *ctx, struct nextufs_image *img,
+		int rc)
+{
+	rc = nextufs__transaction_end(img, rc);
+	if (ctx->session) {
+		int refresh = nextufs__image_refresh(&ctx->session->image);
+		if (rc == -EUCLEAN || refresh < 0)
+			ctx->session->failed = 1;
+		if (!rc && refresh < 0)
+			rc = refresh;
+	} else
+		nextufs_image_close(img);
+	return rc < 0 ? rc : 0;
 }
 
 static int
@@ -224,33 +273,6 @@ nextufs__remove_dir_inode(const struct nextufs_image *img,
 }
 
 static int
-nextufs__rewrite_inode_contents(const struct nextufs_image *img,
-    unsigned inode_no, struct nextufs_inode *inode, unsigned preferred_cg,
-    const uint8_t *data, size_t data_len)
-{
-	struct nextufs_inode old_inode;
-	uint32_t now;
-	int rc;
-
-	old_inode = *inode;
-	memset(inode->db, 0, sizeof(inode->db));
-	memset(inode->ib, 0, sizeof(inode->ib));
-	inode->size = 0;
-	inode->blocks = 0;
-	rc = nextufs__allocate_data_for_inode(img, preferred_cg, data, data_len, inode);
-	if (rc < 0)
-		return rc;
-	now = (uint32_t)time(NULL);
-	inode->mtime = now;
-	inode->ctime = now;
-	inode->atime = now;
-	rc = nextufs__write_inode_raw(img, inode_no, inode);
-	if (rc < 0)
-		return rc;
-	return nextufs__free_file_storage(img, &old_inode);
-}
-
-static int
 nextufs__directory_has_ancestor(const struct nextufs_image *img,
     const struct nextufs_node *dirnode, unsigned ancestor_inode)
 {
@@ -259,18 +281,19 @@ nextufs__directory_has_ancestor(const struct nextufs_image *img,
 	int rc;
 
 	cur = *dirnode;
-	for (;;) {
+	for (unsigned depth = 0; depth < 1024; depth++) {
 		if (cur.inode_no == ancestor_inode)
 			return 1;
 		if (cur.inode_no == NEXTUFS_ROOT_INODE)
 			return 0;
 		rc = nextufs__read_directory_parent_inode(img, &cur, &parent_inode);
 		if (rc < 0 || parent_inode == cur.inode_no)
-			return 0;
+			return 1;
 		rc = nextufs_node_get_by_inode(img, parent_inode, &cur);
 		if (rc < 0)
-			return 0;
+			return 1;
 	}
+	return 1; /* cyclic or unreasonably deep parent chain */
 }
 
 static int
@@ -350,10 +373,10 @@ nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&parent)) {
@@ -363,7 +386,7 @@ nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &existing);
 	if (rc == 0) {
 		rc = -EEXIST;
 		goto out;
@@ -402,8 +425,7 @@ nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 	}
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -480,10 +502,10 @@ nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&parent)) {
@@ -493,7 +515,7 @@ nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, path, 0, &target);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &target);
 	if (rc < 0)
 		goto out;
 	if (nextufs_node_is_dir(&target)) {
@@ -518,8 +540,7 @@ nextufs_path_unlink(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -550,10 +571,10 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&parent)) {
@@ -563,7 +584,7 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &existing);
 	if (rc == 0) {
 		rc = -EEXIST;
 		goto out;
@@ -616,8 +637,7 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 static int
@@ -627,10 +647,6 @@ nextufs__rewrite_file_contents(const struct nextufs_write_ctx *ctx,
 {
 	struct nextufs_image img;
 	struct nextufs_node target;
-	uint8_t *buf = NULL;
-	size_t old_size;
-	size_t final_size;
-	unsigned preferred_cg;
 	int rc;
 
 	if (ctx == NULL)
@@ -638,10 +654,10 @@ nextufs__rewrite_file_contents(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_ctx_ids_fit(ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &target);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &target);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_reg(&target)) {
@@ -651,31 +667,18 @@ nextufs__rewrite_file_contents(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
-	old_size = (size_t)target.inode.size;
-	final_size = append ? old_size + data_len : data_len;
-	buf = malloc(final_size == 0 ? 1 : final_size);
-	if (buf == NULL) {
-		rc = -ENOMEM;
-		goto out;
-	}
-	if (append && old_size != 0) {
-		rc = nextufs_inode_read_data(&img, &target.inode, 0, buf, old_size, NULL);
+	if (!append) {
+		rc = nextufs__file_resize(&img, &target, data_len);
 		if (rc < 0)
 			goto out;
-		memcpy(buf + old_size, data, data_len);
-	} else if (final_size != 0) {
-		memcpy(buf, data, data_len);
 	}
-	preferred_cg = target.inode_no / img.sb.inodes_per_group;
-	rc = nextufs__rewrite_inode_contents(&img, target.inode_no, &target.inode,
-	    preferred_cg, buf, final_size);
+	rc = nextufs__file_write(&img, &target, data, data_len,
+				 append ? target.inode.size : 0);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	free(buf);
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -717,16 +720,16 @@ nextufs_path_rmdir(const struct nextufs_write_ctx *ctx,
 	    name, sizeof(name));
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, path, 0, &target);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &target);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&target)) {
@@ -753,8 +756,7 @@ nextufs_path_rmdir(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -783,23 +785,23 @@ nextufs_path_link(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, source_path, 0, &source);
+	rc = nextufs_node_lookup_as(ctx, &img, source_path, 0, &source);
 	if (rc < 0)
 		goto out;
 	if (nextufs_node_is_dir(&source)) {
 		rc = -EPERM;
 		goto out;
 	}
-	rc = nextufs_node_lookup(&img, target_path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, target_path, 0, &existing);
 	if (rc == 0) {
 		rc = -EEXIST;
 		goto out;
@@ -817,8 +819,7 @@ nextufs_path_link(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -851,16 +852,16 @@ nextufs_path_symlink(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, link_path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, link_path, 0, &existing);
 	if (rc == 0) {
 		rc = -EEXIST;
 		goto out;
@@ -905,8 +906,7 @@ nextufs_path_symlink(const struct nextufs_write_ctx *ctx,
 	}
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -915,11 +915,6 @@ nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
 {
 	struct nextufs_image img;
 	struct nextufs_node target;
-	uint8_t *buf = NULL;
-	size_t old_size;
-	size_t new_size;
-	size_t copy_size;
-	unsigned preferred_cg;
 	int rc;
 
 	if (ctx == NULL)
@@ -929,10 +924,10 @@ nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_ctx_ids_fit(ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &target);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &target);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_reg(&target)) {
@@ -942,29 +937,12 @@ nextufs_path_truncate(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
-	old_size = (size_t)target.inode.size;
-	new_size = (size_t)size;
-	buf = calloc(1, new_size == 0 ? 1 : new_size);
-	if (buf == NULL) {
-		rc = -ENOMEM;
-		goto out;
-	}
-	copy_size = old_size < new_size ? old_size : new_size;
-	if (copy_size != 0) {
-		rc = nextufs_inode_read_data(&img, &target.inode, 0, buf, copy_size, NULL);
-		if (rc < 0)
-			goto out;
-	}
-	preferred_cg = target.inode_no / img.sb.inodes_per_group;
-	rc = nextufs__rewrite_inode_contents(&img, target.inode_no, &target.inode,
-	    preferred_cg, buf, new_size);
+	rc = nextufs__file_resize(&img, &target, size);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	free(buf);
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -974,10 +952,6 @@ nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
 {
 	struct nextufs_image img;
 	struct nextufs_node target;
-	uint8_t *buf = NULL;
-	size_t old_size;
-	size_t final_size;
-	unsigned preferred_cg;
 	int rc;
 
 	if (ctx == NULL)
@@ -987,10 +961,10 @@ nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_ctx_ids_fit(ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &target);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &target);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_reg(&target)) {
@@ -1000,32 +974,12 @@ nextufs_path_pwrite(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_user_access(ctx, &target, W_OK);
 	if (rc < 0)
 		goto out;
-	old_size = (size_t)target.inode.size;
-	final_size = old_size;
-	if ((size_t)offset + data_len > final_size)
-		final_size = (size_t)offset + data_len;
-	buf = calloc(1, final_size == 0 ? 1 : final_size);
-	if (buf == NULL) {
-		rc = -ENOMEM;
-		goto out;
-	}
-	if (old_size != 0) {
-		rc = nextufs_inode_read_data(&img, &target.inode, 0, buf, old_size, NULL);
-		if (rc < 0)
-			goto out;
-	}
-	if (data_len != 0)
-		memcpy(buf + (size_t)offset, data, data_len);
-	preferred_cg = target.inode_no / img.sb.inodes_per_group;
-	rc = nextufs__rewrite_inode_contents(&img, target.inode_no, &target.inode,
-	    preferred_cg, buf, final_size);
+	rc = nextufs__file_write(&img, &target, data, data_len, offset);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	free(buf);
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -1062,10 +1016,10 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_dot_names(name);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, parent_path, 1, &parent);
+	rc = nextufs_node_lookup_as(ctx, &img, parent_path, 1, &parent);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&parent)) {
@@ -1075,7 +1029,7 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_parent_mutation(ctx, &parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &existing);
 	if (rc == 0) {
 		rc = -EEXIST;
 		goto out;
@@ -1109,8 +1063,7 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 	}
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -1152,21 +1105,19 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__disallow_target_dot_names(new_name);
 	if (rc < 0)
 		return rc;
-	if (strcmp(source_path, target_path) == 0)
-		return 0;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, source_path, 0, &source);
+	rc = nextufs_node_lookup_as(ctx, &img, source_path, 0, &source);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, old_parent_path, 1, &old_parent);
+	rc = nextufs_node_lookup_as(ctx, &img, old_parent_path, 1, &old_parent);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__require_parent_mutation(ctx, &old_parent);
 	if (rc < 0)
 		goto out;
-	rc = nextufs_node_lookup(&img, new_parent_path, 1, &new_parent);
+	rc = nextufs_node_lookup_as(ctx, &img, new_parent_path, 1, &new_parent);
 	if (rc < 0)
 		goto out;
 	if (!nextufs_node_is_dir(&new_parent)) {
@@ -1191,7 +1142,7 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 		rc = -EINVAL;
 		goto out;
 	}
-	rc = nextufs_node_lookup(&img, target_path, 0, &existing);
+	rc = nextufs_node_lookup_as(ctx, &img, target_path, 0, &existing);
 	if (rc == 0) {
 		if (existing.inode_no == source.inode_no) {
 			rc = 0;
@@ -1229,6 +1180,8 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 	    source.inode_no);
 	if (rc < 0)
 		goto out;
+	if (!changing_parent)
+		old_parent = new_parent;
 	rc = nextufs__remove_dirent(&img, &old_parent, old_name, &removed_inode);
 	if (rc < 0)
 		goto out;
@@ -1263,8 +1216,7 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -1280,10 +1232,10 @@ nextufs_path_chmod(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_ctx_ids_fit(ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &node);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &node);
 	if (rc < 0)
 		goto out;
 	rc = nextufs__require_chmod_allowed(ctx, &node);
@@ -1296,8 +1248,7 @@ nextufs_path_chmod(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -1319,10 +1270,10 @@ nextufs_path_chown(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_owner_ids_fit(uid, gid);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &node);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &node);
 	if (rc < 0)
 		goto out;
 	new_uid = uid == (uid_t)-1 ? node.inode.uid : uid;
@@ -1340,8 +1291,7 @@ nextufs_path_chown(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }
 
 int
@@ -1358,10 +1308,10 @@ nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__require_ctx_ids_fit(ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs__open_image_rw(image_path, &img);
+	rc = nextufs__open_image_rw(ctx, image_path, &img);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_node_lookup(&img, path, 0, &node);
+	rc = nextufs_node_lookup_as(ctx, &img, path, 0, &node);
 	if (rc < 0)
 		goto out;
 	if (ctx->policy == NEXTUFS_WRITE_USER &&
@@ -1377,6 +1327,5 @@ nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
-	nextufs_image_close(&img);
-	return rc < 0 ? rc : 0;
+	return finish_mutation(ctx, &img, rc);
 }

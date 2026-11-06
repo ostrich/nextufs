@@ -27,6 +27,7 @@ setup(char *dev)
 	BUFAREA asblk;
 	char *devstr = setup_devstr;
 #	define altsblock asblk.b_unp->b_fs
+	if (strlen(dev) >= sizeof(setup_devstr)) return (0);
 	strcpy(devstr, dev);
 #if NEXTUFS_FSCK_HOST_MOUNTS
 restat:
@@ -210,6 +211,10 @@ restat:
 	/*
 	 * run a few consistency checks of the super block
 	 */
+	if (dfile.use_image && nextufs_image_validate(&dfile.image) < 0) {
+		badsb("UNSAFE FILESYSTEM GEOMETRY");
+		return (0);
+	}
 	if (sblock.fs_magic != FS_MAGIC)
 		{ badsb("MAGIC NUMBER WRONG"); return (0); }
 	if (sblock.fs_ncg < 1)

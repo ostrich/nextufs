@@ -3,19 +3,28 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 int
-nextufs_parse_u64(const char *s, uint64_t *out)
+nextufs_parse_number(const char *s, int base, uint64_t limit, uint64_t *out)
 {
 	char *end;
 	unsigned long long v;
 
+	if (!s || !isdigit((unsigned char)*s))
+		return -1;
 	errno = 0;
-	v = strtoull(s, &end, 10);
-	if (errno != 0 || end == s || *end != '\0')
+	v = strtoull(s, &end, base);
+	if (errno != 0 || end == s || *end != '\0' || v > limit)
 		return -1;
 	*out = (uint64_t)v;
 	return 0;
+}
+
+int
+nextufs_parse_u64(const char *s, uint64_t *out)
+{
+	return nextufs_parse_number(s, 10, UINT64_MAX, out);
 }
 
 int
@@ -26,6 +35,8 @@ nextufs_parse_size_bytes(const char *s,
 	unsigned long long value;
 	uint64_t mult = 1;
 
+	if (!s || !isdigit((unsigned char)*s))
+		return -1;
 	errno = 0;
 	value = strtoull(s, &end, 10);
 	if (errno != 0 || end == s)

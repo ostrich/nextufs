@@ -68,6 +68,7 @@ struct nextufs_image {
 	int fd;
 	const void *backend_ops;
 	void *backend_ctx;
+	struct nextufs_transaction *transaction;
 	int writable;
 	int source_is_container;
 	enum nextufs_source_format source_format;
@@ -110,6 +111,7 @@ int nextufs_image_open_source(struct nextufs_image *img, const char *path,
 	enum nextufs_open_policy policy);
 int nextufs_image_open(struct nextufs_image *img, const char *path);
 int nextufs_image_open_rw(struct nextufs_image *img, const char *path);
+int nextufs_image_validate(const struct nextufs_image *img);
 void nextufs_image_close(struct nextufs_image *img);
 int nextufs_target_open(const char *path, enum nextufs_open_policy policy,
 	mode_t mode, int *fd_out);

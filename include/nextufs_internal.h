@@ -45,6 +45,11 @@ struct nextufs_dirent_view {
 	const char *name;
 };
 
+int nextufs__transaction_begin(struct nextufs_image *img);
+int nextufs__transaction_record(const struct nextufs_image *img, size_t size,
+				off_t offset);
+int nextufs__transaction_end(struct nextufs_image *img, int status);
+int nextufs__image_refresh(struct nextufs_image *img);
 int nextufs__qcow2_open(struct nextufs_image *img, const char *path, int writable);
 
 struct nextufs_image_backend_ops {
@@ -107,6 +112,16 @@ int nextufs__write_indirect_entry(const struct nextufs_image *img,
 int nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 	unsigned preferred_cg, const uint8_t *data, size_t data_len,
 	struct nextufs_inode *ino_out);
+int nextufs__set_inode_data_block(const struct nextufs_image *,
+				  struct nextufs_inode *, uint32_t, uint32_t,
+				  unsigned, uint32_t *);
+int nextufs__resolve_inode_data_block(const struct nextufs_image *,
+				      const struct nextufs_inode *, uint32_t,
+				      uint32_t *);
+int nextufs__file_resize(const struct nextufs_image *, struct nextufs_node *,
+			 uint64_t);
+int nextufs__file_write(const struct nextufs_image *, struct nextufs_node *,
+			const void *, size_t, uint64_t);
 int nextufs__free_file_storage(const struct nextufs_image *img,
 	struct nextufs_inode *ino);
 int nextufs__write_dirent_raw(uint8_t *p, unsigned ino, uint16_t reclen,

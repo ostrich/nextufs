@@ -544,7 +544,7 @@ nextufs_stress_exec_wait_timeout(char *const argv[], unsigned timeout_ms)
 				return 0;
 			return -EIO;
 		}
-		usleep(100000);
+		usleep(10000);
 		waited += 100;
 	}
 	(void)kill(pid, SIGKILL);
@@ -671,20 +671,19 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 		argv[2] = (char *)ctx->image_path;
 		argv[3] = ctx->mountpoint;
 		argv[4] = "-f";
-		argv[5] = "-s";
-		argv[6] = "-o";
-		argv[7] = ctx->write_ctx.policy == NEXTUFS_WRITE_SU ?
-		    "rw,mode=su" : "rw,mode=user";
-		argv[8] = NULL;
+		argv[5] = "-o";
+		argv[6] = ctx->write_ctx.policy == NEXTUFS_WRITE_SU
+			      ? "rw,mode=su"
+			      : "rw,mode=user";
+		argv[7] = NULL;
 		execv(argv[0], argv);
 		_exit(127);
 	}
 	for (tries = 0; tries < NEXTUFS_STRESS_WAIT_TRIES; tries++) {
 		if (nextufs_stress_mount_active(ctx->mountpoint)) {
-			usleep(100000);
 			return 0;
 		}
-		usleep(100000);
+		usleep(10000);
 	}
 	return -EIO;
 }
@@ -749,6 +748,11 @@ static int
 nextufs_stress_backend_create_file(struct nextufs_stress_ctx *ctx,
     const char *path, const void *data, size_t data_len)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_create_file(&ctx->write_ctx, ctx->image_path, path,
 		    data, data_len);
@@ -775,6 +779,11 @@ static int
 nextufs_stress_backend_mkdir(struct nextufs_stress_ctx *ctx, const char *path,
     uint16_t mode)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_mkdir(&ctx->write_ctx, ctx->image_path, path, mode);
 	else {
@@ -795,6 +804,11 @@ static int
 nextufs_stress_backend_symlink(struct nextufs_stress_ctx *ctx, const char *target,
     const char *link_path)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_symlink(&ctx->write_ctx, ctx->image_path, target,
 		    link_path);
@@ -816,6 +830,11 @@ static int
 nextufs_stress_backend_mknod(struct nextufs_stress_ctx *ctx, const char *path,
     uint16_t mode, uint32_t rdev)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_mknod(&ctx->write_ctx, ctx->image_path, path, mode,
 		    rdev);
@@ -842,6 +861,11 @@ static int
 nextufs_stress_backend_overwrite(struct nextufs_stress_ctx *ctx, const char *path,
     const void *data, size_t data_len)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_overwrite_file(&ctx->write_ctx, ctx->image_path,
 		    path, data, data_len);
@@ -868,6 +892,11 @@ static int
 nextufs_stress_backend_append(struct nextufs_stress_ctx *ctx, const char *path,
     const void *data, size_t data_len)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_append_file(&ctx->write_ctx, ctx->image_path, path,
 		    data, data_len);
@@ -897,6 +926,11 @@ static int
 nextufs_stress_backend_pwrite(struct nextufs_stress_ctx *ctx, const char *path,
     const void *data, size_t data_len, uint64_t offset)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_pwrite(&ctx->write_ctx, ctx->image_path, path, data,
 		    data_len, offset);
@@ -923,6 +957,11 @@ static int
 nextufs_stress_backend_truncate(struct nextufs_stress_ctx *ctx, const char *path,
     uint64_t size)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_truncate(&ctx->write_ctx, ctx->image_path, path,
 		    size);
@@ -944,6 +983,11 @@ static int
 nextufs_stress_backend_chmod(struct nextufs_stress_ctx *ctx, const char *path,
     uint16_t mode)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_chmod(&ctx->write_ctx, ctx->image_path, path, mode);
 	else {
@@ -964,6 +1008,11 @@ static int
 nextufs_stress_backend_chown(struct nextufs_stress_ctx *ctx, const char *path,
     uid_t uid, gid_t gid)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_chown(&ctx->write_ctx, ctx->image_path, path, uid,
 		    gid);
@@ -985,6 +1034,11 @@ static int
 nextufs_stress_backend_utimes(struct nextufs_stress_ctx *ctx, const char *path,
     uint32_t atime, uint32_t mtime)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_utimes(&ctx->write_ctx, ctx->image_path, path,
 		    atime, mtime);
@@ -1011,6 +1065,11 @@ static int
 nextufs_stress_backend_rename(struct nextufs_stress_ctx *ctx, const char *src,
     const char *dst)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_rename(&ctx->write_ctx, ctx->image_path, src, dst);
 	else {
@@ -1035,6 +1094,11 @@ nextufs_stress_backend_rename(struct nextufs_stress_ctx *ctx, const char *src,
 static int
 nextufs_stress_backend_unlink(struct nextufs_stress_ctx *ctx, const char *path)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_unlink(&ctx->write_ctx, ctx->image_path, path);
 	else {
@@ -1054,6 +1118,11 @@ nextufs_stress_backend_unlink(struct nextufs_stress_ctx *ctx, const char *path)
 static int
 nextufs_stress_backend_rmdir(struct nextufs_stress_ctx *ctx, const char *path)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_rmdir(&ctx->write_ctx, ctx->image_path, path);
 	else {
@@ -1074,6 +1143,11 @@ static int
 nextufs_stress_backend_link(struct nextufs_stress_ctx *ctx, const char *src,
     const char *dst)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	if (ctx->backend == NEXTUFS_STRESS_BACKEND_OFFLINE)
 		return nextufs_path_link(&ctx->write_ctx, ctx->image_path, src, dst);
 	else {
@@ -1340,6 +1414,11 @@ nextufs_stress_refresh_geometry(struct nextufs_stress_ctx *ctx)
 	struct nextufs_image img;
 	int rc;
 
+	if (ctx->fuse_pid > 0) {
+		rc = nextufs_stress_fuse_stop(ctx);
+		if (rc < 0)
+			return rc;
+	}
 	rc = nextufs_image_open(&img, ctx->image_path);
 	if (rc < 0)
 		return rc;
@@ -1358,6 +1437,11 @@ nextufs_stress_refresh_path(struct nextufs_stress_ctx *ctx, const char *path)
 	struct nextufs_stress_obj *obj;
 	int rc;
 
+	if (ctx->fuse_pid > 0) {
+		rc = nextufs_stress_fuse_stop(ctx);
+		if (rc < 0)
+			return rc;
+	}
 	rc = nextufs_image_open(&img, ctx->image_path);
 	if (rc < 0)
 		return rc;
@@ -1392,6 +1476,11 @@ nextufs_stress_refresh_regular(struct nextufs_stress_ctx *ctx, const char *path)
 	size_t got = 0;
 	int rc;
 
+	if (ctx->fuse_pid > 0) {
+		rc = nextufs_stress_fuse_stop(ctx);
+		if (rc < 0)
+			return rc;
+	}
 	rc = nextufs_image_open(&img, ctx->image_path);
 	if (rc < 0)
 		return rc;
@@ -1621,6 +1710,11 @@ nextufs_stress_validate(struct nextufs_stress_ctx *ctx)
 	size_t i;
 	int rc;
 
+	if (ctx->fuse_pid > 0) {
+		rc = nextufs_stress_fuse_stop(ctx);
+		if (rc < 0)
+			return rc;
+	}
 	rc = nextufs_image_open(&img, ctx->image_path);
 	if (rc < 0)
 		return rc;
@@ -1813,6 +1907,11 @@ nextufs_stress_create_root(struct nextufs_stress_ctx *ctx)
 	rc = nextufs_stress_backend_mkdir(ctx, ctx->root_path, 0777);
 	if (rc < 0)
 		return rc;
+	if (ctx->fuse_pid > 0) {
+		rc = nextufs_stress_fuse_stop(ctx);
+		if (rc < 0)
+			return rc;
+	}
 	rc = nextufs_image_open(&img, ctx->image_path);
 	if (rc < 0)
 		return rc;
@@ -1924,6 +2023,11 @@ nextufs_stress_mkdir_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_symlink_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char parent[NEXTUFS_STRESS_MAX_PATH];
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	char target[NEXTUFS_STRESS_MAX_PATH];
@@ -1969,6 +2073,11 @@ nextufs_stress_symlink_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_mknod_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char parent[NEXTUFS_STRESS_MAX_PATH];
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	enum nextufs_stress_type type;
@@ -2014,6 +2123,11 @@ nextufs_stress_mknod_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_overwrite_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	struct nextufs_stress_path *entry;
 	struct nextufs_stress_obj *obj;
@@ -2204,6 +2318,11 @@ nextufs_stress_truncate_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_chmod_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	uint16_t perms;
 	int rc;
@@ -2224,6 +2343,11 @@ nextufs_stress_chmod_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_chown_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	uid_t uid;
 	gid_t gid;
@@ -2247,6 +2371,11 @@ nextufs_stress_chown_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_utimes_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	uint32_t atime;
 	uint32_t mtime;
@@ -2270,6 +2399,11 @@ nextufs_stress_utimes_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_rename_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char src[NEXTUFS_STRESS_MAX_PATH];
 	char dst_parent[NEXTUFS_STRESS_MAX_PATH];
 	char dst[NEXTUFS_STRESS_MAX_PATH];
@@ -2343,6 +2477,11 @@ nextufs_stress_unlink_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_rmdir_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	int rc;
 
@@ -2364,6 +2503,11 @@ nextufs_stress_rmdir_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_link_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char src[NEXTUFS_STRESS_MAX_PATH];
 	char parent[NEXTUFS_STRESS_MAX_PATH];
 	char dst[NEXTUFS_STRESS_MAX_PATH];
@@ -2399,6 +2543,11 @@ nextufs_stress_link_op(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_fail_create_existing(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	uint8_t b = 0x42;
 	struct nextufs_stress_snapshot snap;
@@ -2424,6 +2573,11 @@ nextufs_stress_fail_create_existing(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_fail_unlink_missing(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char parent[NEXTUFS_STRESS_MAX_PATH];
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	struct nextufs_stress_snapshot snap;
@@ -2449,6 +2603,11 @@ nextufs_stress_fail_unlink_missing(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_fail_rmdir_nonempty(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char path[NEXTUFS_STRESS_MAX_PATH];
 	struct nextufs_stress_snapshot snap;
 	int rc;
@@ -2472,6 +2631,11 @@ nextufs_stress_fail_rmdir_nonempty(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_fail_link_dir(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	char src[NEXTUFS_STRESS_MAX_PATH];
 	char parent[NEXTUFS_STRESS_MAX_PATH];
 	char dst[NEXTUFS_STRESS_MAX_PATH];
@@ -2501,6 +2665,11 @@ nextufs_stress_fail_link_dir(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_fail_rename_into_descendant(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	size_t i;
 	char src[NEXTUFS_STRESS_MAX_PATH];
 	char dst[NEXTUFS_STRESS_MAX_PATH];
@@ -2541,6 +2710,11 @@ nextufs_stress_fail_rename_into_descendant(struct nextufs_stress_ctx *ctx)
 static int
 nextufs_stress_apply_negative_op(struct nextufs_stress_ctx *ctx)
 {
+	if (ctx->backend == NEXTUFS_STRESS_BACKEND_FUSE && ctx->fuse_pid <= 0) {
+		int start_rc = nextufs_stress_fuse_start(ctx);
+		if (start_rc < 0)
+			return start_rc;
+	}
 	unsigned attempt;
 
 	for (attempt = 0; attempt < 64; attempt++) {

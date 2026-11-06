@@ -1,6 +1,7 @@
 /* Raw UFS formatter API used by nextufs mkimg. */
 
 #include "format.h"
+#include <stddef.h>
 
 struct nextufs_format *format_current;
 
@@ -261,9 +262,11 @@ nextufs_format(const struct nextufs_format_options *opts)
 		rpos = cbtorpos(&sblock, i);
 		blk = i / sblock.fs_frag;
 		if (sblock.fs_postbl[cylno][rpos] == -1)
-			sblock.fs_rotbl[blk] = 0;
+			((uint8_t *)&format_current
+			     ->fsun)[offsetof(struct fs, fs_rotbl) + blk] = 0;
 		else
-			sblock.fs_rotbl[blk] =
+			((uint8_t *)&format_current
+			     ->fsun)[offsetof(struct fs, fs_rotbl) + blk] =
 			    sblock.fs_postbl[cylno][rpos] - blk;
 		sblock.fs_postbl[cylno][rpos] = blk;
 	}

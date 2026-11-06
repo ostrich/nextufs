@@ -13,6 +13,8 @@ enum nextufs_bare_size_unit {
 	NEXTUFS_BARE_SIZE_1K_SECTORS = 1,
 };
 
+int nextufs_parse_number(const char *s, int base, uint64_t limit,
+			 uint64_t *out);
 int nextufs_parse_u64(const char *s, uint64_t *out);
 int nextufs_parse_size_bytes(const char *s,
 	enum nextufs_bare_size_unit bare_unit, uint64_t *bytes_out);

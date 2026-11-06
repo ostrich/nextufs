@@ -110,8 +110,6 @@ checkfilesys_active(char *filesys)
 			printf("\n");
 		}
 	}
-	zlnhead = (struct zlncnt *)0;
-	duplist = (struct dups *)0;
 #if	NeXT
 	if (preen || (error_count == 0 && sblock.fs_state != expected_state)) {
 		if (mountedfs) {
@@ -138,9 +136,6 @@ checkfilesys_active(char *filesys)
 	ckfini();
 	nflag = saved_nflag;
 	yflag = saved_yflag;
-	free(blockmap);
-	free(statemap);
-	free((char *)lncntp);
 	if (!dfile.mod)
 		return;
 	if (!preen) {

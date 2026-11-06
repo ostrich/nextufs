@@ -38,7 +38,8 @@ test ! -e "$WORK"/mkimg-dry-run.img
 ! "$NEXTUFS" mkimg --raw --label bad "$WORK"/mkimg-invalid.raw 64M >/dev/null 2>"$WORK"/mkimg-raw-label.err
 grep -F -- '--label is not valid with --raw' "$WORK"/mkimg-raw-label.err >/dev/null
 ! "$NEXTUFS" mkimg --raw "$WORK"/mkimg-invalid.raw 64M 0 16 8192 1024 16 10 60 2048 t >/dev/null 2>"$WORK"/mkimg-invalid.err
-grep -F 'preposterous nsect' "$WORK"/mkimg-invalid.err >/dev/null
+test ! -e "$WORK"/mkimg-invalid.raw
+grep -F 'unsupported filesystem geometry' "$WORK"/mkimg-invalid.err >/dev/null
 "$NEXTUFS" mkimg --raw "$WORK"/mkimg-limit.raw 4194176 >/dev/null
 "$NEXTUFS" fsck -n "$WORK"/mkimg-limit.raw >/dev/null
 ! "$NEXTUFS" mkimg --raw "$WORK"/mkimg-too-large.raw 4194177 >/dev/null 2>"$WORK"/mkimg-too-large.err

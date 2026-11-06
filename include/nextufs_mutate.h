@@ -12,13 +12,28 @@ enum nextufs_write_policy {
 	NEXTUFS_WRITE_USER = 1,
 };
 
+/* Serialized, persistent owner of the image and its exclusive advisory lock. */
+struct nextufs_write_session {
+	struct nextufs_image image;
+	int failed;
+};
+int nextufs_write_session_open(struct nextufs_write_session *session,
+			       const char *path);
+void nextufs_write_session_close(struct nextufs_write_session *session);
+
+/* Zero-initialize before setting policy, credentials and optional session. */
 struct nextufs_write_ctx {
 	enum nextufs_write_policy policy;
 	uid_t uid;
 	gid_t gid;
 	const gid_t *groups;
 	size_t group_count;
+	struct nextufs_write_session *session; /* NULL for one-shot operations */
 };
+
+int nextufs_node_lookup_as(const struct nextufs_write_ctx *ctx,
+			   const struct nextufs_image *img, const char *path,
+			   int follow, struct nextufs_node *node);
 
 int nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 	const char *image_path, const char *path, const void *data,

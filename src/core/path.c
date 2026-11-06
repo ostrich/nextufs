@@ -1,4 +1,6 @@
 #include "nextufs_internal.h"
+#include "nextufs_mutate.h"
+#include <unistd.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -23,8 +25,10 @@ append_path_component(char *path, size_t path_size, const char *component)
 
 static int
 lookup_path_recursive(const struct nextufs_image *img, const char *path,
-    unsigned *inode_no_out, struct nextufs_inode *inode_out,
-    off_t *inode_off_out, unsigned depth, int follow_final_symlink)
+		      unsigned *inode_no_out, struct nextufs_inode *inode_out,
+		      off_t *inode_off_out, unsigned depth,
+		      int follow_final_symlink,
+		      const struct nextufs_write_ctx *ctx)
 {
 	char *scratch;
 	char *segment;
@@ -65,6 +69,16 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 		if ((current_inode.mode & NEXTUFS_IFMT) != NEXTUFS_IFDIR) {
 			free(scratch);
 			return -ENOTDIR;
+		}
+		if (ctx && ctx->policy == NEXTUFS_WRITE_USER) {
+			struct nextufs_node node = {.inode = current_inode};
+			int rc = nextufs__node_check_access(
+			    &node, ctx->uid, ctx->gid, ctx->groups,
+			    ctx->group_count, X_OK, 1);
+			if (rc < 0) {
+				free(scratch);
+				return rc;
+			}
 		}
 		if (nextufs__find_name_in_directory(img, &current_inode, segment,
 		    &next_inode_no) < 0) {
@@ -123,9 +137,10 @@ lookup_path_recursive(const struct nextufs_image *img, const char *path,
 				}
 			}
 			free(scratch);
-			return lookup_path_recursive(img, new_path, inode_no_out,
-			    inode_out, inode_off_out, depth + 1,
-			    follow_final_symlink);
+			return lookup_path_recursive(img, new_path,
+						     inode_no_out, inode_out,
+						     inode_off_out, depth + 1,
+						     follow_final_symlink, ctx);
 		}
 		current_inode_no = next_inode_no;
 		if (append_path_component(prefix, sizeof(prefix), segment) < 0) {
@@ -147,7 +162,7 @@ nextufs_path_lookup(const struct nextufs_image *img, const char *path,
     off_t *inode_off_out)
 {
 	return lookup_path_recursive(img, path, inode_no_out, inode_out,
-	    inode_off_out, 0, 1);
+				     inode_off_out, 0, 1, NULL);
 }
 
 int
@@ -156,5 +171,14 @@ nextufs_path_lookup_nofollow(const struct nextufs_image *img, const char *path,
     off_t *inode_off_out)
 {
 	return lookup_path_recursive(img, path, inode_no_out, inode_out,
-	    inode_off_out, 0, 0);
+				     inode_off_out, 0, 0, NULL);
+}
+
+int
+nextufs_node_lookup_as(const struct nextufs_write_ctx *ctx,
+		       const struct nextufs_image *img, const char *path,
+		       int follow, struct nextufs_node *node)
+{
+	return lookup_path_recursive(img, path, &node->inode_no, &node->inode,
+				     &node->inode_off, 0, follow, ctx);
 }

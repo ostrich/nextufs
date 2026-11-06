@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -20,7 +21,7 @@ nextufs_target_open(const char *path, enum nextufs_open_policy policy,
 		flags |= O_EXCL;
 		break;
 	case NEXTUFS_OPEN_OVERWRITE:
-		flags |= O_TRUNC;
+		/* Truncate only after acquiring exclusive ownership. */
 		break;
 	default:
 		return -EINVAL;
@@ -28,6 +29,12 @@ nextufs_target_open(const char *path, enum nextufs_open_policy policy,
 	fd = open(path, flags, mode);
 	if (fd < 0)
 		return -errno;
+	if (flock(fd, LOCK_EX | LOCK_NB) < 0 ||
+	    (policy == NEXTUFS_OPEN_OVERWRITE && ftruncate(fd, 0) < 0)) {
+		int rc = -errno;
+		close(fd);
+		return rc;
+	}
 	*fd_out = fd;
 	return 0;
 }

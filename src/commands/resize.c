@@ -884,6 +884,11 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	}
 	new_cssize = (uint32_t)new_cssize64;
 	new_csum_addr = img->sb.cyl_summary_addr;
+	rc = nextufs__transaction_begin(img);
+	if (rc < 0) {
+		nextufs_image_close(img);
+		return 1;
+	}
 	if (new_cssize > img->sb.csum_size) {
 		uint32_t moves;
 
@@ -905,6 +910,7 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 			}
 			printf("nextufs resize: evacuated %u data runs; restarting grow\n",
 			    moves);
+			(void)nextufs__transaction_end(img, 0);
 			nextufs_image_close(img);
 			return resize_grow(path, sectors_arg, force);
 		}
@@ -945,6 +951,14 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		free(cg_buf);
 		nextufs_image_close(img);
 		return 1;
+	}
+	img->image_size = (off_t)target_backing_bytes;
+	img->slice_size = (off_t)target_slice_bytes;
+	if (img->used_disk_label) {
+		rc = nextufs__transaction_record(img, (size_t)img->slice_base,
+						 0);
+		if (rc < 0)
+			goto fail;
 	}
 	rc = patch_label_partition_size(img, target_slice_bytes);
 	if (rc < 0) {
@@ -1069,6 +1083,7 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		goto fail;
 	}
 
+	(void)nextufs__transaction_end(img, 0);
 	printf("nextufs resize: grew %s to %" PRIu64 " 1K sectors (%u cylinder groups)\n",
 	    path, sectors, new_ncg);
 	free(old_sb);
@@ -1077,6 +1092,12 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	return 0;
 
 fail:
+	rc = nextufs__transaction_end(img, rc);
+	if (rc != -EUCLEAN &&
+	    ftruncate(img->fd, (off_t)opened.backing_size) < 0)
+		rc = -EUCLEAN;
+	if (nextufs_image_fsync(img) < 0)
+		rc = -EUCLEAN;
 	fprintf(stderr, "nextufs resize: grow failed: %d\n", rc);
 	free(old_sb);
 	free(cg_buf);

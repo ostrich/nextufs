@@ -134,7 +134,7 @@ with open(sys.argv[1], encoding="utf-8") as stream:
 assert entries[0]["name"] == "."
 assert entries[0]["inode"] == 2
 assert entries[0]["mode"] & 0o170000 == 0o040000
-assert all(set(entry) == {"inode", "mode", "uid", "gid", "size", "atime", "mtime", "name"}
+assert all(set(entry) == {"inode", "mode", "uid", "gid", "size", "atime", "mtime", "name", "name_bytes_hex"}
            for entry in entries)
 assert all(entry["name"] not in (".", "..") for entry in entries[1:])
 PY

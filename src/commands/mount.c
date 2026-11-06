@@ -3,6 +3,7 @@
 #include "nextufs_internal.h"
 #include "nextufs_mutate.h"
 #include "nextufs_report.h"
+#include "nextufs_size.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,8 +15,10 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <time.h>
 
-static struct nextufs_image g_img = { .fd = -1 };
+static struct nextufs_write_session g_session = {.image.fd = -1};
+#define g_img g_session.image
 static const char *g_image_path;
 static char g_image_path_buf[PATH_MAX];
 enum nextufs_mount_mode {
@@ -54,13 +57,25 @@ nextufs_effective_ids(uid_t *uid_out, gid_t *gid_out)
 	*gid_out = gid;
 }
 
-static void
+static int
 nextufs_fill_mutation_ctx(struct nextufs_write_ctx *ctx)
 {
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->policy = g_mount_mode == NEXTUFS_MOUNT_SU ?
 	    NEXTUFS_WRITE_SU : NEXTUFS_WRITE_USER;
+	static gid_t groups[65536];
 	nextufs_effective_ids(&ctx->uid, &ctx->gid);
+	ctx->session = &g_session;
+	if (g_mount_mode == NEXTUFS_MOUNT_USER) {
+		int count = fuse_getgroups(65536, groups);
+		if (count < 0)
+			return count;
+		if (count > 65536)
+			return -EOVERFLOW;
+		ctx->groups = groups;
+		ctx->group_count = (size_t)count;
+	}
+	return 0;
 }
 
 static int
@@ -80,14 +95,8 @@ nextufs_parse_mode_option(const char *value)
 static int
 nextufs_parse_id_option(const char *value, unsigned int *id_out)
 {
-	char *endptr;
-	unsigned long parsed;
-
-	if (value == NULL || *value == '\0')
-		return -EINVAL;
-	errno = 0;
-	parsed = strtoul(value, &endptr, 10);
-	if (errno != 0 || *endptr != '\0' || parsed > UINT_MAX)
+	uint64_t parsed;
+	if (nextufs_parse_number(value, 10, INT16_MAX, &parsed) < 0)
 		return -EINVAL;
 	*id_out = (unsigned int)parsed;
 	return 0;
@@ -202,18 +211,30 @@ nextufs_build_fuse_args(int argc, char **argv, struct fuse_args *args_out)
 			return -ENOMEM;
 		}
 	}
+	if (fuse_opt_add_arg(args_out, "-s") != 0)
+		return -ENOMEM;
 	return 0;
 }
 
 static int
 nextufs_refresh_image(void)
 {
-	nextufs_image_close(&g_img);
-	if (g_mount_readonly)
-		return nextufs_image_open_source(&g_img, g_image_path,
-		    NEXTUFS_OPEN_READ_ONLY);
-	return nextufs_image_open_source(&g_img, g_image_path,
-	    NEXTUFS_OPEN_READ_WRITE);
+	if (g_session.failed)
+		return -EIO;
+	return nextufs__image_refresh(&g_img);
+}
+
+static int
+mount_lookup(const char *path, int follow, struct nextufs_node *node)
+{
+	struct nextufs_write_ctx ctx;
+	int rc;
+	if (g_session.failed)
+		return -EIO;
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
+	return nextufs_node_lookup_as(&ctx, &g_img, path, follow, node);
 }
 
 static int
@@ -225,14 +246,15 @@ nextufs_require_writable(void)
 static int
 nextufs_require_access(const struct nextufs_node *node, int mask)
 {
-	uid_t uid;
-	gid_t gid;
-
+	struct nextufs_write_ctx ctx;
+	int rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	if (g_mount_mode == NEXTUFS_MOUNT_SU)
 		return 0;
-	nextufs_effective_ids(&uid, &gid);
-	return nextufs__node_check_access(node, uid, gid, NULL, 0, mask,
-	    !g_mount_readonly);
+	return nextufs__node_check_access(node, ctx.uid, ctx.gid, ctx.groups,
+					  ctx.group_count, mask,
+					  !g_mount_readonly);
 }
 
 static int
@@ -242,7 +264,7 @@ nextufs_getattr(const char *path, struct stat *st, struct fuse_file_info *fi)
 	int rc;
 	(void)fi;
 
-	rc = nextufs_node_lookup(&g_img, path, 0, &node);
+	rc = mount_lookup(path, 0, &node);
 	if (rc < 0)
 		return rc;
 	return nextufs_node_stat(&node, st);
@@ -255,7 +277,7 @@ nextufs_open(const char *path, struct fuse_file_info *fi)
 	struct nextufs_write_ctx ctx;
 	int rc;
 
-	rc = nextufs_node_lookup(&g_img, path, 1, &node);
+	rc = mount_lookup(path, 1, &node);
 	if (rc < 0)
 		return rc;
 	if (!nextufs_node_is_reg(&node))
@@ -274,7 +296,9 @@ nextufs_open(const char *path, struct fuse_file_info *fi)
 		rc = nextufs_require_writable();
 		if (rc < 0)
 			return rc;
-		nextufs_fill_mutation_ctx(&ctx);
+		rc = nextufs_fill_mutation_ctx(&ctx);
+		if (rc < 0)
+			return rc;
 		rc = nextufs_path_truncate(&ctx, g_image_path, path, 0);
 		if (rc < 0)
 			return rc;
@@ -294,7 +318,7 @@ nextufs_read(const char *path, char *buf, size_t size, off_t offset,
 	int rc;
 	(void)fi;
 
-	rc = nextufs_node_lookup(&g_img, path, 1, &node);
+	rc = mount_lookup(path, 1, &node);
 	if (rc < 0)
 		return rc;
 	rc = nextufs_require_access(&node, R_OK);
@@ -318,7 +342,9 @@ nextufs_write(const char *path, const char *buf, size_t size, off_t offset,
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_pwrite(&ctx, g_image_path, path, buf, size,
 	    (uint64_t)offset);
 	if (rc < 0)
@@ -332,12 +358,11 @@ nextufs_write(const char *path, const char *buf, size_t size, off_t offset,
 static int
 nextufs_readlink(const char *path, char *buf, size_t size)
 {
-	int rc;
-
-	rc = nextufs_path_readlink(&g_img, path, buf, size);
+	struct nextufs_node node;
+	int rc = mount_lookup(path, 0, &node);
 	if (rc < 0)
 		return rc;
-	return 0;
+	return nextufs_inode_readlink(&g_img, &node.inode, buf, size);
 }
 
 struct readdir_ctx {
@@ -377,7 +402,7 @@ nextufs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void)fi;
 	(void)flags;
 
-	rc = nextufs_node_lookup(&g_img, path, 1, &node);
+	rc = mount_lookup(path, 1, &node);
 	if (rc < 0)
 		return rc;
 	if (!nextufs_node_is_dir(&node))
@@ -399,7 +424,7 @@ nextufs_access(const char *path, int mask)
 	struct nextufs_node node;
 	int rc;
 
-	rc = nextufs_node_lookup(&g_img, path, 1, &node);
+	rc = mount_lookup(path, 1, &node);
 	if (rc < 0)
 		return rc;
 	return nextufs_require_access(&node, mask);
@@ -421,7 +446,9 @@ nextufs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_mknod(&ctx, g_image_path, path,
 	    NEXTUFS_IFREG | (mode & 07777), 0);
 	if (rc < 0)
@@ -441,7 +468,9 @@ nextufs_mknod(const char *path, mode_t mode, dev_t rdev)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_mknod(&ctx, g_image_path, path, (uint16_t)mode,
 	    (uint32_t)rdev);
 	if (rc < 0)
@@ -458,7 +487,9 @@ nextufs_unlink(const char *path)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_unlink(&ctx, g_image_path, path);
 	if (rc < 0)
 		return rc;
@@ -474,7 +505,9 @@ nextufs_mkdir(const char *path, mode_t mode)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_mkdir(&ctx, g_image_path, path, (uint16_t)mode);
 	if (rc < 0)
 		return rc;
@@ -490,7 +523,9 @@ nextufs_rmdir(const char *path)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_rmdir(&ctx, g_image_path, path);
 	if (rc < 0)
 		return rc;
@@ -508,7 +543,9 @@ nextufs_rename(const char *from, const char *to, unsigned int flags)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_rename(&ctx, g_image_path, from, to);
 	if (rc < 0)
 		return rc;
@@ -524,7 +561,9 @@ nextufs_link(const char *from, const char *to)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_link(&ctx, g_image_path, from, to);
 	if (rc < 0)
 		return rc;
@@ -540,7 +579,9 @@ nextufs_symlink(const char *target, const char *linkpath)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_symlink(&ctx, g_image_path, target, linkpath);
 	if (rc < 0)
 		return rc;
@@ -557,7 +598,9 @@ nextufs_chmod(const char *path, mode_t mode, struct fuse_file_info *fi)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_chmod(&ctx, g_image_path, path, (uint16_t)mode);
 	if (rc < 0)
 		return rc;
@@ -574,7 +617,9 @@ nextufs_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_chown(&ctx, g_image_path, path, uid, gid);
 	if (rc < 0)
 		return rc;
@@ -593,7 +638,9 @@ nextufs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
 	rc = nextufs_path_truncate(&ctx, g_image_path, path, (uint64_t)size);
 	if (rc < 0)
 		return rc;
@@ -611,9 +658,27 @@ nextufs_utimens(const char *path, const struct timespec ts[2],
 	rc = nextufs_require_writable();
 	if (rc < 0)
 		return rc;
-	nextufs_fill_mutation_ctx(&ctx);
-	rc = nextufs_path_utimes(&ctx, g_image_path, path,
-	    (uint32_t)ts[0].tv_sec, (uint32_t)ts[1].tv_sec);
+	rc = nextufs_fill_mutation_ctx(&ctx);
+	if (rc < 0)
+		return rc;
+	struct nextufs_node node;
+	uint32_t times[2];
+	rc = mount_lookup(path, 0, &node);
+	if (rc < 0)
+		return rc;
+	for (unsigned i = 0; i < 2; i++) {
+		if (ts[i].tv_nsec == UTIME_OMIT)
+			times[i] = i ? node.inode.mtime : node.inode.atime;
+		else if (ts[i].tv_nsec == UTIME_NOW)
+			times[i] = (uint32_t)time(NULL);
+		else {
+			if (ts[i].tv_sec < 0 ||
+			    (uint64_t)ts[i].tv_sec > UINT32_MAX)
+				return -EOVERFLOW;
+			times[i] = (uint32_t)ts[i].tv_sec;
+		}
+	}
+	rc = nextufs_path_utimes(&ctx, g_image_path, path, times[0], times[1]);
 	if (rc < 0)
 		return rc;
 	return nextufs_refresh_image();
@@ -636,6 +701,9 @@ nextufs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 	(void)conn;
 	cfg->use_ino = 1;
 	cfg->kernel_cache = 0;
+	cfg->attr_timeout = 0;
+	cfg->entry_timeout = 0;
+	cfg->negative_timeout = 0;
 	return NULL;
 }
 
@@ -667,6 +735,18 @@ static const struct fuse_operations nextufs_ops = {
 int
 nextufs_mount_main(int argc, char **argv)
 {
+	if (argc == 2 &&
+	    (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+		fputs("usage: nextufs mount <source> <mountpoint> [fuse "
+		      "options]\n\n-o ro|rw           read-only (default) or "
+		      "writable\n-o mode=su|user    image permission policy "
+		      "(default su)\n-o uid=N,gid=N     override image "
+		      "credentials\n-f                 foreground\nOperations "
+		      "are serialized; writable mounts hold an exclusive image "
+		      "lock.\n",
+		      stdout);
+		return 0;
+	}
 	struct fuse_args args;
 	int rc;
 
@@ -703,7 +783,11 @@ nextufs_mount_main(int argc, char **argv)
 			return 1;
 		}
 	}
-	rc = nextufs_refresh_image();
+	rc = g_mount_readonly
+		 ? nextufs_image_open(&g_img, g_image_path)
+		 : nextufs_write_session_open(&g_session, g_image_path);
+	if (!rc)
+		rc = nextufs_image_validate(&g_img);
 	if (rc < 0) {
 		nextufs_report_errno(stderr, "mount", "open source", argv[1],
 		    rc);

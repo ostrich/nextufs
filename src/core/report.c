@@ -185,8 +185,30 @@ nextufs_report_json_string(FILE *out, const char *s, size_t len)
 			fputs("\\t", out);
 		else if (c < 32)
 			fprintf(out, "\\u%04x", c);
-		else
+		else if (c < 128)
 			fputc(c, out);
+		else {
+			size_t n = c >= 0xc2 && c <= 0xdf   ? 2
+				   : c >= 0xe0 && c <= 0xef ? 3
+				   : c >= 0xf0 && c <= 0xf4 ? 4
+							    : 0;
+			size_t j;
+			int valid = n && n <= len - i;
+			for (j = 1; valid && j < n; j++)
+				if (((unsigned char)s[i + j] & 0xc0) != 0x80)
+					valid = 0;
+			if (valid &&
+			    ((c == 0xe0 && (unsigned char)s[i + 1] < 0xa0) ||
+			     (c == 0xed && (unsigned char)s[i + 1] >= 0xa0) ||
+			     (c == 0xf0 && (unsigned char)s[i + 1] < 0x90) ||
+			     (c == 0xf4 && (unsigned char)s[i + 1] >= 0x90)))
+				valid = 0;
+			if (valid) {
+				fwrite(s + i, 1, n, out);
+				i += n - 1;
+			} else
+				fputs("\\ufffd", out);
+		}
 	}
 	fputc('"', out);
 }

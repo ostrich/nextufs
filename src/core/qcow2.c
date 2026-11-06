@@ -5,6 +5,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -220,6 +221,10 @@ qcow_open(const char *path, int writable, int force_raw,
 		return -ENOMEM;
 	q->fd = open(path, writable ? O_RDWR : O_RDONLY);
 	if (q->fd < 0) {
+		rc = -errno;
+		goto fail;
+	}
+	if (flock(q->fd, (writable ? LOCK_EX : LOCK_SH) | LOCK_NB) < 0) {
 		rc = -errno;
 		goto fail;
 	}
@@ -892,5 +897,6 @@ nextufs__qcow2_open(struct nextufs_image *img, const char *path, int writable)
 	img->source_is_container = 1;
 	img->source_format = NEXTUFS_SOURCE_QCOW2;
 	img->image_size = (off_t)q->size;
+	img->slice_size = (off_t)q->size;
 	return 0;
 }

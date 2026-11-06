@@ -8,6 +8,13 @@
 int
 nextufs_info_main(int argc, char **argv)
 {
+	if (argc == 2 &&
+	    (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+		fputs("usage: nextufs info [--json] <source>\n\n--json  emit "
+		      "source, label and filesystem metadata as JSON\n",
+		      stdout);
+		return 0;
+	}
 	struct nextufs_image img;
 	struct nextufs_info info;
 	int json = 0;

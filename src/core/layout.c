@@ -53,8 +53,11 @@ nextufs__read_exact_fd(int fd, void *buf, size_t size, off_t offset)
 		ssize_t n;
 
 		n = pread(fd, out + done, size - done, offset + (off_t)done);
-		if (n < 0)
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
 			return -errno;
+		}
 		if (n == 0)
 			return -EIO;
 		done += (size_t)n;
@@ -72,8 +75,11 @@ nextufs__write_exact_fd(int fd, const void *buf, size_t size, off_t offset)
 		ssize_t n;
 
 		n = pwrite(fd, in + done, size - done, offset + (off_t)done);
-		if (n < 0)
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
 			return -errno;
+		}
 		if (n == 0)
 			return -EIO;
 		done += (size_t)n;
@@ -88,6 +94,9 @@ nextufs__read_exact(const struct nextufs_image *img, void *buf, size_t size,
 	const struct nextufs_image_backend_ops *ops;
 
 	if (img == NULL || img->backend_ops == NULL)
+		return -EINVAL;
+	if (offset < 0 || (uint64_t)offset > (uint64_t)img->image_size ||
+	    size > (uint64_t)img->image_size - (uint64_t)offset)
 		return -EINVAL;
 	ops = img->backend_ops;
 	if (ops->read == NULL)
@@ -105,9 +114,15 @@ nextufs__write_exact(const struct nextufs_image *img, const void *buf,
 		return -EINVAL;
 	if (!img->writable)
 		return -EROFS;
+	if (offset < 0 || (uint64_t)offset > (uint64_t)img->image_size ||
+	    size > (uint64_t)img->image_size - (uint64_t)offset)
+		return -EINVAL;
 	ops = img->backend_ops;
 	if (ops->write == NULL)
 		return -EROFS;
+	int rc = nextufs__transaction_record(img, size, offset);
+	if (rc < 0)
+		return rc;
 	return ops->write(img->backend_ctx, buf, size, offset);
 }
 
@@ -130,7 +145,8 @@ int
 nextufs_image_pread(const struct nextufs_image *img, void *buf, size_t size,
     off_t offset)
 {
-	if (offset < 0)
+	if (offset < 0 || (uint64_t)offset > (uint64_t)img->slice_size ||
+	    size > (uint64_t)img->slice_size - (uint64_t)offset)
 		return -EINVAL;
 	return nextufs__read_exact(img, buf, size, img->slice_base + offset);
 }
@@ -139,7 +155,8 @@ int
 nextufs_image_pwrite(const struct nextufs_image *img, const void *buf,
     size_t size, off_t offset)
 {
-	if (offset < 0)
+	if (offset < 0 || (uint64_t)offset > (uint64_t)img->slice_size ||
+	    size > (uint64_t)img->slice_size - (uint64_t)offset)
 		return -EINVAL;
 	return nextufs__write_exact(img, buf, size, img->slice_base + offset);
 }

@@ -1,8 +1,10 @@
 #include "nextufs_mutate.h"
 #include "nextufs_report.h"
+#include "nextufs_size.h"
 
 #include <errno.h>
 #include <limits.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,16 +20,10 @@ static const struct nextufs_write_ctx g_mkfile_su_ctx = {
 static int
 parse_ulong_arg(const char *s, unsigned long *out)
 {
-	char *end;
-	unsigned long v;
-
-	if (s == NULL || s[0] == '\0' || s[0] == '-')
+	uint64_t value;
+	if (nextufs_parse_number(s, 0, ULONG_MAX, &value) < 0)
 		return -1;
-	errno = 0;
-	v = strtoul(s, &end, 0);
-	if (errno != 0 || end == s || *end != '\0')
-		return -1;
-	*out = v;
+	*out = (unsigned long)value;
 	return 0;
 }
 
@@ -80,14 +76,18 @@ parse_global_ctx_args(int argc, char **argv, int *argi,
 			continue;
 		}
 		if (strcmp(argv[*argi], "--uid") == 0) {
-			if (*argi + 1 >= argc || parse_ulong_arg(argv[*argi + 1], &v) < 0)
+			if (*argi + 1 >= argc ||
+			    parse_ulong_arg(argv[*argi + 1], &v) < 0 ||
+			    v > INT16_MAX)
 				return -1;
 			ctx->uid = (uid_t)v;
 			*argi += 2;
 			continue;
 		}
 		if (strcmp(argv[*argi], "--gid") == 0) {
-			if (*argi + 1 >= argc || parse_ulong_arg(argv[*argi + 1], &v) < 0)
+			if (*argi + 1 >= argc ||
+			    parse_ulong_arg(argv[*argi + 1], &v) < 0 ||
+			    v > INT16_MAX)
 				return -1;
 			ctx->gid = (gid_t)v;
 			*argi += 2;
@@ -105,14 +105,55 @@ report_mkfile_failure(int rc)
 	return 1;
 }
 
+static void
+usage(FILE *out)
+{
+	fprintf(
+	    out,
+	    "usage: %s [--policy su|user] [--uid n] [--gid n] <source> <path> "
+	    "<contents>\n"
+	    "       %s [global-opts] --unlink <source> <path>\n"
+	    "       %s [global-opts] --mkdir <source> <path>\n"
+	    "       %s [global-opts] --overwrite <source> <path> <contents>\n"
+	    "       %s [global-opts] --append <source> <path> <contents>\n"
+	    "       %s [global-opts] --rmdir <source> <path>\n"
+	    "       %s [global-opts] --link <source> <source-path> "
+	    "<target-path>\n"
+	    "       %s [global-opts] --rename <source> <source-path> "
+	    "<target-path>\n"
+	    "       %s [global-opts] --symlink <source> <target> <link-path>\n"
+	    "       %s [global-opts] --truncate <source> <path> <size>\n"
+	    "       %s [global-opts] --pwrite <source> <path> <offset> "
+	    "<contents>\n"
+	    "       %s [global-opts] --mknod <source> <path> <octal-mode> "
+	    "<rdev>\n"
+	    "       %s [global-opts] --chmod <source> <path> <octal-mode>\n"
+	    "       %s [global-opts] --chown <source> <path> <uid|keep> "
+	    "<gid|keep>\n"
+	    "       %s [global-opts] --utimes <source> <path> <atime> <mtime>\n"
+	    "       %s [global-opts] --from-file <source> <path> <host-file>\n",
+	    "nextufs mkfile", "nextufs mkfile", "nextufs mkfile",
+	    "nextufs mkfile", "nextufs mkfile", "nextufs mkfile",
+	    "nextufs mkfile", "nextufs mkfile", "nextufs mkfile",
+	    "nextufs mkfile", "nextufs mkfile", "nextufs mkfile",
+	    "nextufs mkfile", "nextufs mkfile", "nextufs mkfile",
+	    "nextufs mkfile");
+}
+
 int
 nextufs_mkfile_main(int argc, char **argv)
 {
+	if (argc == 2 &&
+	    (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+		usage(stdout);
+		return 0;
+	}
 	struct nextufs_write_ctx ctx;
 	uid_t uid;
 	gid_t gid;
 	int rc;
 	int argi = 1;
+	uint64_t number, second;
 
 	if (parse_global_ctx_args(argc, argv, &argi, &ctx) < 0) {
 		nextufs_report_error(stderr, "mkfile", "invalid global args");
@@ -170,30 +211,44 @@ nextufs_mkfile_main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--truncate") == 0) {
+		if (nextufs_parse_number(argv[argi + 3], 0, INT64_MAX,
+					 &number) < 0)
+			goto bad_number;
 		rc = nextufs_path_truncate(&ctx, argv[argi + 1], argv[argi + 2],
-		    (uint64_t)strtoull(argv[argi + 3], NULL, 0));
+					   number);
 		if (rc < 0)
 			return report_mkfile_failure(rc);
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--pwrite") == 0) {
-		rc = nextufs_path_pwrite(&ctx, argv[argi + 1], argv[argi + 2], argv[argi + 4],
-		    strlen(argv[argi + 4]), (uint64_t)strtoull(argv[argi + 3], NULL, 0));
+		if (nextufs_parse_number(argv[argi + 3], 0, INT64_MAX,
+					 &number) < 0)
+			goto bad_number;
+		rc = nextufs_path_pwrite(&ctx, argv[argi + 1], argv[argi + 2],
+					 argv[argi + 4], strlen(argv[argi + 4]),
+					 number);
 		if (rc < 0)
 			return report_mkfile_failure(rc);
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--mknod") == 0) {
+		if (nextufs_parse_number(argv[argi + 4], 0, UINT32_MAX,
+					 &second) < 0)
+			goto bad_number;
+		if (nextufs_parse_number(argv[argi + 3], 8, UINT16_MAX,
+					 &number) < 0)
+			goto bad_number;
 		rc = nextufs_path_mknod(&ctx, argv[argi + 1], argv[argi + 2],
-		    (uint16_t)strtoul(argv[argi + 3], NULL, 8),
-		    (uint32_t)strtoul(argv[argi + 4], NULL, 0));
+					(uint16_t)number, (uint32_t)second);
 		if (rc < 0)
 			return report_mkfile_failure(rc);
 		return 0;
 	}
 	if (argc - argi == 4 && strcmp(argv[argi], "--chmod") == 0) {
+		if (nextufs_parse_number(argv[argi + 3], 8, 07777, &number) < 0)
+			goto bad_number;
 		rc = nextufs_path_chmod(&ctx, argv[argi + 1], argv[argi + 2],
-		    (uint16_t)strtoul(argv[argi + 3], NULL, 8));
+					(uint16_t)number);
 		if (rc < 0)
 			return report_mkfile_failure(rc);
 		return 0;
@@ -211,9 +266,14 @@ nextufs_mkfile_main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi == 5 && strcmp(argv[argi], "--utimes") == 0) {
+		if (nextufs_parse_number(argv[argi + 4], 0, UINT32_MAX,
+					 &second) < 0)
+			goto bad_number;
+		if (nextufs_parse_number(argv[argi + 3], 0, UINT32_MAX,
+					 &number) < 0)
+			goto bad_number;
 		rc = nextufs_path_utimes(&ctx, argv[argi + 1], argv[argi + 2],
-		    (uint32_t)strtoul(argv[argi + 3], NULL, 0),
-		    (uint32_t)strtoul(argv[argi + 4], NULL, 0));
+					 (uint32_t)number, (uint32_t)second);
 		if (rc < 0)
 			return report_mkfile_failure(rc);
 		return 0;
@@ -225,26 +285,7 @@ nextufs_mkfile_main(int argc, char **argv)
 		return 0;
 	}
 	if (argc - argi != 3) {
-		fprintf(stderr,
-		    "usage: %s [--policy su|user] [--uid n] [--gid n] <source> <path> <contents>\n"
-		    "       %s [global-opts] --unlink <source> <path>\n"
-		    "       %s [global-opts] --mkdir <source> <path>\n"
-		    "       %s [global-opts] --overwrite <source> <path> <contents>\n"
-		    "       %s [global-opts] --append <source> <path> <contents>\n"
-		    "       %s [global-opts] --rmdir <source> <path>\n"
-		    "       %s [global-opts] --link <source> <source-path> <target-path>\n"
-		    "       %s [global-opts] --rename <source> <source-path> <target-path>\n"
-		    "       %s [global-opts] --symlink <source> <target> <link-path>\n"
-		    "       %s [global-opts] --truncate <source> <path> <size>\n"
-		    "       %s [global-opts] --pwrite <source> <path> <offset> <contents>\n"
-		    "       %s [global-opts] --mknod <source> <path> <octal-mode> <rdev>\n"
-		    "       %s [global-opts] --chmod <source> <path> <octal-mode>\n"
-		    "       %s [global-opts] --chown <source> <path> <uid|keep> <gid|keep>\n"
-		    "       %s [global-opts] --utimes <source> <path> <atime> <mtime>\n"
-		    "       %s [global-opts] --from-file <source> <path> <host-file>\n",
-		    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-		    argv[0], argv[0], argv[0], argv[0], argv[0], argv[0],
-		    argv[0], argv[0], argv[0], argv[0]);
+		usage(stderr);
 		return 2;
 	}
 	rc = nextufs_path_create_file(&ctx, argv[argi], argv[argi + 1], argv[argi + 2],
@@ -252,4 +293,7 @@ nextufs_mkfile_main(int argc, char **argv)
 	if (rc < 0)
 		return report_mkfile_failure(rc);
 	return 0;
+bad_number:
+	nextufs_report_error(stderr, "mkfile", "invalid numeric argument");
+	return 2;
 }

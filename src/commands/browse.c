@@ -19,7 +19,10 @@ print_record(const struct nextufs_node *node, const char *name, size_t len)
 	    node->inode_no, ino->mode, ino->uid, ino->gid, ino->size,
 	    ino->atime, ino->mtime);
 	nextufs_report_json_string(stdout, name, len);
-	putchar('}');
+	fputs(", \"name_bytes_hex\": \"", stdout);
+	for (size_t i = 0; i < len; i++)
+		printf("%02x", (unsigned char)name[i]);
+	fputs("\"}", stdout);
 }
 
 static int
@@ -139,6 +142,16 @@ print_data_preview(const uint8_t *buf, size_t size)
 int
 nextufs_browse_main(int argc, char **argv)
 {
+	if (argc == 2 &&
+	    (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+		fputs(
+		    "usage: nextufs browse <source> [path]\n       nextufs "
+		    "browse [--raw|--json] <source> [path]\n\n--raw   extract "
+		    "a regular file to stdout\n--json  emit metadata; "
+		    "name_bytes_hex preserves exact filename bytes\n",
+		    stdout);
+		return 0;
+	}
 	struct nextufs_image img;
 	struct nextufs_node node;
 	int argi = 1;

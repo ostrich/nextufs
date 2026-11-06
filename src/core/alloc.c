@@ -576,7 +576,8 @@ nextufs__read_indirect_entry(const struct nextufs_image *img, uint32_t block_fra
 	int rc;
 
 	max_entries = img->sb.block_size / sizeof(uint32_t);
-	if (entry_index >= max_entries)
+	if (entry_index >= max_entries || block_frag == 0 ||
+	    (uint64_t)block_frag + img->sb.frags_per_block > img->sb.frag_count)
 		return -EINVAL;
 	rc = nextufs__read_exact(img, raw, sizeof(raw),
 	    img->slice_base + ((off_t)block_frag * img->sb.frag_size) +
@@ -595,7 +596,8 @@ nextufs__write_indirect_entry(const struct nextufs_image *img, uint32_t block_fr
 	uint64_t max_entries;
 
 	max_entries = img->sb.block_size / sizeof(uint32_t);
-	if (entry_index >= max_entries)
+	if (entry_index >= max_entries || block_frag == 0 ||
+	    (uint64_t)block_frag + img->sb.frags_per_block > img->sb.frag_count)
 		return -EINVAL;
 	nextufs__write_be32(raw, entry_value);
 	return nextufs__write_exact(img, raw, sizeof(raw),
@@ -677,10 +679,12 @@ nextufs__set_indirect_data_block(const struct nextufs_image *img, uint32_t block
 	    remainder, data_frag, preferred_cg, metadata_frags_out);
 }
 
-static int
+int
 nextufs__set_inode_data_block(const struct nextufs_image *img,
-    struct nextufs_inode *ino_out, uint32_t logical_block, uint32_t data_frag,
-    unsigned preferred_cg, uint32_t *metadata_frags_out)
+			      struct nextufs_inode *ino_out,
+			      uint32_t logical_block, uint32_t data_frag,
+			      unsigned preferred_cg,
+			      uint32_t *metadata_frags_out)
 {
 	uint64_t local_index;
 	uint64_t span;
@@ -749,9 +753,11 @@ nextufs__resolve_indirect_data_block(const struct nextufs_image *img,
 	    remainder, data_frag_out);
 }
 
-static int
+int
 nextufs__resolve_inode_data_block(const struct nextufs_image *img,
-    const struct nextufs_inode *ino, uint32_t logical_block, uint32_t *data_frag_out)
+				  const struct nextufs_inode *ino,
+				  uint32_t logical_block,
+				  uint32_t *data_frag_out)
 {
 	uint64_t local_index;
 	uint64_t span;

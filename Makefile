@@ -41,10 +41,10 @@ MOUNT_SRC = src/commands/mount_stub.c
 endif
 LIB_SRCS = src/core/image.c src/core/directory.c src/core/path.c src/core/node.c \
 	src/core/layout.c src/core/alloc.c src/core/label.c src/core/size.c \
-	src/core/source.c src/core/info.c src/core/report.c src/core/qcow2.c
+	src/core/source.c src/core/transaction.c src/core/info.c src/core/report.c src/core/qcow2.c
 LIB_OBJS = $(LIB_SRCS:%.c=$(OBJ_DIR)/%.o)
 LIB = $(OBJ_DIR)/libnextufs.a
-WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c
+WRITE_SRCS = src/mutate/dir_mutate.c src/mutate/mutate.c src/mutate/file_mutate.c
 WRITE_OBJS = $(WRITE_SRCS:%.c=$(OBJ_DIR)/%.o)
 WRITE_LIB = $(OBJ_DIR)/libnextufs_mutate.a
 COMMAND_SRCS = src/commands/main.c $(MOUNT_SRC) \

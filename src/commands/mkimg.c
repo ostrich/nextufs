@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define UFS_SECTOR_SIZE 1024U
 
@@ -128,17 +129,22 @@ parse_args(int argc, char **argv, struct options *opts)
 static int
 create_output(const struct options *opts)
 {
-	int rc;
+	int rc, fd;
 
-	rc = nextufs_target_create_sized(opts->target,
-	    opts->force_overwrite ? NEXTUFS_OPEN_OVERWRITE :
-	    NEXTUFS_OPEN_CREATE, 0666, opts->bytes);
+	rc = nextufs_target_open(opts->target,
+				 opts->force_overwrite ? NEXTUFS_OPEN_OVERWRITE
+						       : NEXTUFS_OPEN_CREATE,
+				 0666, &fd);
 	if (rc < 0) {
 		nextufs_report_errno(stderr, "mkimg", "cannot create",
 		    opts->target, rc);
 		return -1;
 	}
-	return 0;
+	if (ftruncate(fd, (off_t)opts->bytes) < 0) {
+		close(fd);
+		return -1;
+	}
+	return fd;
 }
 
 static void
@@ -224,6 +230,7 @@ nextufs_mkimg_main(int argc, char **argv)
 	struct nextufs_format_options fmt;
 	uint64_t slice_bytes;
 	uint64_t fs_sectors;
+	int fd, rc;
 
 	if (parse_args(argc, argv, &opts) < 0) {
 		usage(stderr);
@@ -261,16 +268,33 @@ nextufs_mkimg_main(int argc, char **argv)
 		    "invalid raw geometry argument");
 		return 1;
 	}
+	if (fmt.nsect <= 0 || fmt.ntrak <= 0 || fmt.nsect > 65535 ||
+	    fmt.ntrak > 65535 || (uint64_t)fmt.nsect * fmt.ntrak > INT_MAX ||
+	    (fmt.bsize != 4096 && fmt.bsize != 8192) || fmt.fsize < 512 ||
+	    fmt.fsize > fmt.bsize || (fmt.fsize & (fmt.fsize - 1)) ||
+	    fmt.bsize / fmt.fsize > 8 || fmt.cpg < 0 || fmt.cpg > 32 ||
+	    fmt.minfree < 0 || fmt.minfree > 99 || fmt.rps <= 0 ||
+	    fmt.rps > 10000 || fmt.nbpi < 512) {
+		nextufs_report_error(stderr, "mkimg",
+				     "unsupported filesystem geometry");
+		return 2;
+	}
 	print_plan(&opts, slice_bytes);
 	if (opts.dry_run)
 		return 0;
-	if (create_output(&opts) < 0)
+	if ((fd = create_output(&opts)) < 0)
 		return 1;
 	if (!opts.raw && nextufs_label_write_path(opts.target, opts.bytes,
 	    slice_bytes, opts.label) < 0) {
 		nextufs_report_error(stderr, "mkimg", "failed to write disk label");
+		close(fd);
 		return 1;
 	}
 
-	return nextufs_format(&fmt);
+	rc = nextufs_format(&fmt);
+	if (fsync(fd) < 0)
+		rc = 1;
+	if (close(fd) < 0)
+		rc = 1;
+	return rc;
 }

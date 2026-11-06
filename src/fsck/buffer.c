@@ -52,22 +52,22 @@ swap_csum_block(struct csum *cs, long size)
 		struct csum *cur;
 
 		cur = &cs[k];
-		cur->cs_ndir = ((cur->cs_ndir & 0xff) << 24) |
-		    ((cur->cs_ndir & 0xff00) << 8) |
-		    ((cur->cs_ndir & 0xff0000) >> 8) |
-		    ((cur->cs_ndir >> 24) & 0xff);
-		cur->cs_nbfree = ((cur->cs_nbfree & 0xff) << 24) |
-		    ((cur->cs_nbfree & 0xff00) << 8) |
-		    ((cur->cs_nbfree & 0xff0000) >> 8) |
-		    ((cur->cs_nbfree >> 24) & 0xff);
-		cur->cs_nifree = ((cur->cs_nifree & 0xff) << 24) |
-		    ((cur->cs_nifree & 0xff00) << 8) |
-		    ((cur->cs_nifree & 0xff0000) >> 8) |
-		    ((cur->cs_nifree >> 24) & 0xff);
-		cur->cs_nffree = ((cur->cs_nffree & 0xff) << 24) |
-		    ((cur->cs_nffree & 0xff00) << 8) |
-		    ((cur->cs_nffree & 0xff0000) >> 8) |
-		    ((cur->cs_nffree >> 24) & 0xff);
+		cur->cs_ndir = (((uint32_t)cur->cs_ndir & 0xff) << 24) |
+			       (((uint32_t)cur->cs_ndir & 0xff00) << 8) |
+			       (((uint32_t)cur->cs_ndir & 0xff0000) >> 8) |
+			       (((uint32_t)cur->cs_ndir >> 24) & 0xff);
+		cur->cs_nbfree = (((uint32_t)cur->cs_nbfree & 0xff) << 24) |
+				 (((uint32_t)cur->cs_nbfree & 0xff00) << 8) |
+				 (((uint32_t)cur->cs_nbfree & 0xff0000) >> 8) |
+				 (((uint32_t)cur->cs_nbfree >> 24) & 0xff);
+		cur->cs_nifree = (((uint32_t)cur->cs_nifree & 0xff) << 24) |
+				 (((uint32_t)cur->cs_nifree & 0xff00) << 8) |
+				 (((uint32_t)cur->cs_nifree & 0xff0000) >> 8) |
+				 (((uint32_t)cur->cs_nifree >> 24) & 0xff);
+		cur->cs_nffree = (((uint32_t)cur->cs_nffree & 0xff) << 24) |
+				 (((uint32_t)cur->cs_nffree & 0xff00) << 8) |
+				 (((uint32_t)cur->cs_nffree & 0xff0000) >> 8) |
+				 (((uint32_t)cur->cs_nffree >> 24) & 0xff);
 	}
 }
 

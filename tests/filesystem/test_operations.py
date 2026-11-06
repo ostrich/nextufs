@@ -121,7 +121,7 @@ def scenario(work, case, fuse=False):
         policy(1001, 1001, '--unlink', root + 'sticky/victim', status=1)
         policy(1001, 1001, '--rename', root + 'sticky/victim', root + 'sticky/victim2', status=1)
         tool('mkfile', '--policy', 'user', '--uid', '40000', '--gid', '0', disk,
-             root + 'overflow', 'x', status=1)
+             root + 'overflow', 'x', status=2)
         policy(0, 0, '--chown', root + 'file', '40000', '0', status=1)
         entry = node(disk, root + 'file')
         assert entry['mode'] == 0o100755 and entry['uid'] == 1000 and entry['gid'] == 333

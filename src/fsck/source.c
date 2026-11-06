@@ -26,4 +26,26 @@ fsck_source_use_image_backend(const char *path)
 void
 fsck_source_cleanup(void)
 {
+	unsigned i;
+	fsck_file_close(&dfile);
+	free(blockmap);
+	blockmap = NULL;
+	free(statemap);
+	statemap = NULL;
+	free(lncntp);
+	lncntp = NULL;
+	for (i = 0; i < MAXCSBUFS; i++) {
+		free(fsck_fs_csp[i]);
+		fsck_fs_csp[i] = NULL;
+	}
+	while (duplist) {
+		struct dups *next = duplist->next;
+		free(duplist);
+		duplist = next;
+	}
+	while (zlnhead) {
+		struct zlncnt *next = zlnhead->next;
+		free(zlnhead);
+		zlnhead = next;
+	}
 }
