@@ -234,10 +234,37 @@ expanddir(DINODE *dp)
 	char *cp, firstblk[DIRBLKSIZ];
 
 	lastbn = lblkno(&sblock, dp->di_size);
-	if (lastbn >= NDADDR - 1)
+	if (lastbn >= NDADDR ||
+	    (blkoff(&sblock, dp->di_size) != 0 && lastbn >= NDADDR - 1))
 		return (0);
 	if ((newblk = allocblk(sblock.fs_frag)) == 0)
 		return (0);
+	/* At a block boundary there is no trailing fragment to move.  Reading
+	 * the absent next pointer would leave stale data in fileblk and copy
+	 * existing entries (including dot and dotdot) into the new block. */
+	if (blkoff(&sblock, dp->di_size) == 0) {
+		getblk(&fileblk, newblk, sblock.fs_bsize);
+		if (fileblk.b_errs != 0) {
+			freeblk(newblk, sblock.fs_frag);
+			return (0);
+		}
+		pwarn("NO SPACE LEFT IN %s", pathname);
+		if (preen)
+			printf(" (EXPANDED)\n");
+		else if (reply("EXPAND") == 0) {
+			freeblk(newblk, sblock.fs_frag);
+			return (0);
+		}
+		for (cp = dirblk.b_buf; cp < &dirblk.b_buf[sblock.fs_bsize];
+		     cp += DIRBLKSIZ)
+			bcopy((char *)&emptydir, cp, sizeof emptydir);
+		dp->di_db[lastbn] = newblk;
+		dp->di_size += sblock.fs_bsize;
+		dp->di_blocks += NSPB(&sblock);
+		dirty(&fileblk);
+		inodirty();
+		return (1);
+	}
 	dp->di_db[lastbn + 1] = dp->di_db[lastbn];
 	dp->di_db[lastbn] = newblk;
 	dp->di_size += sblock.fs_bsize;
