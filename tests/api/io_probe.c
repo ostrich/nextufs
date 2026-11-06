@@ -12,6 +12,30 @@ main(int argc, char **argv)
 	struct nextufs_write_ctx ctx = {.policy = NEXTUFS_WRITE_SU,
 					.session = &session};
 	int rc;
+	if (argc == 5 && (!strcmp(argv[1], "bytes-read") ||
+			 !strcmp(argv[1], "bytes-write"))) {
+		size_t size = strtoull(argv[4], NULL, 0);
+		off_t offset = strtoll(argv[3], NULL, 0);
+		int writing = !strcmp(argv[1], "bytes-write");
+		unsigned char *buf = malloc(size ? size : 1);
+		if (!buf)
+			return 1;
+		rc = writing ? nextufs_image_open_rw(&img, argv[2]) :
+		    nextufs_image_open(&img, argv[2]);
+		if (!rc) {
+			for (size_t i = 0; i < size; i++)
+				buf[i] = (i * 17 + 31) % 251;
+			rc = writing ? nextufs_image_pwrite(&img, buf, size, offset) :
+			    nextufs_image_pread(&img, buf, size, offset);
+			if (!rc && writing)
+				rc = nextufs_image_fsync(&img);
+			if (!rc && !writing && fwrite(buf, 1, size, stdout) != size)
+				rc = -EIO;
+			nextufs_image_close(&img);
+		}
+		free(buf);
+		return rc < 0;
+	}
 	if (argc == 6 && !strcmp(argv[1], "read")) {
 		unsigned char bytes[64];
 		size_t got;

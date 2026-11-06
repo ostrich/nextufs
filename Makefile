@@ -163,7 +163,7 @@ test-tools: all test-binaries
 .PHONY: test-binaries test-sanitize
 test-binaries: $(NEXTUFS_BIN) $(FS_PROBE) $(API_TEST) $(STRESS_TEST) $(CORRUPT_TEST) $(QCOW2_PROBE) $(QCOW2_FAULT_BIN)
 
-TEST_GROUPS = test test-fsck test-qcow2 test-fuse test-stress test-image test-all
+TEST_GROUPS = test test-fsck test-qcow2 test-vdi test-fuse test-stress test-image test-all
 .PHONY: $(TEST_GROUPS) test-list test-qcow2-sanitize test-qcow2-coverage
 TEST_ARGS ?=
 TEST_RUNNER = python3 -B tests/run.py --nextufs "$(NEXTUFS_BIN)" --bin-dir "$(TEST_BIN_DIR)" $(TEST_ARGS)
@@ -172,6 +172,9 @@ test: all $(API_TEST) $(CORRUPT_TEST) $(FS_PROBE) $(QCOW2_FAULT_BIN)
 test-fsck: all $(CORRUPT_TEST)
 test test-fsck:
 	$(TEST_RUNNER) $(if $(filter test,$@),default,fsck)
+
+test-vdi: test-tools
+	$(TEST_RUNNER) vdi
 
 test-qcow2: all $(CORRUPT_TEST) $(QCOW2_PROBE) $(QCOW2_FAULT_BIN)
 	$(TEST_RUNNER) qcow2

@@ -63,6 +63,7 @@ struct nextufs_vdi_backend {
 	uint8_t image_uuid[16];
 	uint8_t parent_uuid[16];
 	int has_parent;
+	int failed;
 	struct nextufs_image parent;
 };
 
@@ -462,16 +463,26 @@ nextufs_vdi_materialize_block(struct nextufs_vdi_backend *vdi, uint32_t block_in
 	free(block_buf);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_vdi_write_le32(vdi->fd,
-	    (off_t)vdi->map_offset + (off_t)block_index * 4, new_entry);
-	if (rc < 0)
+	/* Publish the count before its map reference. Restore both on returned
+	 * errors so reopening cannot encounter an out-of-range map entry. */
+	rc = nextufs_vdi_write_le32(vdi->fd, VDI_BLOCKS_ALLOC_OFF,
+	    new_entry + 1);
+	if (!rc)
+		rc = nextufs_vdi_write_le32(vdi->fd,
+		    (off_t)vdi->map_offset + (off_t)block_index * 4, new_entry);
+	if (rc < 0) {
+		int map_rc = nextufs_vdi_write_le32(vdi->fd,
+		    (off_t)vdi->map_offset + (off_t)block_index * 4, map_entry);
+		int count_rc = nextufs_vdi_write_le32(vdi->fd,
+		    VDI_BLOCKS_ALLOC_OFF, vdi->blocks_allocated);
+		if (map_rc < 0 || count_rc < 0) {
+			vdi->failed = 1;
+			return -EUCLEAN;
+		}
 		return rc;
+	}
 	vdi->block_map[block_index] = new_entry;
 	vdi->blocks_allocated++;
-	rc = nextufs_vdi_write_le32(vdi->fd, VDI_BLOCKS_ALLOC_OFF,
-	    vdi->blocks_allocated);
-	if (rc < 0)
-		return rc;
 	return 0;
 }
 
@@ -482,6 +493,8 @@ nextufs_vdi_backend_write(void *ctx, const void *buf, size_t size, off_t offset)
 	const uint8_t *in = buf;
 	size_t done = 0;
 
+	if (vdi->failed)
+		return -EUCLEAN;
 	if (offset < 0 || (uint64_t)offset > vdi->disk_size ||
 	    size > vdi->disk_size - (uint64_t)offset)
 		return -EIO;
@@ -618,12 +631,19 @@ nextufs_vdi_search_dir(char *out, size_t out_size, const char *dir,
 			closedir(dp);
 			return -ENAMETOOLONG;
 		}
-		memcpy(out, candidate, strlen(candidate) + 1);
-		closedir(dp);
-		return 0;
+		if (*out) {
+			struct stat previous, current;
+			if (stat(out, &previous) || stat(candidate, &current) ||
+			    previous.st_dev != current.st_dev ||
+			    previous.st_ino != current.st_ino) {
+				closedir(dp);
+				return -EEXIST;
+			}
+		} else
+			memcpy(out, candidate, strlen(candidate) + 1);
 	}
 	closedir(dp);
-	return -ENOENT;
+	return *out ? 0 : -ENOENT;
 }
 
 static int
@@ -637,14 +657,15 @@ nextufs_vdi_find_parent(char *out, size_t out_size, const char *path,
 	rc = nextufs_path_dirname(dir, sizeof(dir), path);
 	if (rc < 0)
 		return rc;
+	out[0] = '\0';
 	rc = nextufs_vdi_search_dir(out, out_size, dir, path, parent_uuid);
-	if (rc == 0)
-		return 0;
+	if (rc < 0 && rc != -ENOENT)
+		return rc;
 	rc = nextufs_path_dirname(parent_dir, sizeof(parent_dir), dir);
 	if (rc < 0)
 		return rc;
 	if (strcmp(parent_dir, dir) == 0)
-		return -ENOENT;
+		return *out ? 0 : -ENOENT;
 	return nextufs_vdi_search_dir(out, out_size, parent_dir, path, parent_uuid);
 }
 

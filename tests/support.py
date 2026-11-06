@@ -98,11 +98,10 @@ def mounted(image, work, options="rw"):
         signal.signal(signal.SIGTERM, previous)
 
 
-def vdi(source, target, parent=None):
+def vdi(source, target, parent=None, block=1024 * 1024):
     """Generate a standard dynamic VDI or an empty differencing child."""
     import struct
     size = source.stat().st_size
-    block = 1024 * 1024
     count = (size + block - 1) // block
     data_offset = ((512 + count * 4 + 4095) // 4096) * 4096
     head = bytearray(data_offset)

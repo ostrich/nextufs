@@ -31,7 +31,10 @@ further operations. Close/unmount it and check a copy of the image. A QCOW2 back
 that has already latched a write failure may reject undo writes; the QCOW2 dirty
 state is preserved rather than claiming that recovery succeeded. Undo restores
 virtual filesystem bytes; it need not restore the exact container allocation
-layout or reclaim newly appended host clusters.
+layout or reclaim newly appended host clusters. VDI block allocation publishes
+its allocation count before the map reference and restores both on returned
+metadata-write failures. If that restoration fails, the backend rejects further
+writes. Ambiguous parent UUIDs are rejected rather than selecting a directory entry.
 
 Resize uses the same undo mechanism for growth metadata and saves the disk-label
 region before modifying it. On recoverable failure it restores metadata and the

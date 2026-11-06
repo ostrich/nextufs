@@ -47,6 +47,12 @@ def cases():
     add('filesystem/sparse', 'filesystem/test_sparse.py', needs=('fs-probe',))
     add('filesystem/io-failures', 'filesystem/test_io_failures.py', needs=('fault','fs-probe'))
     add('vdi/backend', 'vdi/test_backend.py')
+    add('vdi/matrix', 'vdi/test_matrix.py', needs=('fs-probe',))
+    add('vdi/parents', 'vdi/test_parents.py')
+    add('vdi/failures', 'vdi/test_failures.py', needs=('fault', 'fs-probe'))
+    add('vdi/interop', 'vdi/test_interop.py', needs=('qemu', 'fs-probe'))
+    result.append(Case('vdi/helper', (sys.executable, '-B', '-m', 'unittest', 'discover',
+        '-s', 'tests/tools', '-p', 'test_vdi_chain.py', '-v')))
     add('fsck/images', 'fsck/test_images.sh', needs=('corrupt',))
     add('fsck/corpus', 'fsck/test_corpus.py', needs=('corrupt',))
     result.append(Case('tools/unit', (sys.executable, '-B', '-m', 'unittest', 'discover',
@@ -72,14 +78,14 @@ def cases():
 
 
 GROUPS = {
-    'default': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/*'),
+    'default': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/backend', 'vdi/matrix', 'vdi/parents', 'vdi/failures'),
     'build': ('build/*',),
     'api': ('api/*',),
     'cli': ('cli/*',),
     'filesystem': ('filesystem/*',),
     'tools': ('tools/*',),
     'fsck': ('fsck/*',),
-    'vdi': ('vdi/*',),
+    'vdi': ('vdi/*', 'filesystem/io-failures', 'fuse/native-vdi'),
     'qcow2': ('qcow2/*',),
     'fuse': ('fuse/*',),
     'stress': ('stress/*',),

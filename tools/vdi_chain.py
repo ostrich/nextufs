@@ -150,6 +150,10 @@ def looks_like_vm_dir(root: Path) -> bool:
 def build_uuid_index(infos: Iterable[VDIInfo]) -> Dict[str, VDIInfo]:
     index: Dict[str, VDIInfo] = {}
     for info in infos:
+        if info.image_uuid in index:
+            previous = index[info.image_uuid]
+            if not previous.path.samefile(info.path):
+                raise ValueError(f"duplicate VDI UUID {info.image_uuid}: {previous.path}, {info.path}")
         index[info.image_uuid] = info
     return index
 
@@ -187,7 +191,7 @@ def chain_for(info: VDIInfo, uuid_index: Dict[str, VDIInfo]) -> List[VDIInfo]:
     while cur.parent_uuid is not None and cur.parent_uuid in uuid_index:
         cur = uuid_index[cur.parent_uuid]
         if cur.image_uuid in seen:
-            break
+            raise ValueError(f"cycle in VDI parent chain at {cur.path}")
         seen.add(cur.image_uuid)
         chain.append(cur)
     chain.reverse()
@@ -275,17 +279,23 @@ def print_scan(infos: List[VDIInfo], display_root: Optional[Path] = None) -> Non
     seen: set[str] = set()
 
     def walk(info: VDIInfo, depth: int) -> None:
-        seen.add(info.image_uuid)
-        role = classify(info, uuid_index, children)
-        prefix = "  " * depth
-        print(f"{prefix}{role.title()}: {info.path.name}")
-        print(f"{prefix}  Path: {display_path(info.path, display_root)}")
-        print(f"{prefix}  UUID: {info.image_uuid}")
-        if info.parent_uuid is not None:
-            print(f"{prefix}  Parent UUID: {info.parent_uuid}")
-        print(f"{prefix}  Type: {info.type_name}")
-        for child in children.get(info.image_uuid, []):
-            walk(child, depth + 1)
+        pending = [(info, depth)]
+        while pending:
+            current, level = pending.pop()
+            prefix = "  " * level
+            if current.image_uuid in seen:
+                print(f"{prefix}Cycle: {current.path.name}")
+                continue
+            seen.add(current.image_uuid)
+            role = classify(current, uuid_index, children)
+            print(f"{prefix}{role.title()}: {current.path.name}")
+            print(f"{prefix}  Path: {display_path(current.path, display_root)}")
+            print(f"{prefix}  UUID: {current.image_uuid}")
+            if current.parent_uuid is not None:
+                print(f"{prefix}  Parent UUID: {current.parent_uuid}")
+            print(f"{prefix}  Type: {current.type_name}")
+            pending.extend((child, level + 1)
+                           for child in reversed(children.get(current.image_uuid, [])))
 
     for info in sorted(roots, key=lambda item: str(item.path)):
         walk(info, 0)
@@ -299,8 +309,9 @@ def print_scan(infos: List[VDIInfo], display_root: Optional[Path] = None) -> Non
 
     leftovers = [info for info in infos if info.image_uuid not in seen]
     for info in leftovers:
-        walk(info, 0)
-        print()
+        if info.image_uuid not in seen:
+            walk(info, 0)
+            print()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -399,4 +410,8 @@ def main(argv: List[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except ValueError as exc:
+        print(f"vdi_chain: {exc}", file=sys.stderr)
+        raise SystemExit(1)

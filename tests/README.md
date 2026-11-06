@@ -10,6 +10,7 @@ executable tests, not a second build system.
 | --- | --- | --- |
 | `make test` | Incremental builds, API, CLI, filesystem mutations, generated VDI chains, fsck corpus, helper and runner tests | Python 3, Bash, ordinary build tools |
 | `make test-fsck` | Image layouts, filename validation, detection and repair corpus | Same as `test` |
+| `make test-vdi` | VDI boundaries, chains, rejection, allocation faults, QEMU interoperability, helper and mounted operations | FUSE build, usable `/dev/fuse`, `fusermount3`, QEMU tools |
 | `make test-qcow2` | QCOW2 reads, writes, COW, version/cluster matrix, rejection and injected failures | `qemu-img`, `qemu-io` |
 | `make test-fuse` | Mount lifecycle, credentials, concurrent clients, raw/VDI/QCOW2 native mutations, readback and stress | FUSE build, usable `/dev/fuse`, `fusermount3`, QEMU tools |
 | `make test-stress` | Seeded offline and batch campaigns | Ordinary build tools |
@@ -90,6 +91,12 @@ retained as `sanitizer-gate.log`. Coverage instruments
 `src/core/qcow2.c` in the probe, and writes `coverage.txt` and gcov output. Neither
 command replaces the normal binary. See the [QCOW2 coverage review](qcow2/README.md)
 for what these measurements establish and the remaining coverage gaps.
+
+The `vdi` selector includes all VDI-specific cases plus shared raw/VDI fault
+injection and `fuse/native-vdi`. Use `make test-vdi`, or
+`make test-sanitize TEST_ARGS=vdi` for the same selection under fatal ASan/UBSan.
+`make test` retains the self-contained VDI cases and helper tests without requiring
+QEMU or FUSE. See [VDI coverage](vdi/README.md) for the oracle and scope of each case.
 
 ## Layout and migration
 

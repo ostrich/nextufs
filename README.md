@@ -214,6 +214,7 @@ Useful entry points:
 make test
 make test-fsck
 make test-qcow2
+make test-vdi
 make test-fuse
 make test-stress
 make test-all
@@ -221,8 +222,8 @@ make test-sanitize
 ```
 
 The [test guide](tests/README.md) defines these groups and their prerequisites.
-The [QCOW2 coverage review](tests/qcow2/README.md) maps tests to supported
-behavior and records the remaining limits. The optional fsck reference-comparison
+The [QCOW2](tests/qcow2/README.md) and [VDI](tests/vdi/README.md) coverage
+guides map tests to supported behavior and record the remaining limits. The optional fsck reference-comparison
 workflow is documented in [tests/fsck/README.md](tests/fsck/README.md).
 
 ## Layout

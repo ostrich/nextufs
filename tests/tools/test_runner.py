@@ -27,6 +27,12 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             runner.select(['misspelled'])
 
+    def test_vdi_group_includes_all_backend_layers(self):
+        names = {case.name for case in runner.select(['vdi'])}
+        self.assertTrue({'vdi/backend', 'vdi/matrix', 'vdi/parents',
+                         'vdi/failures', 'vdi/interop', 'vdi/helper',
+                         'filesystem/io-failures', 'fuse/native-vdi'} <= names)
+
     def test_missing_qemu_is_an_error(self):
         with patch.object(runner.os, 'access', return_value=True), \
                 patch.object(runner.shutil, 'which', return_value=None):
