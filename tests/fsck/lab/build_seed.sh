@@ -10,23 +10,7 @@ NEXTUFS="${NEXTUFS:-$ROOT/nextufs}"
 
 mkdir -p "$SEED_DIR"
 
-if [[ "${1:-}" == "--force" ]]; then
-  rm -f "$SEED"
-fi
-
-if [[ -f "$SEED" ]]; then
-  echo "$SEED"
-  exit 0
-fi
-
-(
-  cd "$ROOT"
-  "$NEXTUFS" mkimg --raw "$SEED" 32768 63 16 8192 1024 16 10 60 2048 t >/dev/null
-  "$NEXTUFS" mkfile "$SEED" /alpha "alpha"
-  "$NEXTUFS" mkfile --mkdir "$SEED" /dir
-  "$NEXTUFS" mkfile "$SEED" /dir/file "nested"
-  "$NEXTUFS" mkfile "$SEED" /big "x"
-  "$NEXTUFS" mkfile --truncate "$SEED" /big 120000
-)
-
+# Regenerate instead of trusting an existence-only cache.
+rm -f "$SEED"
+NEXTUFS="$NEXTUFS" python3 -B "$TEST_ROOT/lab/seed.py" "$SEED" >/dev/null
 echo "$SEED"

@@ -55,7 +55,13 @@ def cases():
     result.append(Case('vdi/helper', (sys.executable, '-B', '-m', 'unittest', 'discover',
         '-s', 'tests/tools', '-p', 'test_vdi_chain.py', '-v')))
     add('fsck/images', 'fsck/test_images.sh', needs=('corrupt',))
-    add('fsck/corpus', 'fsck/test_corpus.py', needs=('corrupt',))
+    for description in sorted((ROOT / 'tests/fsck/cases').glob('*.txt')):
+        add('fsck/corpus/' + description.stem, 'fsck/test_corpus.py', description.stem, needs=('corrupt',))
+    add('fsck/failures', 'fsck/test_failures.py', needs=('corrupt', 'fault'))
+    add('fsck/matrix', 'fsck/test_matrix.py', needs=('corrupt',))
+    add('vdi/repair', 'fsck/test_containers.py', 'vdi', needs=('corrupt', 'fs-probe'))
+    add('qcow2/repair', 'fsck/test_containers.py', 'qcow2', needs=('corrupt', 'qemu'))
+    add('fsck/lab', 'fsck/test_lab.py', needs=('corrupt',))
     result.append(Case('tools/unit', (sys.executable, '-B', '-m', 'unittest', 'discover',
                                       '-s', 'tests/tools', '-p', 'test_*.py', '-v')))
     for name in ['reads', 'cow', 'matrix', 'writes', 'failures']:
@@ -79,13 +85,14 @@ def cases():
 
 
 GROUPS = {
-    'default': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/backend', 'vdi/matrix', 'vdi/parents', 'vdi/failures'),
+    'default': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/backend', 'vdi/matrix', 'vdi/parents', 'vdi/failures', 'vdi/repair'),
     'build': ('build/*',),
     'api': ('api/*',),
     'cli': ('cli/*',),
     'filesystem': ('filesystem/*',),
     'tools': ('tools/*',),
     'fsck': ('fsck/*',),
+    'fsck/corpus': ('fsck/corpus/*',),
     'vdi': ('vdi/*', 'filesystem/io-failures', 'fuse/native-vdi'),
     'qcow2': ('qcow2/*',),
     'fuse': ('fuse/*',),

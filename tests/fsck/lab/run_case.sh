@@ -18,6 +18,12 @@ EXPECT_DIR="$CACHE_DIR/expected"
 CORRUPT_DIR="$CACHE_DIR/corrupt"
 
 mkdir -p "$WORK_DIR" "$EXPECT_DIR"
+case "$ENGINE" in
+  shipped) test -x "${NEXTUFS:-$ROOT/nextufs}" ;;
+  reference) test -x "${FSCK_REFERENCE_BIN:-}" ;;
+  *) echo "unknown engine: $ENGINE" >&2; exit 2 ;;
+esac
+[[ "$MODE" == -n || "$MODE" == -y || "$MODE" == -p ]] || exit 2
 "$TEST_ROOT/lab/build_corpus.sh" >/dev/null
 
 FIXTURE="$CORRUPT_DIR/$CASE_NAME.raw"
@@ -25,6 +31,15 @@ WORK="$WORK_DIR/$CASE_NAME-${ENGINE}-${MODE#-}.raw"
 OUT="$EXPECT_DIR/$CASE_NAME-${ENGINE}-${MODE#-}.out"
 
 cp "$FIXTURE" "$WORK"
+if [[ "$MODE" == -p ]]; then
+  # A corruption fixture must be checked, not skipped because its seed was clean.
+  python3 - "$WORK" <<'PYTHON'
+import sys
+with open(sys.argv[1], 'r+b') as disk:
+    disk.seek(8192 + 0xd1)
+    disk.write(bytes([2]))
+PYTHON
+fi
 
 case "$ENGINE" in
   reference)

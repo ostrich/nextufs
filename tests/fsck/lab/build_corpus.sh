@@ -16,9 +16,7 @@ test -x "$TOOL" || { echo "build test tools first: make test-tools" >&2; exit 2;
 for case_file in "$TEST_ROOT/cases/"*.txt; do
   case_name="$(basename "$case_file" .txt)"
   case_path="$CORRUPT_DIR/$case_name.raw"
-  if [[ ! -f "$case_path" || "${1:-}" == "--force" ]]; then
-    cp "$SEED" "$case_path"
-    "$TOOL" "$case_name" "$case_path"
-  fi
+  cp "$SEED" "$case_path"
+  "$TOOL" "$case_name" "$case_path"
   echo "$case_name $case_path"
 done

@@ -69,8 +69,12 @@ cleanup, and the runner unit tests check failed comparisons and crashed commands
 
 The fsck corpus is regenerated for every run from the committed case list and
 corruption tool. Each case must be detected with status 8 without modifying the
-image, repaired with status 0, and rechecked clean with status 0. Diagnostic text
-alone never establishes success. Optional reference-comparison tools live under
+image, repaired with status 0, and rechecked clean with status 0. An independent
+raw reader verifies file contents, recovery paths, link counts and allocation
+maps; repeated repair must converge. Each `fsck/corpus/<case>` is selectable.
+The matrix adds geometry, orphan trees, full recovery directories, preen policy
+and I/O failures; `vdi/repair` and `qcow2/repair` cover differencing children.
+Diagnostic text alone never establishes success. Optional reference-comparison tools live under
 [fsck/lab](fsck/README.md); they are not prerequisites of the regression suite.
 
 Instrumentation runs keep their binaries and reports under

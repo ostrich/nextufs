@@ -8,28 +8,45 @@ Goals:
 - use disposable working copies for any mutating `fsck` run
 - support optional comparison against a second checker build
 
-Run `make test-fsck` (also included in `make test`). The image tests cover raw,
-labeled, CD-sector and fragment layouts. `test_corpus.py` generates every case
-fresh, requires non-mutating detection with status 8, repair with status 0, and a
-clean recheck with status 0. No cached output or diagnostic blacklist is used to
-decide whether a test passed. See [the test guide](../README.md) for case selection
-and artifact handling.
+Run `make test-fsck` (also included in `make test`). Each corpus case is
+individually selectable, for example `python3 tests/run.py fsck/corpus/dup-block`;
+`fsck/corpus` selects all 31. Use `--keep` to retain images and logs.
+See [the test guide](../README.md) for prerequisites and artifact handling.
+
+`fixtures.py` supplies the same seed and preservation rules to the corpus and lab.
+`model.py` independently reads raw UFS bytes using documented on-disk offsets,
+without calling the filesystem library. Repair checks include:
+
+- non-mutating detection with status 8, repair with status 0, clean recheck;
+- exact contents and inode identity for survivors, explicit permitted losses,
+  and named recovery in `lost+found`;
+- valid directory records, parent links, link counts, unique block ownership,
+  allocated inode/fragment bits and sector-based block counts;
+- convergence after the clean-state transition, followed by a byte-identical repair.
+
+The seed includes a sparse indirect file, a nested canary tree and a trailing
+root entry. Before/after semantic snapshots are saved as JSON. `test_lab.py`
+proves the oracle rejects an empty replacement filesystem and changed contents,
+and the comparison lab rejects missing/crashing checkers, fake success, and a
+changed first diagnostic line.
+
+`fsck/matrix` covers selected repairs on labeled, 2 KB-fragment and CD-sector
+images; deep and multiple orphan trees; full `lost+found` expansion while
+preserving hundreds of hard links; dirty preen repair/refusal versus intentional
+clean skipping; and fragment/inode bitmap repair in a nonzero cylinder group
+with a partial final group. `fsck/failures` injects returned write and flush
+failures and verifies successful recovery on a subsequent invocation.
+
+`vdi/repair` and `qcow2/repair` repair inherited corruption in differencing
+children and require byte-identical parents. QCOW2 also uses QEMU's checker and
+raw export; VDI exports through the backend probe. Both exports receive the
+independent UFS checks. QEMU remains an explicit optional prerequisite.
 
 Layout:
-- `tools/`: source for the corruption generator; its binary lives under `build/tests/`.
-- `test_images.sh`, `test_names.py`: image layout and filename regressions.
-- `test_corpus.py`: detection/repair/recheck assertions.
-- `cases/`: committed descriptions of each corruption family.
-- `lab/`: optional tools for comparison with a second checker build.
-
-Current seed:
-- one small raw UFS image created with `nextufs mkimg --raw`
-- populated deterministically with:
-  - `/alpha`
-  - `/dir`
-  - `/dir/file`
-  - `/big`
-    - grown via `truncate` so indirect-block cases do not depend on host-file import
+- `tools/`: corruption generator source; binaries live under `build/tests/`.
+- `cases/`: descriptions of the original corruption families.
+- `test_*.py`, `test_images.sh`: executable regression cases.
+- `lab/`: optional comparison tools for a second checker build.
 
 Current corruption cases:
 - `bad-block-count`
@@ -107,12 +124,23 @@ FSCK_REFERENCE_BIN=/path/to/reference-fsck \
 ```
 
 `run_case.sh` returns the checker's actual status, so detecting corruption with
-`-n` normally returns 8. Comparison checks both status and normalized output.
-Each invocation creates a fresh `.scratch/fsck-lab/run-*/` directory and generates
+`-n` normally returns 8. Comparison checks status, all diagnostic lines (normalizing only image paths),
+and independent repaired snapshots. Missing executables, timeouts, signals and
+checks skipped in preen mode fail the comparison. All-case comparison reports
+every failure and retains individual logs instead of stopping at the first one.
+Comparison records executable paths and hashes in `provenance.json`, alongside
+pristine/corrupt/repaired images, logs and JSON reports. Each invocation creates a fresh `.scratch/fsck-lab/run-*/` directory and generates
 its fixtures there. Set `FSCK_LAB_DIR` only to intentionally share one investigation's
-artifacts. The scripts require already-built programs and never invoke Make.
+artifacts; fixtures are regenerated rather than trusting an existence-only cache.
+Preen runs mark damaged fixtures dirty. The scripts require already-built programs and never invoke Make.
 `CORRUPT` can select another built corruption generator.
 
 The `lostfound-*` fixtures exercise repair successfully but also trigger surrounding
 fallout; they do not isolate every `lost+found` create/reallocate path. Reference
 comparison remains an investigation aid, separate from regression assertions.
+
+Coverage is deliberately finite: these are deterministic synthetic repairs, not
+a power-loss or exhaustive corruption campaign. Returned I/O failures do not
+simulate process termination. No-space reconnection, arbitrary directory cycles,
+large indirect directories and combined multi-layer corruption still need
+dedicated fixtures before claiming coverage.

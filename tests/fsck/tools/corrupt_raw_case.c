@@ -226,7 +226,7 @@ static off_t
 cg_offset(const struct nextufs_image *img, uint32_t cg)
 {
 	return img->slice_base +
-	    (off_t)((cg_base_frag(img, cg) + img->sb.cg_off) * img->sb.frag_size);
+	    ((off_t)cg_base_frag(img, cg) + img->sb.cg_off) * img->sb.frag_size;
 }
 
 /* Convert a raw mkimg fixture from 1024-byte to 2048-byte device sectors,
@@ -320,7 +320,7 @@ static int
 mark_frag_free_in_cg(const struct nextufs_image *img, int fd, uint32_t frag)
 {
 	uint32_t cg = cg_of_frag(img, frag);
-	uint32_t rel_frag = frag - cg_base_frag(img, cg);
+	uint32_t rel_frag = frag - cg * img->sb.frags_per_group;
 	size_t byte_off = offsetof(struct cg, cg_free) + (rel_frag / 8U);
 	uint8_t bit = (uint8_t)(1U << (rel_frag % 8U));
 
@@ -704,8 +704,8 @@ corrupt_dir_entry_fclear(const char *path)
 		nextufs_image_close(&img);
 		return 1;
 	}
-	if (write_inode_mode(fd, nested.inode_off, 0) < 0) {
-		fprintf(stderr, "corrupt_raw_case: failed clearing nested inode mode\n");
+	if (write_inode_mode(fd, nested.inode_off, 0160000) < 0) {
+		fprintf(stderr, "corrupt_raw_case: failed setting invalid nested inode type\n");
 		close(fd);
 		nextufs_image_close(&img);
 		return 1;
