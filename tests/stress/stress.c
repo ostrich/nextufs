@@ -531,7 +531,7 @@ nextufs_stress_exec_wait_timeout(char *const argv[], unsigned timeout_ms)
 	if (pid < 0)
 		return -errno;
 	if (pid == 0) {
-		execv(argv[0], argv);
+		execvp(argv[0], argv);
 		_exit(127);
 	}
 	while (waited < timeout_ms) {
@@ -545,7 +545,7 @@ nextufs_stress_exec_wait_timeout(char *const argv[], unsigned timeout_ms)
 			return -EIO;
 		}
 		usleep(10000);
-		waited += 100;
+		waited += 10;
 	}
 	(void)kill(pid, SIGKILL);
 	(void)waitpid(pid, &status, 0);
@@ -569,7 +569,7 @@ nextufs_stress_exec_wait_redirect(char *const argv[], const char *log_path)
 		dup2(fd, STDOUT_FILENO);
 		dup2(fd, STDERR_FILENO);
 		close(fd);
-		execv(argv[0], argv);
+		execvp(argv[0], argv);
 		_exit(127);
 	}
 	if (waitpid(pid, &status, 0) < 0)
@@ -676,7 +676,7 @@ nextufs_stress_fuse_start(struct nextufs_stress_ctx *ctx)
 			      ? "rw,mode=su"
 			      : "rw,mode=user";
 		argv[7] = NULL;
-		execv(argv[0], argv);
+		execvp(argv[0], argv);
 		_exit(127);
 	}
 	for (tries = 0; tries < NEXTUFS_STRESS_WAIT_TRIES; tries++) {
@@ -692,24 +692,37 @@ static int
 nextufs_stress_fuse_stop(struct nextufs_stress_ctx *ctx)
 {
 	char *argv[4];
-	int status;
+	int status = 0, rc = 0;
+	pid_t got = 0;
 
 	if (ctx->mountpoint[0] != '\0') {
 		argv[0] = "fusermount3";
-		argv[1] = "-uz";
+		argv[1] = "-u";
 		argv[2] = ctx->mountpoint;
 		argv[3] = NULL;
-		(void)nextufs_stress_exec_wait_timeout(argv, 3000);
+		rc = nextufs_stress_exec_wait_timeout(argv, 3000);
 	}
-	if (ctx->fuse_pid > 0)
-		(void)kill(ctx->fuse_pid, SIGTERM);
-	if (ctx->fuse_pid > 0)
-		(void)waitpid(ctx->fuse_pid, &status, 0);
+	if (ctx->fuse_pid > 0) {
+		/* Unmount wakes the FUSE loop. Let final filesystem/container
+		 * sync finish before considering a forced shutdown. */
+		for (unsigned waited = 0; waited < 3000; waited += 10) {
+			got = waitpid(ctx->fuse_pid, &status, WNOHANG);
+			if (got != 0)
+				break;
+			usleep(10000);
+		}
+		if (got == 0) {
+			(void)kill(ctx->fuse_pid, SIGKILL);
+			(void)waitpid(ctx->fuse_pid, &status, 0);
+			rc = -ETIMEDOUT;
+		} else if (got < 0 || !WIFEXITED(status) || WEXITSTATUS(status))
+			rc = -EIO;
+	}
 	if (ctx->mountpoint[0] != '\0')
 		(void)rmdir(ctx->mountpoint);
 	ctx->mountpoint[0] = '\0';
 	ctx->fuse_pid = 0;
-	return 0;
+	return rc;
 }
 
 static int
