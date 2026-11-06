@@ -31,6 +31,7 @@ def cases():
         interpreter = 'bash' if script.endswith('.sh') else sys.executable
         result.append(Case(name, (interpreter, str(ROOT / 'tests' / script), '{work}', *args), needs))
 
+    add('build/incremental', 'build/test_incremental.py')
     add('api/read', 'api/test_api.py', needs=('api',))
     add('cli/contract', 'cli/test_contract.sh')
     add('cli/browse', 'cli/test_browse.sh')
@@ -41,6 +42,11 @@ def cases():
     for name in OPERATIONS:
         add('filesystem/' + name, 'filesystem/test_operations.py', name)
     add('filesystem/failure', 'filesystem/test_failure.py')
+    add('filesystem/safety', 'filesystem/test_safety.py')
+    add('filesystem/malformed', 'filesystem/test_malformed.py')
+    add('filesystem/sparse', 'filesystem/test_sparse.py', needs=('fs-probe',))
+    add('filesystem/io-failures', 'filesystem/test_io_failures.py', needs=('fault','fs-probe'))
+    add('vdi/backend', 'vdi/test_backend.py')
     add('fsck/images', 'fsck/test_images.sh', needs=('corrupt',))
     add('fsck/corpus', 'fsck/test_corpus.py', needs=('corrupt',))
     result.append(Case('tools/unit', (sys.executable, '-B', '-m', 'unittest', 'discover',
@@ -50,6 +56,10 @@ def cases():
     add('fuse/read', 'fuse/test_read.py', needs=('fuse',))
     add('fuse/cleanup', 'fuse/test_cleanup.py', needs=('fuse',))
     add('fuse/write', 'fuse/test_write.py', needs=('fuse',))
+    add('fuse/permissions', 'fuse/test_permissions.py', needs=('fuse',))
+    for kind in ('raw', 'vdi', 'qcow2'):
+        add('fuse/native-' + kind, 'fuse/test_native.py', kind,
+            needs=('fuse', 'qemu') if kind == 'qcow2' else ('fuse',))
     for name in OPERATIONS:
         add('fuse/readback-' + name, 'filesystem/test_operations.py', name, '--fuse', needs=('fuse',))
     add('fuse/stress', 'stress/test_stress.py', 'fuse', needs=('fuse', 'stress'))
@@ -62,17 +72,19 @@ def cases():
 
 
 GROUPS = {
-    'default': ('api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*'),
+    'default': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/*'),
+    'build': ('build/*',),
     'api': ('api/*',),
     'cli': ('cli/*',),
     'filesystem': ('filesystem/*',),
     'tools': ('tools/*',),
     'fsck': ('fsck/*',),
+    'vdi': ('vdi/*',),
     'qcow2': ('qcow2/*',),
     'fuse': ('fuse/*',),
     'stress': ('stress/*',),
     'image': ('image/*',),
-    'all': ('api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'qcow2/*', 'fuse/*', 'stress/*'),
+    'all': ('build/*', 'api/*', 'cli/*', 'filesystem/*', 'fsck/*', 'tools/*', 'vdi/*', 'qcow2/*', 'fuse/*', 'stress/*'),
 }
 
 
@@ -90,7 +102,7 @@ def environment(args):
     directory = Path(args.bin_dir).resolve()
     env.update(NEXTUFS=str(Path(args.nextufs).resolve()),
                NEXTUFS_TEST=str(directory / 'api'), NEXTUFS_STRESS=str(directory / 'stress'),
-               CORRUPT=str(directory / 'corrupt'),
+               CORRUPT=str(directory / 'corrupt'), FS_PROBE=str(directory / 'fs-probe'),
                QCOW2_PROBE=str(Path(args.probe).resolve()) if args.probe else str(directory / 'qcow2-probe'),
                QCOW2_FAULT_BIN=str(directory / 'qcow2-fault'),
                PYTHONPATH=str(ROOT / 'tests'), PYTHONDONTWRITEBYTECODE='1')
@@ -105,8 +117,8 @@ def preflight(selected, env):
     needs = {need for case in selected for need in case.needs}
     for executable in ['NEXTUFS', *({'api': 'NEXTUFS_TEST', 'stress': 'NEXTUFS_STRESS',
                                     'corrupt': 'CORRUPT', 'probe': 'QCOW2_PROBE',
-                                    'fault': 'QCOW2_FAULT_BIN'}[n]
-                                   for n in needs & {'api', 'stress', 'corrupt', 'probe', 'fault'})]:
+                                    'fault': 'QCOW2_FAULT_BIN', 'fs-probe': 'FS_PROBE'}[n]
+                                   for n in needs & {'api', 'stress', 'corrupt', 'probe', 'fault', 'fs-probe'})]:
         if not os.access(env[executable], os.X_OK):
             raise ValueError(f'{executable} is not executable: {env[executable]}; build with make test-tools')
     if 'qemu' in needs:
