@@ -21,7 +21,9 @@ run('mkfile', image, '/empty', '')
 run('mkfile', '--symlink', image, name, '/link')
 # Constrain address space to show extraction is independent of file size.
 def limit_memory():
-    resource.setrlimit(resource.RLIMIT_AS, (48 * 1024 * 1024,) * 2)
+    # ASan reserves a large virtual shadow mapping; the normal run tests this bound.
+    if not os.environ.get("NEXTUFS_SANITIZED"):
+        resource.setrlimit(resource.RLIMIT_AS, (48 * 1024 * 1024,) * 2)
 assert run('browse', '--raw', image, name, capture_output=True,
            preexec_fn=limit_memory).stdout == payload
 assert run('browse', '--raw', image, '/empty', capture_output=True).stdout == b''

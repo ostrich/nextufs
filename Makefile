@@ -7,7 +7,8 @@ bindir ?= $(prefix)/bin
 mandir ?= $(prefix)/share/man
 DESTDIR ?=
 INSTALL ?= install
-CFLAGS = -Iinclude -Isrc -O2 -g -std=gnu99 -Wall -Wextra -Werror
+CPPFLAGS += -Iinclude -Isrc -I$(OBJ_DIR)
+CFLAGS ?= -O2 -g -std=gnu99 -Wall -Wextra -Werror
 FORMAT_CFLAGS ?= -O2 -g -std=gnu89 -Wall -Wextra
 FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Isrc/mkimg_format/include -Iinclude \
 	-Disblock=mkimg_isblock -Dclrblock=mkimg_clrblock \
@@ -15,7 +16,9 @@ FORMAT_CPPFLAGS = -DNeXT -DNeXT_MOD -DNeXT_NFS -Isrc/mkimg_format/include -Iincl
 FSCK_CFLAGS ?= -O2 -g -std=gnu99 -fcommon -Wall -Wextra
 FSCK_CPPFLAGS = -DNeXT=1 -DNeXT_MOD=1 -DFASTLINK=1 \
 	-Isrc/fsck/include -Iinclude
-BUILD_DIR = build
+BUILD_DIR ?= build
+VERSION ?= $(shell cat VERSION)
+export CC CPPFLAGS CFLAGS FORMAT_CFLAGS FORMAT_CPPFLAGS FSCK_CFLAGS FSCK_CPPFLAGS FUSE_CFLAGS FUSE_LIBS LDFLAGS LDLIBS VERSION
 WITH_FUSE ?= 1
 ifeq ($(filter $(WITH_FUSE),0 1),)
 $(error WITH_FUSE must be 0 or 1)
@@ -24,6 +27,7 @@ OBJ_DIR = $(BUILD_DIR)/obj/fuse-$(WITH_FUSE)
 TEST_IMAGE ?=
 NEXTUFS_BIN = $(BUILD_DIR)/bin/fuse-$(WITH_FUSE)/nextufs
 TEST_BIN_DIR = $(BUILD_DIR)/tests/fuse-$(WITH_FUSE)
+FS_PROBE = $(TEST_BIN_DIR)/fs-probe
 API_TEST = $(TEST_BIN_DIR)/api
 STRESS_TEST = $(TEST_BIN_DIR)/stress
 CORRUPT_TEST = $(TEST_BIN_DIR)/corrupt
@@ -61,12 +65,23 @@ FSCK_SRCS = alloc_map.c buffer.c byteorder.c device.c dir_repair.c \
 	pass1.c pass1b.c pass2.c pass3.c pass4.c pass5.c session.c setup.c \
 	source.c state.c
 FSCK_OBJS = $(FSCK_SRCS:%.c=$(OBJ_DIR)/src/fsck/%.o)
-FSCK_HDRS = include/nextufs_ufs_types.h $(wildcard src/fsck/include/*.h src/fsck/include/sys/*.h src/fsck/include/ufs/*.h)
-FORMAT_HDRS = include/nextufs_ufs_types.h $(wildcard src/mkimg_format/include/sys/*.h src/mkimg_format/include/ufs/*.h)
-PUBLIC_HDRS = include/nextufs_image.h include/nextufs_node.h \
-	include/nextufs_mutate.h include/nextufs_info.h include/nextufs_label.h \
-	include/nextufs_report.h include/nextufs_size.h
-INTERNAL_HDRS = $(PUBLIC_HDRS) include/nextufs_internal.h
+FAULT_OBJ = $(OBJ_DIR)/tests/qcow2/io_faults.o
+PROBE_OBJ = $(OBJ_DIR)/tests/qcow2/backend_probe.o
+CORRUPT_OBJ = $(OBJ_DIR)/tests/fsck/tools/corrupt_raw_case.o
+FS_PROBE_OBJ = $(OBJ_DIR)/tests/api/io_probe.o
+OBJECTS = $(LIB_OBJS) $(WRITE_OBJS) $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) \
+ $(FS_PROBE_OBJ) $(STRESS_OBJ) $(TEST_OBJ) $(FAULT_OBJ) $(PROBE_OBJ) $(CORRUPT_OBJ)
+CONFIG = $(OBJ_DIR)/build-config.json
+
+$(CONFIG): FORCE tools/build_info.py
+	python3 -B tools/build_info.py config "$@"
+
+$(OBJ_DIR)/build_version.h: FORCE VERSION tools/build_info.py
+	python3 -B tools/build_info.py version "$@"
+
+$(OBJECTS): $(CONFIG)
+$(OBJ_DIR)/src/commands/main.o: $(OBJ_DIR)/build_version.h
+-include $(OBJECTS:.o=.d)
 
 .PHONY: all clean install uninstall test-tools FORCE
 FORCE:
@@ -86,71 +101,74 @@ nextufs: $(NEXTUFS_BIN) FORCE
 
 $(NEXTUFS_BIN): $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ $(COMMAND_OBJS) \
-		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(FUSE_CFLAGS) $(LDFLAGS) -o $@ $(COMMAND_OBJS) \
+		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS) $(LDLIBS)
 
 $(API_TEST): $(TEST_OBJ) $(WRITE_LIB) $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $(TEST_OBJ) $(WRITE_LIB) $(LIB)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(TEST_OBJ) $(WRITE_LIB) $(LIB) $(LDLIBS)
 
 $(STRESS_TEST): $(STRESS_OBJ) $(LIB) $(WRITE_LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $(STRESS_OBJ) $(WRITE_LIB) $(LIB)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(STRESS_OBJ) $(WRITE_LIB) $(LIB) $(LDLIBS)
 
-$(LIB_OBJS): $(INTERNAL_HDRS)
-$(WRITE_OBJS): $(INTERNAL_HDRS)
-$(COMMAND_OBJS): $(PUBLIC_HDRS) src/commands/commands.h
-$(TEST_OBJ): tests/api/api_test.c $(PUBLIC_HDRS)
-$(STRESS_OBJ): tests/stress/stress.c $(PUBLIC_HDRS)
-
-$(OBJ_DIR)/src/commands/mount.o: src/commands/mount.c $(INTERNAL_HDRS)
+$(OBJ_DIR)/src/commands/mount.o: src/commands/mount.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(FUSE_CFLAGS) -MMD -MP -c -o $@ $<
 
-$(OBJ_DIR)/src/commands/fsck.o: include/nextufs_fsck.h
-$(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c $(PUBLIC_HDRS) src/mkimg_format/format.h $(FORMAT_HDRS)
+$(OBJ_DIR)/src/commands/mkimg.o: src/commands/mkimg.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(FORMAT_CPPFLAGS) \
-		-Isrc/mkimg_format -Iinclude -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(FORMAT_CPPFLAGS) \
+		-Isrc/mkimg_format -Iinclude -MMD -MP -c -o $@ $<
 
-$(OBJ_DIR)/src/commands/resize.o: $(INTERNAL_HDRS)
 $(OBJ_DIR)/src/commands/%.o: src/commands/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
 
-$(FORMAT_OBJS): $(OBJ_DIR)/src/mkimg_format/%.o: src/mkimg_format/%.c src/mkimg_format/format.h $(FORMAT_HDRS)
+$(FORMAT_OBJS): $(OBJ_DIR)/src/mkimg_format/%.o: src/mkimg_format/%.c
 	@mkdir -p $(@D)
-	$(CC) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(FORMAT_CPPFLAGS) $(FORMAT_CFLAGS) -Isrc/mkimg_format -MMD -MP -c -o $@ $<
 
-$(OBJ_DIR)/src/fsck/%.o: src/fsck/%.c src/fsck/fsck.h $(FSCK_HDRS) include/nextufs_image.h include/nextufs_fsck.h
+$(OBJ_DIR)/src/fsck/%.o: src/fsck/%.c
 	@mkdir -p $(@D)
-	$(CC) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(FSCK_CPPFLAGS) $(FSCK_CFLAGS) -MMD -MP -c -o $@ $<
 
-$(OBJ_DIR)/%.o: %.c $(INTERNAL_HDRS)
+$(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c -o $@ $<
 
-$(CORRUPT_TEST): tests/fsck/tools/corrupt_raw_case.c $(PUBLIC_HDRS) $(FSCK_HDRS) $(LIB) $(WRITE_LIB)
+$(CORRUPT_OBJ): tests/fsck/tools/corrupt_raw_case.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -Isrc/fsck/include -o $@ $< $(WRITE_LIB) $(LIB)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Isrc/fsck/include -MMD -MP -c -o $@ $<
 
-$(QCOW2_PROBE): tests/qcow2/backend_probe.c tests/qcow2/io_faults.c $(INTERNAL_HDRS) $(LIB)
+$(CORRUPT_TEST): $(CORRUPT_OBJ) $(LIB) $(WRITE_LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ tests/qcow2/backend_probe.c tests/qcow2/io_faults.c $(LIB) $(QCOW2_WRAPS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(CORRUPT_OBJ) $(WRITE_LIB) $(LIB) $(LDLIBS)
 
-$(QCOW2_FAULT_BIN): tests/qcow2/io_faults.c $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
+$(QCOW2_PROBE): $(PROBE_OBJ) $(FAULT_OBJ) $(LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(FUSE_CFLAGS) -o $@ tests/qcow2/io_faults.c $(COMMAND_OBJS) \
-		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS) $(QCOW2_WRAPS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(PROBE_OBJ) $(FAULT_OBJ) $(LIB) $(QCOW2_WRAPS) $(LDLIBS)
 
-test-tools: all $(API_TEST) $(STRESS_TEST) $(CORRUPT_TEST) $(QCOW2_PROBE) $(QCOW2_FAULT_BIN)
+$(QCOW2_FAULT_BIN): $(FAULT_OBJ) $(COMMAND_OBJS) $(FORMAT_OBJS) $(FSCK_OBJS) $(LIB) $(WRITE_LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(FAULT_OBJ) $(COMMAND_OBJS) \
+		$(FORMAT_OBJS) $(FSCK_OBJS) $(WRITE_LIB) $(LIB) $(FUSE_LIBS) $(QCOW2_WRAPS) $(LDLIBS)
+
+$(FS_PROBE): $(FS_PROBE_OBJ) $(FAULT_OBJ) $(WRITE_LIB) $(LIB)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(QCOW2_WRAPS) $(LDLIBS)
+
+test-tools: all test-binaries
+
+.PHONY: test-binaries test-sanitize
+test-binaries: $(NEXTUFS_BIN) $(FS_PROBE) $(API_TEST) $(STRESS_TEST) $(CORRUPT_TEST) $(QCOW2_PROBE) $(QCOW2_FAULT_BIN)
 
 TEST_GROUPS = test test-fsck test-qcow2 test-fuse test-stress test-image test-all
 .PHONY: $(TEST_GROUPS) test-list test-qcow2-sanitize test-qcow2-coverage
 TEST_ARGS ?=
 TEST_RUNNER = python3 -B tests/run.py --nextufs "$(NEXTUFS_BIN)" --bin-dir "$(TEST_BIN_DIR)" $(TEST_ARGS)
 
-test: all $(API_TEST) $(CORRUPT_TEST)
+test: all $(API_TEST) $(CORRUPT_TEST) $(FS_PROBE) $(QCOW2_FAULT_BIN)
 test-fsck: all $(CORRUPT_TEST)
 test test-fsck:
 	$(TEST_RUNNER) $(if $(filter test,$@),default,fsck)
@@ -185,3 +203,6 @@ uninstall:
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -f nextufs
+
+test-sanitize:
+	python3 -B tests/sanitize.py $(TEST_ARGS) $(if $(filter 0,$(WITH_FUSE)),--without-fuse)

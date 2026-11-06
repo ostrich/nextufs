@@ -26,6 +26,11 @@ ssize_t
 __wrap_pwrite(int fd, const void *buf, size_t size, off_t off)
 {
 	static unsigned calls;
+	const char *from = getenv("NEXTUFS_FAIL_PWRITE_FROM");
+	if (from && calls + 1 >= strtoul(from, NULL, 10)) {
+		errno = EIO;
+		return -1;
+	}
 	if (fail_call("QCOW_FAIL_PWRITE", &calls))
 		return -1;
 	return __real_pwrite(fd, buf, size, off);

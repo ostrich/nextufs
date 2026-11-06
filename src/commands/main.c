@@ -3,7 +3,7 @@
 
 #include "commands.h"
 
-#define NEXTUFS_VERSION "0.1.0-dev"
+#include "build_version.h"
 
 static void
 usage(FILE *out)
