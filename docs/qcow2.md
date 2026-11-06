@@ -49,7 +49,8 @@ external data files, lazy refcounts, dirty/corrupt images, and unsupported
 feature flags are rejected. QCOW2 metadata repair is outside nextufs: UFS fsck
 repairs the guest filesystem only. Interrupted v3 updates remain marked dirty;
 container recovery requires a QCOW2-aware tool. Version 2 has no dirty flag, so
-check its container after interrupted writes. Mutations are not transactional.
+check its container after interrupted writes. UFS mutations attempt operation-local rollback on returned errors, but are not
+crash-atomic; see [write failure handling](writes.md).
 
 Metadata processing is bounded: L1 tables may occupy at most 32 MiB, refcount
 tables at most 8 MiB, and the physical file may cover at most 16,777,216 clusters.

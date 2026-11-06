@@ -565,3 +565,19 @@ Some low-level
 .Cm mkimg --raw
 geometry arguments are exposed for reproducibility and compatibility testing
 rather than normal day-to-day image creation.
+
+.Sh WRITE OWNERSHIP
+Writable opens hold an exclusive advisory lock on the image head; read-only
+opens and backing files hold shared locks. Conflicting nextufs operations fail.
+FUSE callbacks are serialized and writable mounts retain one image session.
+Other software must also honor these locks; stop a VM before editing its images.
+.Pp
+File mutations attempt rollback on returned errors. If rollback fails, a mounted
+writer refuses further operations until unmounted. This is not a durable journal
+or a guarantee against power loss. Resize can commit cylinder-summary evacuation
+before a later growth failure. Work on a copy of valuable images.
+.Sh JSON FILENAMES
+Browse JSON includes a UTF-8 display name and a
+.Cm name_bytes_hex
+field containing the original filename bytes in hexadecimal. Invalid UTF-8 bytes
+are replaced only in the display name.

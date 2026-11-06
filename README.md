@@ -60,10 +60,15 @@ make WITH_FUSE=0 test
 ```
 
 The default `WITH_FUSE=1` build includes mounting. Offline builds keep all image
-commands, including fsck, but `mount` returns status 2. Switching modes rebuilds
-the selected libraries and command; no clean step is required. Build artifacts are
+commands, including fsck, but `mount` returns status 2. Switching modes selects
+the corresponding libraries and command; no clean step is required. Build artifacts are
 separated by mode, and the root `nextufs` symlink selects the last built mode. FUSE-specific test
 targets require `WITH_FUSE=1`.
+
+The compiler records header dependencies automatically. Changing compiler or
+linker flags invalidates the corresponding build configuration; no clean step is
+required. `nextufs --version` includes the source version and Git revision (with
+`dirty` for tracked local edits); exported source builds use `+source`.
 
 Run the generated-fixture regression suite:
 
@@ -109,12 +114,18 @@ nextufs browse --json /path/to/source /etc
 nextufs browse --raw /path/to/source /etc/passwd > passwd
 ```
 
+JSON names are valid UTF-8 display strings. `name_bytes_hex` preserves the exact
+filename bytes, including names that are not UTF-8.
+
 Mount through FUSE. Mounts are read-only by default:
 
 ```sh
 mkdir -p /tmp/nextufs-mnt
 nextufs mount /path/to/source /tmp/nextufs-mnt
 ```
+
+Mount operations are serialized. Writable mounts retain an exclusive advisory
+lock on the image; conflicting nextufs commands fail while it is mounted.
 
 Request a writable mount explicitly:
 
@@ -187,6 +198,9 @@ nextufs mkfile --policy user --uid 1000 --gid 100 \
   of `4294836224` bytes, or `4194176` 1 KiB sectors, unless `--force-size` is
   supplied.
 
+See [image ownership and write failures](docs/writes.md) for operation rollback,
+session ownership and the limits of crash recovery.
+
 ## Testing
 
 The test suite covers the unified CLI, image creation, resize command contracts,
@@ -203,6 +217,7 @@ make test-qcow2
 make test-fuse
 make test-stress
 make test-all
+make test-sanitize
 ```
 
 The [test guide](tests/README.md) defines these groups and their prerequisites.

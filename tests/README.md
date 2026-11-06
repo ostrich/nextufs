@@ -8,13 +8,15 @@ executable tests, not a second build system.
 
 | Command | Scope | Extra requirements |
 | --- | --- | --- |
-| `make test` | API, CLI, filesystem mutations, full fsck corpus, helper and runner tests | Python 3, Bash, ordinary build tools |
+| `make test` | Incremental builds, API, CLI, filesystem mutations, generated VDI chains, fsck corpus, helper and runner tests | Python 3, Bash, ordinary build tools |
 | `make test-fsck` | Image layouts, filename validation, detection and repair corpus | Same as `test` |
 | `make test-qcow2` | QCOW2 reads, writes, COW, version/cluster matrix, rejection and injected failures | `qemu-img`, `qemu-io` |
-| `make test-fuse` | Mount lifecycle, reads, writes, offline-operation readback, raw/QCOW2 stress | FUSE build, usable `/dev/fuse`, `fusermount3`, QEMU tools |
+| `make test-fuse` | Mount lifecycle, credentials, concurrent clients, raw/VDI/QCOW2 native mutations, readback and stress | FUSE build, usable `/dev/fuse`, `fusermount3`, QEMU tools |
 | `make test-stress` | Seeded offline and batch campaigns | Ordinary build tools |
 | `make test-image TEST_IMAGE=/path/to/image` | OPENSTEP content/API compatibility and mutation stress on a copy | Supplied OPENSTEP installation image |
 | `make test-all` | All generated-fixture groups above; excludes supplied-image tests | FUSE and QEMU requirements |
+| `make test-sanitize` | Complete CLI and helpers under fatal ASan/UBSan; all generated groups | Sanitizer support, FUSE and QEMU |
+| `make WITH_FUSE=0 test-sanitize TEST_ARGS=default` | Whole-utility offline sanitizer suite | Sanitizer support |
 | `make test-qcow2-sanitize` | QCOW2 group with an ASan/UBSan byte-I/O probe | GCC/Clang sanitizer support and QEMU |
 | `make test-qcow2-coverage` | QCOW2 group with gcov instrumentation of `qcow2.c` | GCC, gcov and QEMU |
 | `make test-list` | List all generated-fixture cases | Python 3 only |
@@ -59,7 +61,9 @@ cases; nested unittest counts are in that case's log. A case has a bounded timeo
 FUSE helpers create a fresh mountpoint, wait for an observable mount, and unmount
 and reap their own process even when an assertion fails. No test unmounts a fixed
 shared `/tmp` location. The C stress program also uses a unique mountpoint under
-the case's `TMPDIR`. `fuse/cleanup` deliberately fails an assertion to exercise
+the case's `TMPDIR`. It unmounts before checking the backing image, then mounts
+again for the next operation, respecting exclusive ownership. Native FUSE cases
+also run concurrent clients and many operations within one persistent mount. `fuse/cleanup` deliberately fails an assertion to exercise
 cleanup, and the runner unit tests check failed comparisons and crashed commands.
 
 The fsck corpus is regenerated for every run from the committed case list and
@@ -68,9 +72,18 @@ image, repaired with status 0, and rechecked clean with status 0. Diagnostic tex
 alone never establishes success. Optional reference-comparison tools live under
 [fsck/lab](fsck/README.md); they are not prerequisites of the regression suite.
 
-Instrumentation runs keep their probe and reports under
-`.scratch/instrumentation/`. Sanitizers cover the probe and all `src/core/*.c`;
-the CLI/fsck subprocesses use the normal binary. UBSan findings are fatal. Before
+Instrumentation runs keep their binaries and reports under
+`.scratch/instrumentation/`. `test-sanitize` instruments the entire utility,
+including mutations, resize, formatter and fsck, plus the C helpers. Its builds
+are isolated and do not replace the root executable symlink. Give group names
+with `TEST_ARGS`, for example `TEST_ARGS='default fuse stress'`.
+The extraction address-space limit is exercised in the normal suite; sanitizer
+runs retain the byte comparison but omit that limit because ASan reserves a large
+virtual shadow mapping. Expected failing commands are still checked for sanitizer
+diagnostics.
+
+`test-qcow2-sanitize` is the narrower byte-I/O probe check: it instruments all
+`src/core/*.c`, while its CLI/fsck subprocesses use the normal binary. UBSan findings are fatal. Before
 running the suite, the sanitizer command verifies that an intentional overflow
 fails and that the command helper propagates that failure; its diagnostic is
 retained as `sanitizer-gate.log`. Coverage instruments
@@ -80,6 +93,8 @@ for what these measurements establish and the remaining coverage gaps.
 
 ## Layout and migration
 
+- `build/`: real incremental builds, transitive header dependencies, flags and version provenance.
+- `vdi/`: generated chains, malformed tables, cycles and depth limits.
 - `api/`: C API tests and generated API fixture.
 - `cli/`: command contracts, browsing/extraction and formatting.
 - `filesystem/`: mutation scenarios, allocation geometry, growth and failure handling.
