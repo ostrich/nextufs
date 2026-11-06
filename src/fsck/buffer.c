@@ -97,6 +97,7 @@ void
 flush(struct filecntl *fcp, BUFAREA *bp)
 {
 	register int i, j;
+	unsigned char saved_state = 0;
 
 	if (!bp->b_dirty)
 		return;
@@ -104,11 +105,18 @@ flush(struct filecntl *fcp, BUFAREA *bp)
 		pfatal("WRITING ZERO'ED BLOCK %d TO DISK\n", bp->b_bno);
 	bp->b_dirty = 0;
 	bp->b_errs = 0;
+	/* Publish clean only after all repairs have reached stable storage. */
+	if (bp == &sblk && fcp->use_image && fsck_file_is_writable(fcp)) {
+		saved_state = sblock.fs_state;
+		sblock.fs_state = FS_STATE_DIRTY;
+	}
 	if (needswap && bp->b_swapped)
 		swap_bufarea(bp, 1);
 	bwrite(fcp, bp->b_unp->b_buf, bp->b_bno, (long)bp->b_size);
 	if (needswap && bp->b_swapped)
 		swap_bufarea(bp, 0);
+	if (saved_state)
+		sblock.fs_state = saved_state;
 	if (bp != &sblk)
 		return;
 	for (i = 0, j = 0; i < sblock.fs_cssize; i += sblock.fs_bsize, j++) {
@@ -141,6 +149,18 @@ ckfini(void)
 	if (fsck_file_fsync(&dfile) < 0) {
 		fprintf(stderr, "nextufs fsck: failed to sync source\n");
 		exitstat = 8;
+	}
+	if (dfile.use_image && dfile.image.fs_write_active && exitstat == 0 &&
+	    sblock.fs_state == FS_STATE_CLEAN) {
+		uint8_t clean = FS_STATE_CLEAN;
+		if (fsck_file_pwrite(&dfile, &clean, 1, (off_t)SBLOCK * DEV_BSIZE + 0xd1) < 0 ||
+		    fsck_file_fsync(&dfile) < 0) {
+			uint8_t dirty = FS_STATE_DIRTY;
+			(void)fsck_file_pwrite(&dfile, &dirty, 1,
+			    (off_t)SBLOCK * DEV_BSIZE + 0xd1);
+			(void)fsck_file_fsync(&dfile);
+			exitstat = 8;
+		}
 	}
 	fsck_file_close(&dfile);
 }

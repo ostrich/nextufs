@@ -17,6 +17,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "fsck.h"
+#undef CG_MAGIC
+#include "nextufs_internal.h"
 
 static int
 fsck_file_pread(struct filecntl *fcp, void *buf, size_t size, off_t offset)
@@ -40,7 +42,7 @@ fsck_file_pread(struct filecntl *fcp, void *buf, size_t size, off_t offset)
 	return 0;
 }
 
-static int
+int
 fsck_file_pwrite(struct filecntl *fcp, const void *buf, size_t size, off_t offset)
 {
 	const uint8_t *in = buf;
@@ -142,6 +144,12 @@ bwrite(struct filecntl *fcp, char *buf, ufs_daddr_t blk, int size)
 
 	if (!fsck_file_is_writable(fcp))
 		return;
+	if (fcp->use_image && !fcp->image.fs_write_active &&
+	    nextufs__write_begin(&fcp->image) < 0) {
+		exitstat = 8;
+		pfatal("CANNOT MARK FILESYSTEM DIRTY");
+		return;
+	}
 	offset = (off_t)dbtob(blk);
 	if (fsck_file_pwrite(fcp, buf, (size_t)size, offset) == 0) {
 		fcp->mod = 1;

@@ -13,6 +13,9 @@ nextufs__write_dirent_raw(uint8_t *p, unsigned ino, uint16_t reclen,
 
 	if (name_len > 255)
 		return -ENAMETOOLONG;
+	if (reclen > DIRBLKSIZ || (reclen & 3) != 0 ||
+	    reclen < nextufs__dirent_size(name_len) || strchr(name, '/'))
+		return -EINVAL;
 	memset(p, 0, reclen);
 	nextufs__write_be32(p + 0, (uint32_t)ino);
 	nextufs__write_be16(p + 4, reclen);
@@ -43,63 +46,23 @@ nextufs__grow_directory_by_dirblk(const struct nextufs_image *img,
     struct nextufs_node *dirnode, uint32_t *new_block_frag_out,
     off_t *new_block_off_out)
 {
-	uint64_t old_size;
-	uint64_t new_size;
-	uint32_t logical_block;
-	uint32_t inblock_old_size;
-	uint32_t old_frags;
-	uint32_t new_frags;
-	uint32_t alloc_frag;
+	uint64_t old_size = dirnode->inode.size;
+	uint32_t frag;
 	int rc;
 
-	old_size = dirnode->inode.size;
-	if ((old_size % DIRBLKSIZ) != 0)
+	if (old_size % DIRBLKSIZ)
 		return -EINVAL;
-	new_size = old_size + DIRBLKSIZ;
-	logical_block = (uint32_t)(old_size / img->sb.block_size);
-	if (logical_block >= 12)
-		return -EFBIG;
-	inblock_old_size = (uint32_t)(old_size % img->sb.block_size);
-	if (inblock_old_size == 0) {
-		old_frags = 0;
-		new_frags = 1;
-		rc = nextufs__allocate_frags_anycg(img,
-		    dirnode->inode_no / img->sb.inodes_per_group, 1, &alloc_frag);
-		if (rc < 0)
-			return rc;
-		dirnode->inode.db[logical_block] = alloc_frag;
-		*new_block_frag_out = alloc_frag;
-		*new_block_off_out = img->slice_base +
-		    ((off_t)alloc_frag * img->sb.frag_size);
-	} else {
-		old_frags = (uint32_t)((inblock_old_size + img->sb.frag_size - 1U) /
-		    img->sb.frag_size);
-		new_frags = (uint32_t)(((inblock_old_size + DIRBLKSIZ) +
-		    img->sb.frag_size - 1U) / img->sb.frag_size);
-		alloc_frag = dirnode->inode.db[logical_block];
-		if (alloc_frag == 0)
-			return -EINVAL;
-		/* A 1024-byte directory block can fit in an already allocated
-		 * 2048-byte fragment. Allocate only when crossing its boundary. */
-		if (new_frags > old_frags) {
-			rc = nextufs__extend_fragment_run(img, alloc_frag, old_frags, new_frags);
-			if (rc == -ENOSPC) {
-				rc = nextufs__reallocate_fragment_run(img, alloc_frag, old_frags,
-				    new_frags, dirnode->inode_no / img->sb.inodes_per_group,
-				    &alloc_frag);
-			}
-			if (rc < 0)
-				return rc;
-		}
-		dirnode->inode.db[logical_block] = alloc_frag;
-		*new_block_frag_out = alloc_frag;
-		*new_block_off_out = img->slice_base +
-		    ((off_t)alloc_frag * img->sb.frag_size) +
-		    (off_t)inblock_old_size;
-	}
-	dirnode->inode.size = new_size;
-	dirnode->inode.blocks += (new_frags - old_frags) * img->sb.sectors_per_frag;
-	return nextufs__update_node_times(img, dirnode, 1);
+	rc = nextufs__file_resize(img, dirnode, old_size + DIRBLKSIZ);
+	if (rc < 0)
+		return rc;
+	rc = nextufs__resolve_inode_data_block(img, &dirnode->inode,
+	    (uint32_t)(old_size / img->sb.block_size), &frag);
+	if (rc < 0 || !frag)
+		return rc < 0 ? rc : -EIO;
+	*new_block_frag_out = frag;
+	*new_block_off_out = img->slice_base + (off_t)frag * img->sb.frag_size +
+	    (off_t)(old_size % img->sb.block_size);
+	return 0;
 }
 
 int
@@ -134,8 +97,10 @@ nextufs__insert_dirent(const struct nextufs_image *img,
 			size_t slack;
 			off_t block_disk_off;
 
-			if (nextufs__read_dirent(block, chunk_size, off, &ent) < 0)
-				break;
+			if (nextufs__read_dirent(block, chunk_size, off, &ent) < 0) {
+				free(block);
+				return -EIO;
+			}
 			used = ent.ino == 0 ? 0 : nextufs__dirent_size(ent.namlen);
 			if (ent.ino == 0 && ent.reclen >= need) {
 				if (nextufs__write_dirent_raw(block + off, new_inode,
@@ -159,13 +124,10 @@ nextufs__insert_dirent(const struct nextufs_image *img,
 			}
 			{
 				uint32_t data_frag;
-				uint64_t logical_block_index = block_index;
-
-				if (logical_block_index < 12) {
-					data_frag = dirnode->inode.db[logical_block_index];
-				} else {
+				if (nextufs__resolve_inode_data_block(img, &dirnode->inode,
+				    (uint32_t)block_index, &data_frag) < 0 || !data_frag) {
 					free(block);
-					return -ENOSPC;
+					return -EIO;
 				}
 				block_disk_off = img->slice_base +
 				    ((off_t)data_frag * img->sb.frag_size);
@@ -231,11 +193,11 @@ nextufs__remove_dirent(const struct nextufs_image *img,
 			free(block);
 			return -EIO;
 		}
-		if (block_index >= 12 || dirnode->inode.db[block_index] == 0) {
+		if (nextufs__resolve_inode_data_block(img, &dirnode->inode,
+		    (uint32_t)block_index, &data_frag) < 0 || !data_frag) {
 			free(block);
 			return -EINVAL;
 		}
-		data_frag = dirnode->inode.db[block_index];
 		block_disk_off = img->slice_base + ((off_t)data_frag * img->sb.frag_size);
 		for (dirblk_base = 0; dirblk_base < chunk_size; dirblk_base += DIRBLKSIZ) {
 			size_t dirblk_size = chunk_size - dirblk_base;
@@ -249,8 +211,10 @@ nextufs__remove_dirent(const struct nextufs_image *img,
 				struct nextufs_dirent_view prev_ent;
 
 				if (nextufs__read_dirent(block + dirblk_base, dirblk_size,
-				    off, &ent) < 0)
-					break;
+				    off, &ent) < 0) {
+					free(block);
+					return -EIO;
+				}
 				if (ent.ino != 0 && ent.namlen == name_len &&
 				    memcmp(ent.name, name, name_len) == 0) {
 					if (name_len == 1 && ent.name[0] == '.') {

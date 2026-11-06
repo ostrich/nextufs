@@ -11,6 +11,12 @@ work = Path(sys.argv[1])
 base = image(work / 'base.raw', '8M', raw=True)
 for field, value in [
     (0xA0, 1),
+    (0x50, 32),
+    (0x54, 32),
+    (0x70, 32),
+    (0x6c, 0),
+    (0x18, 0xffffffff),
+    (0xB4, 31),
     (0xA0, 0xFFFFFFFF),
     (0x38, 16),
     (0x60, 64),

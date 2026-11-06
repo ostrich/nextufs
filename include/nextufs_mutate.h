@@ -19,7 +19,7 @@ struct nextufs_write_session {
 };
 int nextufs_write_session_open(struct nextufs_write_session *session,
 			       const char *path);
-void nextufs_write_session_close(struct nextufs_write_session *session);
+int nextufs_write_session_close(struct nextufs_write_session *session);
 
 /* Zero-initialize before setting policy, credentials and optional session. */
 struct nextufs_write_ctx {

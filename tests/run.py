@@ -44,6 +44,7 @@ def cases():
     add('filesystem/failure', 'filesystem/test_failure.py')
     add('filesystem/safety', 'filesystem/test_safety.py')
     add('filesystem/malformed', 'filesystem/test_malformed.py')
+    add('filesystem/ufs-compat', 'filesystem/test_ufs_compat.py', needs=('fs-probe',))
     add('filesystem/sparse', 'filesystem/test_sparse.py', needs=('fs-probe',))
     add('filesystem/io-failures', 'filesystem/test_io_failures.py', needs=('fault','fs-probe'))
     add('vdi/backend', 'vdi/test_backend.py')

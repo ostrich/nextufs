@@ -13,7 +13,22 @@ mutation calls use a one-operation session unless the caller supplies
 `nextufs_write_ctx.session`. Initialize the entire context to zero before setting
 credentials. The public session API is serialized, not thread-safe: its owner
 must serialize calls. Replacing the source path with a different file while the
-session is open causes mutations to fail with `ESTALE`.
+session is open causes mutations to fail with `ESTALE`. Check the return value
+of `nextufs_write_session_close()` for final sync failures.
+
+Filesystem writers persist the UFS dirty state before changing metadata or data.
+A successful close, or a verified rollback of a one-shot operation, restores an
+initially clean filesystem to clean. Preexisting unclean state is preserved as
+corrupted; failed recovery leaves the image unclean. A terminated writer therefore
+cannot cause `fsck -p` to skip its image as clean. This state flag does not replace
+the undo log or provide crash recovery.
+
+Files use the original signed 32-bit size limit (2 GiB minus one byte). Growth
+preserves sparse holes, and directories can use indirect blocks. User-policy
+allocation honors `fs_minfree`; privileged writers can use the reserve. New files
+inherit the parent directory's group, and unprivileged content changes clear
+set-user-ID and set-group-ID bits. FUSE retains access rights on open descriptors
+through later permission changes.
 
 ## Returned failures
 
@@ -40,7 +55,8 @@ Resize uses the same undo mechanism for growth metadata and saves the disk-label
 region before modifying it. On recoverable failure it restores metadata and the
 previous host file length. Cylinder-summary evacuation commits a consistent move
 before restarting growth; a later growth failure may therefore leave those valid
-moves in place. Formatter creation is a separate operation: it holds the target
+moves in place. Formatter geometry is fully checked before creating or truncating the output.
+Creation is a separate operation: it holds the target
 lock through label creation, formatting and final sync, but a failed creation can
 leave an incomplete output file.
 

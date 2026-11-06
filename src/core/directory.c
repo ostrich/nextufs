@@ -31,8 +31,10 @@ nextufs_directory_iterate(const struct nextufs_image *img,
 		while (off < chunk_size) {
 			struct nextufs_dirent_view ent;
 
-			if (nextufs__read_dirent(buf, chunk_size, off, &ent) < 0)
-				break;
+			if (nextufs__read_dirent(buf, chunk_size, off, &ent) < 0) {
+				free(buf);
+				return -EIO;
+			}
 			if (ent.ino != 0 && ent.namlen != 0) {
 				int rc;
 

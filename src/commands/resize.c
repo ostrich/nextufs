@@ -884,7 +884,9 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 	}
 	new_cssize = (uint32_t)new_cssize64;
 	new_csum_addr = img->sb.cyl_summary_addr;
-	rc = nextufs__transaction_begin(img);
+	rc = nextufs__write_begin(img);
+	if (!rc)
+		rc = nextufs__transaction_begin(img);
 	if (rc < 0) {
 		nextufs_image_close(img);
 		return 1;
@@ -911,6 +913,10 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 			printf("nextufs resize: evacuated %u data runs; restarting grow\n",
 			    moves);
 			(void)nextufs__transaction_end(img, 0);
+			if (nextufs__write_finish(img, 1) < 0) {
+				nextufs_image_close(img);
+				return 1;
+			}
 			nextufs_image_close(img);
 			return resize_grow(path, sectors_arg, force);
 		}
@@ -1083,6 +1089,14 @@ resize_grow(const char *path, const char *sectors_arg, int force)
 		goto fail;
 	}
 
+	{
+		struct nextufs_transaction *transaction = img->transaction;
+		img->transaction = NULL;
+		rc = nextufs__write_finish(img, 1);
+		img->transaction = transaction;
+		if (rc < 0)
+			goto fail;
+	}
 	(void)nextufs__transaction_end(img, 0);
 	printf("nextufs resize: grew %s to %" PRIu64 " 1K sectors (%u cylinder groups)\n",
 	    path, sectors, new_ncg);
@@ -1098,6 +1112,7 @@ fail:
 		rc = -EUCLEAN;
 	if (nextufs_image_fsync(img) < 0)
 		rc = -EUCLEAN;
+	(void)nextufs__write_finish(img, rc != -EUCLEAN);
 	fprintf(stderr, "nextufs resize: grow failed: %d\n", rc);
 	free(old_sb);
 	free(cg_buf);

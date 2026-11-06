@@ -179,6 +179,8 @@ nextufs_node_lookup_as(const struct nextufs_write_ctx *ctx,
 		       const struct nextufs_image *img, const char *path,
 		       int follow, struct nextufs_node *node)
 {
+	node->sector_size = img->sb.sectors_per_frag ?
+	    img->sb.frag_size / img->sb.sectors_per_frag : 0;
 	return lookup_path_recursive(img, path, &node->inode_no, &node->inode,
 				     &node->inode_off, 0, follow, ctx);
 }

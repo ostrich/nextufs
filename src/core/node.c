@@ -34,6 +34,8 @@ int
 nextufs_node_get_by_inode(const struct nextufs_image *img, unsigned inode_no,
     struct nextufs_node *node)
 {
+	node->sector_size = img->sb.sectors_per_frag ?
+	    img->sb.frag_size / img->sb.sectors_per_frag : 0;
 	node->inode_no = inode_no;
 	return nextufs_inode_read(img, inode_no, &node->inode,
 	    &node->inode_off);
@@ -45,6 +47,8 @@ nextufs_node_lookup(const struct nextufs_image *img, const char *path,
 {
 	int rc;
 
+	node->sector_size = img->sb.sectors_per_frag ?
+	    img->sb.frag_size / img->sb.sectors_per_frag : 0;
 	if (follow_final_symlink) {
 		rc = nextufs_path_lookup(img, path, &node->inode_no, &node->inode,
 		    &node->inode_off);
@@ -65,7 +69,7 @@ nextufs_node_stat(const struct nextufs_node *node, struct stat *st)
 	st->st_uid = node->inode.uid;
 	st->st_gid = node->inode.gid;
 	st->st_size = (off_t)node->inode.size;
-	st->st_blocks = node->inode.blocks;
+	st->st_blocks = (blkcnt_t)node->inode.blocks * (node->sector_size / 512U);
 	if ((node->inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFCHR ||
 	    (node->inode.mode & NEXTUFS_IFMT) == NEXTUFS_IFBLK)
 		st->st_rdev = (dev_t)node->inode.db[0];

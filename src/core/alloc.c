@@ -5,6 +5,27 @@
 #include <string.h>
 #include <time.h>
 
+/* Read live totals: the cached superblock predates this transaction. */
+static int
+reserve_available(const struct nextufs_image *img, uint32_t needed)
+{
+	uint8_t totals[12];
+	uint64_t available, reserve;
+	int rc;
+	if (!img->unprivileged)
+		return 0;
+	if (img->sb.minfree > 99)
+		return -EINVAL;
+	rc = nextufs__read_exact(img, totals, sizeof(totals),
+	    img->slice_base + 8192 + 0xc4);
+	if (rc < 0)
+		return rc;
+	available = (uint64_t)nextufs__read_be32(totals) * img->sb.frags_per_block +
+	    nextufs__read_be32(totals + 8);
+	reserve = (uint64_t)img->sb.data_frag_count * img->sb.minfree / 100;
+	return available < reserve || needed > available - reserve ? -ENOSPC : 0;
+}
+
 static int nextufs__block_is_free(const uint8_t *free_map, uint32_t frag_base,
 	uint32_t frags);
 static void nextufs__clear_block_bits(uint8_t *free_map, uint32_t frag_base,
@@ -19,8 +40,8 @@ static int nextufs__allocate_frags_in_group(
 	const struct nextufs_image *img, unsigned cg, uint32_t frags_needed,
 	uint32_t *frag_out);
 
-int
-nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
+static int
+allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
     uint16_t mode, unsigned *inode_no_out)
 {
 	uint8_t *buf;
@@ -58,7 +79,7 @@ nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
 		uint8_t *bytep = &buf[CG_IUSED_OFF + (idx / 8)];
 		uint8_t bit = (uint8_t)(1U << (idx % 8));
 
-		if ((*bytep & bit) == 0) {
+		if ((cg != 0 || idx >= 2) && (*bytep & bit) == 0) {
 			ipref = idx;
 			*bytep |= bit;
 			break;
@@ -86,6 +107,19 @@ nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
 		return rc;
 	*inode_no_out = (cg * img->sb.inodes_per_group) + ipref;
 	return 0;
+}
+
+int
+nextufs__allocate_inode_in_group(const struct nextufs_image *img, unsigned cg,
+    uint16_t mode, unsigned *inode_no_out)
+{
+	for (uint32_t i = 0; i < img->sb.cg_count; i++) {
+		int rc = allocate_inode_in_group(img, (cg + i) % img->sb.cg_count,
+		    mode, inode_no_out);
+		if (rc != -ENOSPC)
+			return rc;
+	}
+	return -ENOSPC;
 }
 
 int
@@ -357,6 +391,9 @@ nextufs__allocate_frags_anycg(const struct nextufs_image *img, unsigned preferre
     uint32_t frags_needed, uint32_t *frag_out)
 {
 	uint32_t i;
+	int allowed = reserve_available(img, frags_needed);
+	if (allowed < 0)
+		return allowed;
 
 	for (i = 0; i < img->sb.cg_count; i++) {
 		unsigned cg = (preferred_cg + i) % img->sb.cg_count;
@@ -395,6 +432,9 @@ nextufs__extend_fragment_run(const struct nextufs_image *img, uint32_t frag_base
 
 	if (new_frags <= old_frags || new_frags > img->sb.frags_per_block)
 		return -EINVAL;
+	rc = reserve_available(img, new_frags - old_frags);
+	if (rc < 0)
+		return rc;
 	cg = frag_base / img->sb.frags_per_group;
 	local_frag = frag_base % img->sb.frags_per_group;
 	if ((local_frag % img->sb.frags_per_block) + new_frags >
@@ -820,6 +860,8 @@ nextufs__allocate_data_for_inode(const struct nextufs_image *img,
 	uint32_t total_alloc_frags;
 	int rc;
 
+	if (data_len > INT32_MAX)
+		return -EFBIG;
 	total_alloc_frags = 0;
 	remaining = data_len;
 	for (logical_block = 0; remaining > 0; logical_block++) {

@@ -19,6 +19,7 @@ ckinode(DINODE *dp, struct inodesc *idesc)
 	register ufs_daddr_t *ap;
 	int ret, n, ndb, offset;
 	DINODE dino;
+	int64_t remaining, span;
 
 	idesc->id_fix = DONTKNOW;
 	idesc->id_entryno = 0;
@@ -26,7 +27,7 @@ ckinode(DINODE *dp, struct inodesc *idesc)
 	if (SPECIAL(dp))
 		return (KEEPON);
 	dino = *dp;
-	ndb = howmany(dino.di_size, sblock.fs_bsize);
+	ndb = howmany((int64_t)dino.di_size, sblock.fs_bsize);
 	for (ap = &dino.di_db[0]; ap < &dino.di_db[NDADDR]; ap++) {
 		if (--ndb == 0 && (offset = blkoff(&sblock, dino.di_size)) != 0)
 			idesc->id_numfrags =
@@ -44,24 +45,28 @@ ckinode(DINODE *dp, struct inodesc *idesc)
 			return (ret);
 	}
 	idesc->id_numfrags = sblock.fs_frag;
+	remaining = (int64_t)dino.di_size - sblock.fs_bsize * NDADDR;
+	span = (int64_t)sblock.fs_bsize * NINDIR(&sblock);
 	for (ap = &dino.di_ib[0], n = 1; n <= NIADDR; ap++, n++) {
 		if (*ap) {
 			idesc->id_blkno = *ap;
-			ret = iblock(idesc, n,
-				dino.di_size - sblock.fs_bsize * NDADDR);
+			ret = iblock(idesc, n, remaining);
 			if (ret & STOP)
 				return (ret);
 		}
+		remaining -= span;
+		span *= NINDIR(&sblock);
 	}
 	return (KEEPON);
 }
 
 int
-iblock(struct inodesc *idesc, int ilevel, long isize)
+iblock(struct inodesc *idesc, int ilevel, int64_t isize)
 {
 	register ufs_daddr_t *ap;
 	register ufs_daddr_t *aplim;
-	int i, n, nif, sizepb;
+	int i, n, nif;
+	int64_t sizepb;
 	int (*func)(struct inodesc *);
 	BUFAREA ib;
 	char buf[BUFSIZ];
@@ -82,7 +87,7 @@ iblock(struct inodesc *idesc, int ilevel, long isize)
 	ilevel--;
 	for (sizepb = sblock.fs_bsize, i = 0; i < ilevel; i++)
 		sizepb *= NINDIR(&sblock);
-	nif = isize / sizepb + 1;
+	nif = isize <= 0 ? 0 : (isize - 1) / sizepb + 1;
 	if (nif > NINDIR(&sblock))
 		nif = NINDIR(&sblock);
 	if (idesc->id_func == pass1check && nif < NINDIR(&sblock)) {
@@ -104,7 +109,7 @@ iblock(struct inodesc *idesc, int ilevel, long isize)
 		if (*ap) {
 			idesc->id_blkno = *ap;
 			if (ilevel > 0)
-				n = iblock(idesc, ilevel, isize - i * sizepb);
+				n = iblock(idesc, ilevel, isize - (i - 1) * sizepb);
 			else
 				n = (*func)(idesc);
 			if (n & STOP)
@@ -118,7 +123,7 @@ outrange(ufs_daddr_t blk, int cnt)
 {
 	register int c;
 
-	if ((blk + cnt) > fmax)
+	if (blk < 0 || cnt <= 0 || (uint64_t)blk + (unsigned)cnt > (uint64_t)fmax)
 		return (1);
 	c = dtog(&sblock, blk);
 	if (blk < cgdmin(&sblock, c)) {

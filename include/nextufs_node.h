@@ -36,6 +36,7 @@ struct nextufs_inode {
 };
 
 struct nextufs_node {
+	uint32_t sector_size; /* on-disk block-count unit in bytes */
 	unsigned inode_no;
 	off_t inode_off;
 	struct nextufs_inode inode;

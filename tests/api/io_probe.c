@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+extern int qcow_probe_opened;
 
 int
 main(int argc, char **argv)
@@ -58,10 +61,31 @@ main(int argc, char **argv)
 	rc = nextufs_write_session_open(&session, argv[2]);
 	if (rc < 0)
 		return 1;
+	if (!strcmp(argv[1], "capacity")) {
+		char path[257];
+		for (unsigned i = 0; i < session.image.sb.inodes_per_group + 8; i++) {
+			memset(path, 'x', sizeof(path));
+			path[0] = '/';
+			snprintf(path + 1, 12, "%010u", i);
+			path[11] = 'x';
+			path[256] = 0;
+			rc = nextufs_path_create_file(&ctx, argv[2], path, "", 0);
+			if (rc < 0) {
+				fprintf(stderr, "capacity entry %u: %d\n", i, rc);
+				break;
+			}
+		}
+		int closed = nextufs_write_session_close(&session);
+		return rc < 0 || closed < 0;
+	}
+	if (!strcmp(argv[1], "crash"))
+		_exit(0);
 	rc = nextufs_image_open_rw(&img, argv[2]);
 	if (rc != -EWOULDBLOCK && rc != -EAGAIN)
 		return 1;
-	rc = nextufs_path_pwrite(&ctx, argv[2], "/file", "X", 1, 0);
+	qcow_probe_opened = 1;
+	rc = nextufs_path_pwrite(&ctx, argv[2], "/file", "X", 1,
+	    !strcmp(argv[1], "poison") ? 2U * 1024U * 1024U : 0);
 	if (!strcmp(argv[1], "poison")) {
 		if (rc != -EUCLEAN || !session.failed)
 			return 1;

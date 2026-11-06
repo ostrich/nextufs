@@ -80,6 +80,7 @@ struct nextufs_format_options {
 	int nbpi;
 	char opt;
 	int dry_run;
+	int validate_only;
 	int force_size;
 	int no_create;
 	off_t base_offset;

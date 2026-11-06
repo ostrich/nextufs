@@ -20,11 +20,8 @@ file_frags(const struct nextufs_image *img, uint64_t size, uint64_t block)
 static int
 size_valid(const struct nextufs_image *img, uint64_t size)
 {
-	uint64_t n = img->sb.block_size / 4U;
-	uint64_t blocks = 12 + n + n * n + n * n * n;
-	if (blocks > UINT32_MAX)
-		blocks = UINT32_MAX;
-	return size <= blocks * img->sb.block_size ? 0 : -EFBIG;
+	(void)img;
+	return size <= INT32_MAX ? 0 : -EFBIG;
 }
 
 /* Grow one block, preserving old bytes and zeroing every newly exposed byte. */
@@ -149,6 +146,8 @@ out:
 static int
 finish_inode(const struct nextufs_image *img, struct nextufs_node *node)
 {
+	if (img->unprivileged && nextufs_node_is_reg(node))
+		node->inode.mode &= ~(04000 | 02000);
 	node->inode.mtime = node->inode.ctime = (uint32_t)time(NULL);
 	return nextufs__write_inode_raw(img, node->inode_no, &node->inode);
 }
@@ -162,20 +161,24 @@ nextufs__file_resize(const struct nextufs_image *img, struct nextufs_node *node,
 	if (rc < 0 || size == old_size)
 		return rc;
 	if (size > old_size) {
-		uint64_t start = old_size / block_size;
-		/* Reject impossible dense growth before allocating or looping
-		 * over huge requests. */
-		if ((size - old_size + img->sb.frag_size - 1) /
-			img->sb.frag_size >
-		    img->sb.frag_count)
-			return -ENOSPC;
-		for (uint64_t block = start;
-		     block < (size + block_size - 1) / block_size; block++) {
-			rc = grow_block(img, node, (uint32_t)block, old_size,
-					size);
+		uint32_t last = (uint32_t)((size - 1) / block_size);
+		/* The old direct tail must become a full block before it is
+		 * interior. Holes between that tail and the endpoint stay holes. */
+		if (old_size % block_size && old_size / block_size != last) {
+			uint32_t tail = (uint32_t)(old_size / block_size), frag;
+			rc = nextufs__resolve_inode_data_block(img, &node->inode,
+			    tail, &frag);
 			if (rc < 0)
 				return rc;
+			if (frag) {
+				rc = grow_block(img, node, tail, old_size, size);
+				if (rc < 0)
+					return rc;
+			}
 		}
+		rc = grow_block(img, node, last, old_size, size);
+		if (rc < 0)
+			return rc;
 	} else {
 		uint32_t released = 0;
 		uint64_t keep = (size + block_size - 1) / block_size;

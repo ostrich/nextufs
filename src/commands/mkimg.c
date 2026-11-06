@@ -270,7 +270,7 @@ nextufs_mkimg_main(int argc, char **argv)
 	}
 	if (fmt.nsect <= 0 || fmt.ntrak <= 0 || fmt.nsect > 65535 ||
 	    fmt.ntrak > 65535 || (uint64_t)fmt.nsect * fmt.ntrak > INT_MAX ||
-	    (fmt.bsize != 4096 && fmt.bsize != 8192) || fmt.fsize < 512 ||
+	    (fmt.bsize != 4096 && fmt.bsize != 8192) || fmt.fsize < 1024 ||
 	    fmt.fsize > fmt.bsize || (fmt.fsize & (fmt.fsize - 1)) ||
 	    fmt.bsize / fmt.fsize > 8 || fmt.cpg < 0 || fmt.cpg > 32 ||
 	    fmt.minfree < 0 || fmt.minfree > 99 || fmt.rps <= 0 ||
@@ -279,6 +279,10 @@ nextufs_mkimg_main(int argc, char **argv)
 				     "unsupported filesystem geometry");
 		return 2;
 	}
+	fmt.validate_only = 1;
+	if (nextufs_format(&fmt) != 0)
+		return 1;
+	fmt.validate_only = 0;
 	print_plan(&opts, slice_bytes);
 	if (opts.dry_run)
 		return 0;

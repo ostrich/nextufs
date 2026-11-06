@@ -143,4 +143,13 @@ int nextufs__read_directory_parent_inode(const struct nextufs_image *img,
 int nextufs__update_directory_parent_inode(const struct nextufs_image *img,
 	struct nextufs_node *dirnode, unsigned parent_inode);
 
+/* Explicit filesystem write lifecycle; raw backend writes do not use it. */
+int nextufs__write_begin(struct nextufs_image *img);
+int nextufs__write_finish(struct nextufs_image *img, int safe);
+/* Only for callers that retained authorization from a successful open. */
+struct nextufs_write_ctx;
+int nextufs__opened_file_update(const struct nextufs_write_ctx *ctx,
+    const char *image_path, unsigned ino, uint32_t gen, const void *data,
+    size_t len, uint64_t offset, int truncate);
+
 #endif

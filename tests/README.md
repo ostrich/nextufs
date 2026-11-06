@@ -138,3 +138,11 @@ metadata and filesystem integrity. Installed-image directory sizes and hardcoded
 slice offsets are no longer used as proxies for correctness. API fixtures include
 a synthetic passwd file, symlink and large kernel-named payload to preserve the
 original path traversal and indirect-read scenarios without distributing OS data.
+
+The `filesystem/ufs-compat` case covers the kernel-comparison regressions:
+selected backup validation/recovery, malformed directory records, formatter
+preflight, inode reuse and link limits, sparse growth and size boundaries,
+cross-group inode allocation, indirect directories, reserved space, and dirty
+state after writer termination. `fuse/permissions` checks retained descriptor
+rights and Linux block-count units. These are host-side compatibility checks,
+not a claim that repaired images have been boot-tested in a NeXT guest.

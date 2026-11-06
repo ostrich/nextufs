@@ -125,6 +125,8 @@ checkfilesys_active(char *filesys)
 			sbdirty();
 		}
 	} else if (error_count) {
+		sblock.fs_state = FS_STATE_CORRUPTED;
+		sbdirty();
 		printf("File system not may not be clean!  ");
 		printf("Run fsck again to clean.\n");
 	}

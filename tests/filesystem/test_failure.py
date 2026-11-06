@@ -11,6 +11,6 @@ tool('mkfile', disk, '/seed', 'ok')
 tool('mkfile', '--from-file', disk, '/too-big', source, status=1)
 tool('browse', disk, '/too-big', status=1)
 assert read(disk, '/seed') == b'ok'
-tool('mkfile', '--truncate', disk, '/seed', '6000000', status=1)
+tool('mkfile', '--truncate', disk, '/seed', str(1 << 31), status=1)
 assert read(disk, '/seed') == b'ok'
 check(disk)

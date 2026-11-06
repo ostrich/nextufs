@@ -224,15 +224,23 @@ int
 nextufs__read_dirent(const uint8_t *buf, size_t size, size_t off,
     struct nextufs_dirent_view *ent)
 {
-	if (off + 8 > size)
+	if (off > size || size - off < 8)
 		return -1;
 	ent->ino = nextufs__read_be32(buf + off);
 	ent->reclen = nextufs__read_be16(buf + off + 4);
 	ent->namlen = nextufs__read_be16(buf + off + 6);
-	if (ent->reclen < 8 || off + ent->reclen > size ||
-	    off + 8 + ent->namlen > size)
+	if (ent->reclen < 8 || (ent->reclen & 3) != 0 ||
+	    ent->reclen > size - off ||
+	    ent->reclen > DIRBLKSIZ - off % DIRBLKSIZ)
 		return -1;
 	ent->name = (const char *)(buf + off + 8);
+	/* Unused records may retain stale name fields. */
+	if (ent->ino != 0 && (ent->namlen == 0 || ent->namlen > 255 ||
+	    nextufs__dirent_size(ent->namlen) > ent->reclen ||
+	    memchr(ent->name, '\0', ent->namlen) != NULL ||
+	    memchr(ent->name, '/', ent->namlen) != NULL ||
+	    ent->name[ent->namlen] != '\0'))
+		return -1;
 	return 0;
 }
 

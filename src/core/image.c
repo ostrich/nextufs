@@ -94,7 +94,7 @@ static int nextufs_init_backend(struct nextufs_image *img, const char *path,
 				int writable, off_t *source_size_out,
 				struct source_seen *seen, unsigned depth);
 static int nextufs_open_with_mode(struct nextufs_image *img, const char *path,
-	int writable);
+	int writable, off_t selected);
 static int nextufs_write_out_fd(int fd, const void *buf, size_t size);
 
 static const struct nextufs_image_backend_ops nextufs_raw_backend_ops = {
@@ -219,6 +219,55 @@ nextufs__image_refresh(struct nextufs_image *img)
 	return nextufs_image_validate(img);
 }
 
+int
+nextufs__write_begin(struct nextufs_image *img)
+{
+	uint8_t original = img->sb.state;
+	uint8_t state = original == 1 ? 2 : 3;
+	int rc;
+	img->restore_clean = img->sb.state == 1;
+	rc = nextufs__write_exact(img, &state, 1,
+	    img->slice_base + UFS_SBLOCK_OFFSET + 0xd1);
+	if (!rc)
+		rc = nextufs__image_fsync(img);
+	if (!rc) {
+		img->sb.state = state;
+		img->fs_write_active = 1;
+	}
+	if (rc < 0) {
+		/* No filesystem mutation has started yet. */
+		(void)nextufs__write_exact(img, &original, 1,
+		    img->slice_base + UFS_SBLOCK_OFFSET + 0xd1);
+		(void)nextufs__image_fsync(img);
+	}
+	return rc;
+}
+
+int
+nextufs__write_finish(struct nextufs_image *img, int safe)
+{
+	uint8_t state = 1, dirty = 2;
+	int rc;
+	if (!safe || !img->restore_clean)
+		return 0;
+	rc = nextufs__image_fsync(img);
+	if (rc < 0)
+		return rc;
+	rc = nextufs__write_exact(img, &state, 1,
+	    img->slice_base + UFS_SBLOCK_OFFSET + 0xd1);
+	if (!rc)
+		rc = nextufs__image_fsync(img);
+	if (rc < 0) {
+		(void)nextufs__write_exact(img, &dirty, 1,
+		    img->slice_base + UFS_SBLOCK_OFFSET + 0xd1);
+		(void)nextufs__image_fsync(img);
+	} else {
+		img->sb.state = state;
+		img->restore_clean = 0;
+	}
+	return rc;
+}
+
 /* Validate geometry before indexing on-disk arrays or computing addresses.
  * Read-only info deliberately remains available for damaged superblocks. */
 int
@@ -226,8 +275,31 @@ nextufs_image_validate(const struct nextufs_image *img)
 {
 	const struct nextufs_superblock *s = &img->sb;
 	uint64_t last, bytes;
-	if (s->block_size < 4096 || s->block_size > 8192 ||
-	    (s->block_size & (s->block_size - 1)) || s->frag_size < 512 ||
+	if (s->fs_magic != UFS_FS_MAGIC ||
+	    s->block_shift >= 32 || s->frag_shift_calc >= 32 ||
+	    s->csum_shift >= 32 ||
+	    (1U << s->block_shift) != s->block_size ||
+	    (1U << s->frag_shift_calc) != s->frag_size ||
+	    s->block_mask != ~(s->block_size - 1U) ||
+	    s->frag_mask != ~(s->frag_size - 1U) ||
+	    (1U << s->csum_shift) != s->block_size / 16U ||
+	    s->csum_mask != ~(s->block_size / 16U - 1U) ||
+	    (s->sectors_per_frag != s->frag_size / 1024U &&
+	     s->sectors_per_frag != s->frag_size / 2048U) ||
+	    (uint64_t)s->cpg * s->sectors_per_cyl !=
+	        (uint64_t)s->frags_per_group * s->sectors_per_frag ||
+	    !s->ncyl || s->ncyl > (uint64_t)s->cg_count * s->cpg ||
+	    s->ncyl <= (uint64_t)(s->cg_count - 1U) * s->cpg ||
+	    s->data_frag_count > s->frag_count ||
+	    (!s->inodes_per_block ||
+	     s->inodes_per_group % s->inodes_per_block != 0) ||
+	    (uint64_t)s->ncyl * s->sectors_per_cyl > INT32_MAX ||
+	    (uint64_t)s->cg_delta * (~s->cg_cyc_mask) + s->data_off >
+	        s->frags_per_group ||
+	    (uint64_t)s->cg_count * s->inodes_per_group > INT32_MAX ||
+	    (uint64_t)s->frag_count * (s->frag_size / 1024U) > INT32_MAX ||
+	    s->block_size < 4096 || s->block_size > 8192 ||
+	    (s->block_size & (s->block_size - 1)) || s->frag_size < 1024 ||
 	    s->frag_size > s->block_size ||
 	    (s->frag_size & (s->frag_size - 1)) ||
 	    s->frags_per_block != s->block_size / s->frag_size ||
@@ -864,6 +936,8 @@ nextufs_inode_read(const struct nextufs_image *img, unsigned inode_no,
 	if (rc < 0)
 		return rc;
 	decode_inode(ino, ibuf);
+	if (ino->size > INT32_MAX)
+		return -EFBIG;
 	if (ino_off != NULL)
 		*ino_off = off;
 	return 0;
@@ -1044,9 +1118,9 @@ nextufs_image_open_source(struct nextufs_image *img, const char *path,
 {
 	switch (policy) {
 	case NEXTUFS_OPEN_READ_ONLY:
-		return nextufs_open_with_mode(img, path, 0);
+		return nextufs_open_with_mode(img, path, 0, -1);
 	case NEXTUFS_OPEN_READ_WRITE:
-		return nextufs_open_with_mode(img, path, 1);
+		return nextufs_open_with_mode(img, path, 1, -1);
 	default:
 		return -EINVAL;
 	}
@@ -1064,8 +1138,18 @@ nextufs_image_open_rw(struct nextufs_image *img, const char *path)
 	return nextufs_image_open_source(img, path, NEXTUFS_OPEN_READ_WRITE);
 }
 
+int
+nextufs_image_open_super(struct nextufs_image *img, const char *path,
+    int writable, off_t offset)
+{
+	if (offset < 0)
+		return -EINVAL;
+	return nextufs_open_with_mode(img, path, writable, offset);
+}
+
 static int
-nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable)
+nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable,
+    off_t selected)
 {
 	uint8_t *scanbuf;
 	size_t scan_size;
@@ -1080,6 +1164,11 @@ nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable
 	rc = nextufs_init_backend(img, path, writable, &source_size, seen, 0);
 	if (rc < 0)
 		return rc;
+	if (selected >= 0 && (img->image_size < 2048 ||
+	    selected > img->image_size - 2048)) {
+		nextufs_image_close(img);
+		return -EINVAL;
+	}
 	scan_size = DEFAULT_SCAN_LIMIT;
 	if ((uint64_t)scan_size > (uint64_t)img->image_size)
 		scan_size = (size_t)img->image_size;
@@ -1114,15 +1203,16 @@ nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable
 			continue;
 		if (slice_base < 0 || slice_base >= img->image_size)
 			continue;
-		if (slice_size <= 0 || slice_base + slice_size > img->image_size)
+		if (slice_size <= 0 || slice_size > img->image_size - slice_base ||
+		    (selected >= 0 && (slice_size < 2048 || selected > slice_size - 2048)))
 			continue;
 		magic_off = (size_t)(slice_base + UFS_SBLOCK_OFFSET + UFS_SUPER_MAGIC_OFFSET);
-		if (magic_off + 4 > scan_size)
+		if (selected < 0 && magic_off + 4 > scan_size)
 			continue;
-		if (nextufs__read_be32(scanbuf + magic_off) != UFS_FS_MAGIC)
+		if (selected < 0 && nextufs__read_be32(scanbuf + magic_off) != UFS_FS_MAGIC)
 			continue;
 		if (nextufs__read_exact(img, sbuf, sizeof(sbuf),
-		    slice_base + UFS_SBLOCK_OFFSET) < 0)
+		    slice_base + (selected < 0 ? UFS_SBLOCK_OFFSET : selected)) < 0)
 			continue;
 		decode_superblock(&img->sb, sbuf);
 		if (img->sb.fs_magic != UFS_FS_MAGIC || img->sb.block_size == 0 ||
@@ -1144,6 +1234,23 @@ nextufs_open_with_mode(struct nextufs_image *img, const char *path, int writable
 		}
 		return 0;
 	}
+	/* With an explicit backup and no disk label, offsets are relative
+	 * to the raw filesystem. Do not infer a new slice from backup magic. */
+	if (selected >= 0) {
+		uint8_t sbuf[2048];
+		free(scanbuf);
+		img->slice_base = 0;
+		img->slice_size = img->image_size;
+		rc = nextufs__read_exact(img, sbuf, sizeof(sbuf), selected);
+		if (!rc) {
+			decode_superblock(&img->sb, sbuf);
+			rc = nextufs_image_validate(img);
+		}
+		if (rc < 0)
+			nextufs_image_close(img);
+		return rc;
+	}
+
 	for (off = 0; off + 4 <= scan_size; off += 4) {
 		uint8_t sbuf[2048];
 
@@ -1180,8 +1287,10 @@ nextufs_image_close(struct nextufs_image *img)
 {
 	const struct nextufs_image_backend_ops *ops;
 
-	if (img->transaction)
-		(void)nextufs__transaction_end(img, -ECANCELED);
+	if (img->transaction) {
+		int rc = nextufs__transaction_end(img, -ECANCELED);
+		(void)nextufs__write_finish(img, rc != -EUCLEAN);
+	}
 	ops = img->backend_ops;
 	if (ops != NULL && ops->close != NULL)
 		ops->close(img->backend_ctx);

@@ -61,7 +61,7 @@ nextufs_format(const struct nextufs_format_options *opts)
 	ctx.abort_active = 1;
 
 	if (opts->target == NULL || opts->size_1k_sectors == 0 ||
-	    opts->size_1k_sectors > LONG_MAX) {
+	    opts->size_1k_sectors > INT32_MAX) {
 		fprintf(stderr, "nextufs mkimg: invalid filesystem size\n");
 		return 1;
 	}
@@ -73,33 +73,6 @@ nextufs_format(const struct nextufs_format_options *opts)
 		    fssize, (unsigned long long)FORMAT_COMPAT_MAX_SECTORS);
 		return 1;
 	}
-	if (!Nflag && !opts->no_create) {
-		fso = creat(fsys, 0666);
-		if (fso < 0) {
-			fprintf(stderr, "%s: cannot create\n", fsys);
-			return 1;
-		}
-	} else if (!Nflag) {
-		fso = open(fsys, O_RDWR);
-		if (fso < 0) {
-			fprintf(stderr, "%s: cannot open for writing\n", fsys);
-			format_close(&ctx);
-			return 1;
-		}
-	}
-	fsi = open(fsys, 0);
-	if (fsi < 0) {
-		fprintf(stderr, "%s: cannot open\n", fsys);
-		format_close(&ctx);
-		return 1;
-	}
-	if (fssize <= 0) {
-		fprintf(stderr, "preposterous size %ld\n", fssize);
-		format_close(&ctx);
-		return 1;
-	}
-	bzero(lastbuf, sizeof(lastbuf));
-	wtfs(fssize - 1, DEV_BSIZE, lastbuf);
 
 	sblock.fs_nsect = opts->nsect;
 	sblock.fs_ntrak = opts->ntrak;
@@ -110,6 +83,11 @@ nextufs_format(const struct nextufs_format_options *opts)
 	}
 	if (sblock.fs_nsect <= 0) {
 		fprintf(stderr, "preposterous nsect %d\n", sblock.fs_nsect);
+		format_close(&ctx);
+		return 1;
+	}
+	if ((int64_t)sblock.fs_ntrak * sblock.fs_nsect > INT_MAX / MAXCPG) {
+		fprintf(stderr, "geometry exceeds supported cylinder size\n");
 		format_close(&ctx);
 		return 1;
 	}
@@ -377,7 +355,16 @@ next:
 	i = sizeof(struct fs) +
 		howmany(sblock.fs_spc * sblock.fs_cpc, NSPB(&sblock));
 	sblock.fs_sbsize = fragroundup(&sblock, i);
+	if (sblock.fs_ncg < 1 || sblock.fs_cssize > MAXCSBUFS * sblock.fs_bsize) {
+		fprintf(stderr, "unsupported cylinder summary size\n");
+		format_close(&ctx);
+		return 1;
+	}
 	fscs = (struct csum *)calloc(1, sblock.fs_cssize);
+	if (fscs == NULL) {
+		format_close(&ctx);
+		return 1;
+	}
 	sblock.fs_magic = FS_MAGIC;
 	sblock.fs_rotdelay = ROTDELAY;
 	if (opts->minfree >= 0) {
@@ -414,6 +401,47 @@ next:
 #if	NeXT_MOD
 	sblock.fs_state = FS_STATE_CLEAN;
 #endif
+
+	/* fsinit needs two full free blocks in group zero and two inodes. */
+	if ((uint64_t)roundup(sblock.fs_dblkno +
+	        howmany(sblock.fs_cssize, sblock.fs_fsize), sblock.fs_frag) +
+	        2U * sblock.fs_frag > (uint64_t)MIN(sblock.fs_fpg, sblock.fs_size) ||
+	    sblock.fs_ipg < 4) {
+		fprintf(stderr, "filesystem too small for initial directories\n");
+		format_close(&ctx);
+		return 1;
+	}
+	if (opts->validate_only) {
+		format_close(&ctx);
+		return 0;
+	}
+	if (!Nflag && !opts->no_create) {
+		fso = creat(fsys, 0666);
+		if (fso < 0) {
+			fprintf(stderr, "%s: cannot create\n", fsys);
+			return 1;
+		}
+	} else if (!Nflag) {
+		fso = open(fsys, O_RDWR);
+		if (fso < 0) {
+			fprintf(stderr, "%s: cannot open for writing\n", fsys);
+			format_close(&ctx);
+			return 1;
+		}
+	}
+	fsi = open(fsys, 0);
+	if (fsi < 0) {
+		fprintf(stderr, "%s: cannot open\n", fsys);
+		format_close(&ctx);
+		return 1;
+	}
+	if (fssize <= 0) {
+		fprintf(stderr, "preposterous size %ld\n", fssize);
+		format_close(&ctx);
+		return 1;
+	}
+	bzero(lastbuf, sizeof(lastbuf));
+	wtfs((long)opts->size_1k_sectors - 1, DEV_BSIZE, lastbuf);
 
 	printf("%s:\t%d sectors in %d cylinders of %d tracks, %d sectors\n",
 	    fsys, sblock.fs_size * NSPF(&sblock), sblock.fs_ncyl,

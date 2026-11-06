@@ -15,14 +15,22 @@ nextufs_write_session_open(struct nextufs_write_session *session,
 			   const char *path)
 {
 	memset(session, 0, sizeof(*session));
-	return nextufs_image_open_rw(&session->image, path);
+	int rc = nextufs_image_open_rw(&session->image, path);
+	if (!rc) {
+		rc = nextufs__write_begin(&session->image);
+		if (rc < 0)
+			nextufs_image_close(&session->image);
+	}
+	return rc;
 }
 
-void
+int
 nextufs_write_session_close(struct nextufs_write_session *session)
 {
+	int rc = nextufs__write_finish(&session->image, !session->failed);
 	nextufs_image_close(&session->image);
 	session->failed = 1;
+	return rc;
 }
 
 static int
@@ -43,10 +51,18 @@ nextufs__open_image_rw(const struct nextufs_write_ctx *ctx,
 		rc = nextufs_image_open_rw(img, image_path);
 		if (rc < 0)
 			return rc;
+		rc = nextufs__write_begin(img);
+		if (rc < 0) {
+			nextufs_image_close(img);
+			return rc;
+		}
 	}
+	img->unprivileged = ctx->policy == NEXTUFS_WRITE_USER && ctx->uid != 0;
 	rc = nextufs__transaction_begin(img);
-	if (rc < 0 && !ctx->session)
+	if (rc < 0 && !ctx->session) {
+		(void)nextufs__write_finish(img, 1);
 		nextufs_image_close(img);
+	}
 	return rc;
 }
 
@@ -54,6 +70,12 @@ static int
 finish_mutation(const struct nextufs_write_ctx *ctx, struct nextufs_image *img,
 		int rc)
 {
+	if (!ctx->session && rc == 0) {
+		struct nextufs_transaction *transaction = img->transaction;
+		img->transaction = NULL;
+		rc = nextufs__write_finish(img, 1);
+		img->transaction = transaction;
+	}
 	rc = nextufs__transaction_end(img, rc);
 	if (ctx->session) {
 		int refresh = nextufs__image_refresh(&ctx->session->image);
@@ -61,8 +83,12 @@ finish_mutation(const struct nextufs_write_ctx *ctx, struct nextufs_image *img,
 			ctx->session->failed = 1;
 		if (!rc && refresh < 0)
 			rc = refresh;
-	} else
+	} else {
+		int finish = nextufs__write_finish(img, rc != -EUCLEAN);
+		if (finish < 0)
+			rc = finish;
 		nextufs_image_close(img);
+	}
 	return rc < 0 ? rc : 0;
 }
 
@@ -151,7 +177,7 @@ nextufs__set_new_inode_owner(const struct nextufs_write_ctx *ctx,
 {
 	if (ctx->policy == NEXTUFS_WRITE_USER) {
 		ino->uid = (uint16_t)ctx->uid;
-		ino->gid = (uint16_t)ctx->gid;
+		ino->gid = parent->inode.gid;
 	} else {
 		ino->uid = 0;
 		ino->gid = parent->inode.gid;
@@ -237,6 +263,7 @@ nextufs__remove_linked_inode(const struct nextufs_image *img,
 				return rc;
 		}
 		memset(&cleared, 0, sizeof(cleared));
+		cleared.gen = target->inode.gen + 1U;
 		rc = nextufs__write_inode_raw(img, target->inode_no, &cleared);
 		if (rc < 0)
 			return rc;
@@ -259,6 +286,7 @@ nextufs__remove_dir_inode(const struct nextufs_image *img,
 	if (rc < 0)
 		return rc;
 	memset(&cleared, 0, sizeof(cleared));
+	cleared.gen = target->inode.gen + 1U;
 	rc = nextufs__write_inode_raw(img, target->inode_no, &cleared);
 	if (rc < 0)
 		return rc;
@@ -335,6 +363,7 @@ nextufs__discard_new_inode(const struct nextufs_image *img, unsigned inode_no,
 	if (rc < 0)
 		return rc;
 	memset(&cleared, 0, sizeof(cleared));
+	cleared.gen = ino->gen + 1U;
 	rc = nextufs__write_inode_raw(img, inode_no, &cleared);
 	if (rc < 0)
 		return rc;
@@ -398,7 +427,14 @@ nextufs_path_create_file(const struct nextufs_write_ctx *ctx,
 	    &new_inode_no);
 	if (rc < 0)
 		goto out;
-	memset(&ino, 0, sizeof(ino));
+	rc = nextufs_inode_read(&img, new_inode_no, &ino, NULL);
+	if (rc < 0)
+		goto out;
+	{
+		uint32_t gen = ino.gen;
+		memset(&ino, 0, sizeof(ino));
+		ino.gen = gen;
+	}
 	now = (uint32_t)time(NULL);
 	ino.mode = NEXTUFS_IFREG | 0644;
 	ino.nlink = 1;
@@ -458,6 +494,10 @@ nextufs_path_create_file_from_hostfile(const struct nextufs_write_ctx *ctx,
 		rc = -errno;
 		fclose(fp);
 		return rc;
+	}
+	if (file_size > INT32_MAX) {
+		fclose(fp);
+		return -EFBIG;
 	}
 	data_len = (size_t)file_size;
 	buf = malloc(data_len == 0 ? 1 : data_len);
@@ -607,7 +647,14 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 		    NEXTUFS_IFDIR | (mode & 0777));
 		goto out;
 	}
-	memset(&ino, 0, sizeof(ino));
+	rc = nextufs_inode_read(&img, new_inode_no, &ino, NULL);
+	if (rc < 0)
+		goto out;
+	{
+		uint32_t gen = ino.gen;
+		memset(&ino, 0, sizeof(ino));
+		ino.gen = gen;
+	}
 	now = (uint32_t)time(NULL);
 	ino.mode = NEXTUFS_IFDIR | (mode & 0777);
 	ino.nlink = 2;
@@ -627,6 +674,10 @@ nextufs_path_mkdir(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__insert_dirent(&img, &parent, name, new_inode_no);
 	if (rc < 0) {
 		(void)nextufs__discard_new_inode(&img, new_inode_no, &ino);
+		goto out;
+	}
+	if (parent.inode.nlink >= INT16_MAX) {
+		rc = -EMLINK;
 		goto out;
 	}
 	parent.inode.nlink++;
@@ -808,6 +859,10 @@ nextufs_path_link(const struct nextufs_write_ctx *ctx,
 	}
 	if (rc != -ENOENT)
 		goto out;
+	if (source.inode.nlink >= INT16_MAX) {
+		rc = -EMLINK;
+		goto out;
+	}
 	source.inode.nlink++;
 	now = (uint32_t)time(NULL);
 	source.inode.ctime = now;
@@ -873,7 +928,14 @@ nextufs_path_symlink(const struct nextufs_write_ctx *ctx,
 	    &new_inode_no);
 	if (rc < 0)
 		goto out;
-	memset(&ino, 0, sizeof(ino));
+	rc = nextufs_inode_read(&img, new_inode_no, &ino, NULL);
+	if (rc < 0)
+		goto out;
+	{
+		uint32_t gen = ino.gen;
+		memset(&ino, 0, sizeof(ino));
+		ino.gen = gen;
+	}
 	now = (uint32_t)time(NULL);
 	ino.mode = NEXTUFS_IFLNK | 0777;
 	ino.nlink = 1;
@@ -1002,6 +1064,9 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 	if (ctx == NULL)
 		return -EINVAL;
 	ifmt = mode & NEXTUFS_IFMT;
+	if (ctx->policy == NEXTUFS_WRITE_USER && ctx->uid != 0 &&
+	    ifmt != NEXTUFS_IFREG && ifmt != NEXTUFS_IFIFO)
+		return -EPERM;
 	if (ifmt != NEXTUFS_IFREG && ifmt != NEXTUFS_IFIFO &&
 	    ifmt != NEXTUFS_IFCHR && ifmt != NEXTUFS_IFBLK &&
 	    ifmt != NEXTUFS_IFSOCK)
@@ -1040,7 +1105,14 @@ nextufs_path_mknod(const struct nextufs_write_ctx *ctx,
 	rc = nextufs__allocate_inode_in_group(&img, parent_cg, mode, &new_inode_no);
 	if (rc < 0)
 		goto out;
-	memset(&ino, 0, sizeof(ino));
+	rc = nextufs_inode_read(&img, new_inode_no, &ino, NULL);
+	if (rc < 0)
+		goto out;
+	{
+		uint32_t gen = ino.gen;
+		memset(&ino, 0, sizeof(ino));
+		ino.gen = gen;
+	}
 	now = (uint32_t)time(NULL);
 	ino.mode = mode;
 	ino.nlink = 1;
@@ -1202,6 +1274,10 @@ nextufs_path_rename(const struct nextufs_write_ctx *ctx,
 		    &old_parent.inode);
 		if (rc < 0)
 			goto out;
+		if (new_parent.inode.nlink >= INT16_MAX) {
+			rc = -EMLINK;
+			goto out;
+		}
 		new_parent.inode.nlink++;
 		new_parent.inode.ctime = now;
 		new_parent.inode.mtime = now;
@@ -1327,5 +1403,28 @@ nextufs_path_utimes(const struct nextufs_write_ctx *ctx,
 		goto out;
 	rc = nextufs__image_fsync(&img);
 out:
+	return finish_mutation(ctx, &img, rc);
+}
+
+/* FUSE retains the access decision at open. Generation checks prevent a
+ * stale handle from reaching a subsequently reused inode. */
+int
+nextufs__opened_file_update(const struct nextufs_write_ctx *ctx,
+    const char *image_path, unsigned ino, uint32_t gen, const void *data,
+    size_t len, uint64_t offset, int truncate)
+{
+	struct nextufs_image img;
+	struct nextufs_node node;
+	int rc = nextufs__open_image_rw(ctx, image_path, &img);
+	if (rc < 0)
+		return rc;
+	rc = nextufs_node_get_by_inode(&img, ino, &node);
+	if (!rc && (node.inode.gen != gen || !nextufs_node_is_reg(&node)))
+		rc = -ESTALE;
+	if (!rc)
+		rc = truncate ? nextufs__file_resize(&img, &node, offset) :
+		    nextufs__file_write(&img, &node, data, len, offset);
+	if (!rc)
+		rc = nextufs__image_fsync(&img);
 	return finish_mutation(ctx, &img, rc);
 }

@@ -257,14 +257,41 @@ nextufs_require_access(const struct nextufs_node *node, int mask)
 					  !g_mount_readonly);
 }
 
+struct open_file {
+	unsigned ino;
+	uint32_t gen;
+	int flags;
+};
+
+static int
+handle_node(struct fuse_file_info *fi, struct nextufs_node *node)
+{
+	struct open_file *handle = (void *)(uintptr_t)fi->fh;
+	int rc;
+	if (!handle || g_session.failed)
+		return -EBADF;
+	rc = nextufs_node_get_by_inode(&g_img, handle->ino, node);
+	if (!rc && node->inode.gen != handle->gen)
+		rc = -ESTALE;
+	return rc;
+}
+
+static int
+nextufs_release(const char *path, struct fuse_file_info *fi)
+{
+	(void)path;
+	free((void *)(uintptr_t)fi->fh);
+	fi->fh = 0;
+	return 0;
+}
+
 static int
 nextufs_getattr(const char *path, struct stat *st, struct fuse_file_info *fi)
 {
 	struct nextufs_node node;
 	int rc;
-	(void)fi;
-
-	rc = mount_lookup(path, 0, &node);
+	rc = fi && fi->fh ? handle_node(fi, &node) :
+	    mount_lookup(path, 0, &node);
 	if (rc < 0)
 		return rc;
 	return nextufs_node_stat(&node, st);
@@ -306,6 +333,13 @@ nextufs_open(const char *path, struct fuse_file_info *fi)
 		if (rc < 0)
 			return rc;
 	}
+	struct open_file *handle = malloc(sizeof(*handle));
+	if (!handle)
+		return -ENOMEM;
+	handle->ino = node.inode_no;
+	handle->gen = node.inode.gen;
+	handle->flags = fi->flags;
+	fi->fh = (uint64_t)(uintptr_t)handle;
 	return 0;
 }
 
@@ -316,16 +350,17 @@ nextufs_read(const char *path, char *buf, size_t size, off_t offset,
 	struct nextufs_node node;
 	size_t got;
 	int rc;
-	(void)fi;
-
-	rc = mount_lookup(path, 1, &node);
+	(void)path;
+	if (offset < 0 || !fi || !fi->fh)
+		return -EBADF;
+	struct open_file *handle = (void *)(uintptr_t)fi->fh;
+	if ((handle->flags & O_ACCMODE) == O_WRONLY)
+		return -EBADF;
+	rc = handle_node(fi, &node);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_require_access(&node, R_OK);
-	if (rc < 0)
-		return rc;
-	rc = nextufs_path_read(&g_img, path, (uint64_t)offset, (uint8_t *)buf, size,
-	    &got);
+	rc = nextufs_inode_read_data(&g_img, &node.inode, (uint64_t)offset,
+	    (uint8_t *)buf, size, &got);
 	if (rc < 0)
 		return rc;
 	return (int)got;
@@ -337,7 +372,12 @@ nextufs_write(const char *path, const char *buf, size_t size, off_t offset,
 {
 	struct nextufs_write_ctx ctx;
 	int rc;
-	(void)fi;
+	(void)path;
+	if (offset < 0 || !fi || !fi->fh)
+		return -EBADF;
+	struct open_file *handle = (void *)(uintptr_t)fi->fh;
+	if ((handle->flags & O_ACCMODE) == O_RDONLY)
+		return -EBADF;
 
 	rc = nextufs_require_writable();
 	if (rc < 0)
@@ -345,8 +385,8 @@ nextufs_write(const char *path, const char *buf, size_t size, off_t offset,
 	rc = nextufs_fill_mutation_ctx(&ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_path_pwrite(&ctx, g_image_path, path, buf, size,
-	    (uint64_t)offset);
+	rc = nextufs__opened_file_update(&ctx, g_image_path, handle->ino,
+	    handle->gen, buf, size, (uint64_t)offset, 0);
 	if (rc < 0)
 		return rc;
 	rc = nextufs_refresh_image();
@@ -641,7 +681,14 @@ nextufs_truncate(const char *path, off_t size, struct fuse_file_info *fi)
 	rc = nextufs_fill_mutation_ctx(&ctx);
 	if (rc < 0)
 		return rc;
-	rc = nextufs_path_truncate(&ctx, g_image_path, path, (uint64_t)size);
+	if (fi && fi->fh) {
+		struct open_file *handle = (void *)(uintptr_t)fi->fh;
+		if ((handle->flags & O_ACCMODE) == O_RDONLY)
+			return -EBADF;
+		rc = nextufs__opened_file_update(&ctx, g_image_path, handle->ino,
+		    handle->gen, NULL, 0, (uint64_t)size, 1);
+	} else
+		rc = nextufs_path_truncate(&ctx, g_image_path, path, (uint64_t)size);
 	if (rc < 0)
 		return rc;
 	return nextufs_refresh_image();
@@ -711,6 +758,7 @@ static const struct fuse_operations nextufs_ops = {
 	.init = nextufs_init,
 	.getattr = nextufs_getattr,
 	.open = nextufs_open,
+	.release = nextufs_release,
 	.read = nextufs_read,
 	.write = nextufs_write,
 	.readlink = nextufs_readlink,
@@ -796,6 +844,9 @@ nextufs_mount_main(int argc, char **argv)
 	}
 	rc = fuse_main(args.argc, args.argv, &nextufs_ops, NULL);
 	fuse_opt_free_args(&args);
-	nextufs_image_close(&g_img);
+	if (g_mount_readonly)
+		nextufs_image_close(&g_img);
+	else if (nextufs_write_session_close(&g_session) < 0)
+		rc = 1;
 	return rc;
 }

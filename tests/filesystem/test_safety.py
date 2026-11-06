@@ -75,6 +75,7 @@ tool('mkfile', '--truncate', disk, '/large', '20000')
 assert read(disk, '/large') == b'A' * 9000 + b'\0' * 11000
 # Returned ENOSPC must restore all original bytes, including allocation metadata.
 before = disk.read_bytes()
-tool('mkfile', '--truncate', disk, '/large', str(12 * 1024 * 1024), status=1)
+payload.write_bytes(b'B' * (12 * 1024 * 1024))
+tool('mkfile', '--from-file', disk, '/too-large', payload, status=1)
 assert disk.read_bytes() == before
 check(disk)

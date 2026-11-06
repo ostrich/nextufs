@@ -25,9 +25,10 @@ fail_call(const char *name, unsigned *calls)
 ssize_t
 __wrap_pwrite(int fd, const void *buf, size_t size, off_t off)
 {
-	static unsigned calls;
+	static unsigned calls, persistent_calls;
 	const char *from = getenv("NEXTUFS_FAIL_PWRITE_FROM");
-	if (from && calls + 1 >= strtoul(from, NULL, 10)) {
+	if (from && qcow_probe_opened &&
+	    ++persistent_calls >= strtoul(from, NULL, 10)) {
 		errno = EIO;
 		return -1;
 	}

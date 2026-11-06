@@ -88,7 +88,7 @@ pass1(void)
 				continue;
 			}
 			lastino = inumber;
-			if (dp->di_size < 0) {
+			if (dp->di_size < 0 || dp->di_ic.ic_size.val[0] != 0) {
 				if (debug)
 					printf("bad size %d:", dp->di_size);
 				goto unknown;
@@ -99,7 +99,7 @@ pass1(void)
 				dp->di_mode = IFREG|0600;
 				inodirty();
 			}
-			ndb = howmany(dp->di_size, sblock.fs_bsize);
+			ndb = howmany((int64_t)dp->di_size, sblock.fs_bsize);
 			if (SPECIAL(dp))
 				ndb++;
 #if	FASTLINK
